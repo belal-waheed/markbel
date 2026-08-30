@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "markbel-db"
-database_id = "xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+database_id = "2dd655d0-8119-43fa-ad51-5e466d6bdb7f"
 migrations_dir = "worker/migrations"
 
 # Cloudflare KV Namespace Binding (Optional Session Cache)

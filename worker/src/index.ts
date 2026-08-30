@@ -28,6 +28,20 @@ app.use(
   })
 );
 
+app.get("/", (c) => {
+  return c.json({
+    name: "Markbel Edge API",
+    status: "online",
+    version: "2.1.0",
+    runtime: "Cloudflare Workers",
+    database: "Cloudflare D1 (SQLite)",
+  });
+});
+
+app.get("/api/health", (c) => {
+  return c.json({ status: "healthy", timestamp: new Date().toISOString() });
+});
+
 // Helper: Password Hashing using Web Crypto PBKDF2 (Edge Native)
 async function hashPassword(password: string): Promise<string> {
   const enc = new TextEncoder();
@@ -105,11 +119,12 @@ const authMiddleware = async (c: any, next: any) => {
 
   const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
   try {
-    const payload = await verify(token, secret);
+    const payload = await verify(token, secret, "HS256");
     c.set("userId", (payload as any).id);
     await next();
-  } catch (err) {
-    return c.json({ error: "Invalid or expired token" }, 401);
+  } catch (err: any) {
+    console.error("[JWT Verify Error]:", err?.message || err);
+    return c.json({ error: "Invalid or expired token", details: err?.message }, 401);
   }
 };
 
@@ -143,7 +158,8 @@ app.post("/api/users/signup", async (c) => {
       .run();
 
     const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
-    const token = await sign({ id, email }, secret);
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+    const token = await sign({ id, email, exp }, secret, "HS256");
 
     return c.json(
       {
@@ -180,7 +196,8 @@ app.post("/api/users/login", async (c) => {
     }
 
     const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
-    const token = await sign({ id: user.id, email: user.email }, secret);
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+    const token = await sign({ id: user.id, email: user.email, exp }, secret, "HS256");
 
     return c.json({
       token,
