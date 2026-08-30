@@ -34,21 +34,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-
   useEffect(() => {
     async function bootstrap() {
+      const savedToken = localStorage.getItem('markbel_token')
+      if (!savedToken) {
+        setLoading(false)
+        return
+      }
+
       try {
         const profile = await api.get<UserProfile>('/users/me')
         setUser(profile)
-        // We no longer have direct access to the token, so we can just pass 'cookie'
-        // or a dummy value. The actual token is handled by the browser cookie.
-        setToken('cookie')
-        sendTokenToNative('cookie')
+        setToken(savedToken)
+        sendTokenToNative(savedToken)
         await syncManager.registerDevice('web', '1.0.0')
         syncManager.startPeriodicSync()
       } catch (err) {
         console.log('[Auth] Not logged in or session expired')
-        localStorage.removeItem('markbel_token') // clean up old tokens
+        localStorage.removeItem('markbel_token')
         setToken(null)
         setUser(null)
         sendTokenToNative(null)
@@ -63,10 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     try {
       const data = await api.post<{ token: string; user: UserProfile }>('/users/login', { email, password })
-      localStorage.removeItem('markbel_token') // Ensure old local tokens are gone
-      setToken('cookie')
+      localStorage.setItem('markbel_token', data.token)
+      setToken(data.token)
       setUser(data.user)
-      sendTokenToNative('cookie')
+      sendTokenToNative(data.token)
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
     } finally {
@@ -78,10 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     try {
       const data = await api.post<{ token: string; user: UserProfile }>('/users/signup', { name, email, password })
-      localStorage.removeItem('markbel_token') // Ensure old local tokens are gone
-      setToken('cookie')
+      localStorage.setItem('markbel_token', data.token)
+      setToken(data.token)
       setUser(data.user)
-      sendTokenToNative('cookie')
+      sendTokenToNative(data.token)
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
     } finally {
@@ -90,11 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = async () => {
-    try {
-      await api.post('/users/logout', {})
-    } catch (e) {
-      console.warn('Logout API failed', e)
-    }
     localStorage.removeItem('markbel_token')
     setToken(null)
     setUser(null)

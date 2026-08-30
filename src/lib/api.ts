@@ -6,9 +6,14 @@ export interface APIResponse<T = any> {
 const API_BASE = '/api'
 
 function getHeaders(): HeadersInit {
-  return {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   }
+  const token = localStorage.getItem('markbel_token')
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
 }
 
 export const api = {
@@ -74,4 +79,3 @@ export const api = {
     return data as T
   }
 }
-

@@ -5,9 +5,22 @@ import { WebEnvironment } from './adapters/WebEnvironment';
 const storage = new WebSyncStorage();
 const env = new WebEnvironment();
 
+function getAuthHeaders(extraHeaders?: any): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  const token = typeof window !== 'undefined' ? localStorage.getItem('markbel_token') : null;
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 const apiClient: ApiClient = {
   get: async (endpoint: string, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(endpoint, { headers, signal, credentials: 'include' });
+    const res = await fetch(endpoint, {
+      headers: getAuthHeaders(headers),
+      signal,
+      credentials: 'include'
+    });
     if (!res.ok) {
       const err: any = new Error(`Pull request failed: ${res.status}`);
       err.status = res.status;
@@ -18,7 +31,7 @@ const apiClient: ApiClient = {
   post: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
       body: JSON.stringify(data),
       signal,
       credentials: 'include'
@@ -33,7 +46,7 @@ const apiClient: ApiClient = {
   put: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
     const res = await fetch(endpoint, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...headers },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
       body: JSON.stringify(data),
       signal,
       credentials: 'include'

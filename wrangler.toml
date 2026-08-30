@@ -1,23 +1,19 @@
-name = "markbel-api"
+name = "markbel"
 main = "worker/src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare Static Assets (Vite SPA Frontend)
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 # Cloudflare D1 Database Binding
 [[d1_databases]]
 binding = "DB"
 database_name = "markbel-db"
 database_id = "2dd655d0-8119-43fa-ad51-5e466d6bdb7f"
-migrations_dir = "worker/migrations"
-
-# Cloudflare KV Namespace Binding (Optional Session Cache)
-# [[kv_namespaces]]
-# binding = "KV_AUTH"
-# id = "xxxxxx"
 
 [vars]
 JWT_SECRET = "markbel-production-jwt-secret-replace-with-secret"
-
-# Cloudflare Pages build output configuration
-[site]
-bucket = "./dist"

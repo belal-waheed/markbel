@@ -5,6 +5,7 @@ import * as cheerio from "cheerio";
 
 export type Bindings = {
   DB: D1Database;
+  ASSETS?: Fetcher;
   KV_AUTH?: KVNamespace;
   JWT_SECRET?: string;
   VAPID_PUBLIC_KEY?: string;
@@ -19,7 +20,7 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Enable CORS
 app.use(
-  "*",
+  "/api/*",
   cors({
     origin: (origin) => origin || "*",
     credentials: true,
@@ -28,18 +29,13 @@ app.use(
   })
 );
 
-app.get("/", (c) => {
-  return c.json({
-    name: "Markbel Edge API",
-    status: "online",
-    version: "2.1.0",
-    runtime: "Cloudflare Workers",
-    database: "Cloudflare D1 (SQLite)",
-  });
-});
-
 app.get("/api/health", (c) => {
-  return c.json({ status: "healthy", timestamp: new Date().toISOString() });
+  return c.json({
+    status: "healthy",
+    runtime: "Cloudflare Workers",
+    database: "Cloudflare D1",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Helper: Password Hashing using Web Crypto PBKDF2 (Edge Native)
@@ -631,6 +627,16 @@ app.post("/api/devices/register", authMiddleware, async (c) => {
     .run();
 
   return c.json({ success: true });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATIC ASSET FALLBACK (Vite SPA Frontend)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.notFound(async (c) => {
+  if (c.env.ASSETS) {
+    return await c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.text("Not Found", 404);
 });
 
 export default app;
