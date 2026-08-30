@@ -35,9 +35,9 @@ export default function UserGuideModal({ onClose }: UserGuideModalProps) {
       content: 'Keep your vault tidy. Create custom groups to categorize your bookmarks. Use vibrant colors to visually distinguish them.',
     },
     {
-      title: 'TickTick Integration',
+      title: 'Instant PWA Share Target',
       icon: <CheckCircle className="w-8 h-8 text-blue-500" />,
-      content: 'Never forget to read an article. Connect your TickTick account in Settings to automatically sync reminders for your saved links.',
+      content: 'Share any link directly from Android or desktop to Markbel. It saves in sub-100ms directly to your offline vault without waiting.',
     },
     {
       title: 'You are all set!',

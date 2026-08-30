@@ -1,0 +1,716 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Readex+Pro:wght@200;300;400;500;600;700&display=swap');
+
+/* Google Sans Code - Optimized Loading via Fontsource CDN */
+@font-face {
+  font-family: 'Google Sans Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://cdn.jsdelivr.net/fontsource/fonts/google-sans-code@latest/latin-400-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Google Sans Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://cdn.jsdelivr.net/fontsource/fonts/google-sans-code@latest/latin-700-normal.woff2) format('woff2');
+}
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VARIANT
+───────────────────────────────────────────────────────────────────────────── */
+@custom-variant dark (&:is(.dark *));
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* ─────────────────────────────────────────────────────────────────────────────
+   THEME — maps CSS variables → Tailwind utility tokens
+   Only keeps mappings Tailwind v4 doesn't auto-generate from @theme.
+───────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+    --font-heading: 'Google Sans Code', 'Readex Pro', 'Inter', var(--font-sans);
+    --font-sans:    'Google Sans Code', 'Inter', system-ui, sans-serif;
+    --font-arabic:  'Readex Pro', sans-serif;
+    --font-mono:    'Google Sans Code', 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Sidebar tokens */
+    --color-sidebar-ring:               var(--sidebar-ring);
+    --color-sidebar-border:             var(--sidebar-border);
+    --color-sidebar-accent-foreground:  var(--sidebar-accent-foreground);
+    --color-sidebar-accent:             var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary:            var(--sidebar-primary);
+    --color-sidebar-foreground:         var(--sidebar-foreground);
+    --color-sidebar:                    var(--sidebar);
+
+    /* Chart tokens */
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+
+    /* Core tokens */
+    --color-ring:                var(--ring);
+    --color-input:               var(--input);
+    --color-border:              var(--border);
+    --color-destructive:         var(--destructive);
+    --color-accent-foreground:   var(--accent-foreground);
+    --color-accent:              var(--accent);
+    --color-muted-foreground:    var(--muted-foreground);
+    --color-muted:               var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary:           var(--secondary);
+    --color-primary-foreground:  var(--primary-foreground);
+    --color-primary:             var(--primary);
+    --color-popover-foreground:  var(--popover-foreground);
+    --color-popover:             var(--popover);
+    --color-card-foreground:     var(--card-foreground);
+    --color-card:                var(--card);
+    --color-foreground:          var(--foreground);
+    --color-background:          var(--background);
+
+    /* Radius scale */
+    --radius-sm:  calc(var(--radius) * 0.6);
+    --radius-md:  calc(var(--radius) * 0.8);
+    --radius-lg:  var(--radius);
+    --radius-xl:  calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — default (Obel purple)
+   Single source of truth. Every theme overrides this complete set.
+───────────────────────────────────────────────────────────────────────────── */
+:root {
+    /* Layout */
+    --radius:     0.75rem;
+    --nav-height: 4rem;          /* ← one place to change nav height globally */
+
+    /* Core palette */
+    --background:          #f6f8fa; /* Classic soft light gray */
+    --foreground:          #1f2328; /* Classic dark Slate body text */
+    --card:                #ffffff;
+    --card-foreground:     #1f2328;
+    --popover:             #ffffff;
+    --popover-foreground:  #1f2328;
+    --primary:             #0969da; /* Royal Blue */
+    --primary-foreground:  #ffffff;
+    --secondary:           #f0f2f5; /* Soft light gray */
+    --secondary-foreground: #1f2328;
+    --muted:               #f0f2f5;
+    --muted-foreground:    #57606a;
+    --accent:              #218bff;
+    --accent-foreground:   #ffffff;
+    --destructive:         #ef4444;
+    --destructive-foreground: #ffffff;
+    --border:              #d0d7de; /* Classic light border */
+    --input:               #d0d7de;
+    --ring:                #0969da;
+    --selection:           #add6ff; /* Classic Soft Blue Highlight */
+    --selection-foreground: #1f2328;
+    --primary-opacity-20:  rgba(9, 105, 218, 0.2);
+
+    /* Sidebar */
+    --sidebar:                    #f6f8fa;
+    --sidebar-foreground:         #1f2328;
+    --sidebar-primary:            #0969da;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent:             #eaeef2;
+    --sidebar-accent-foreground:  #1f2328;
+    --sidebar-border:             #d0d7de;
+    --sidebar-ring:               #0969da;
+
+    /* Heading Colors (Light Mode) */
+    --h1:                  #0969da;
+    --h2:                  #c18401;
+    --h3:                  #1a7f37;
+    --h4:                  #57606a;
+
+    /* Charts */
+    --chart-1: #0969da;
+    --chart-2: #1a7f37;
+    --chart-3: #953800;
+    --chart-4: #8250df;
+    --chart-5: #6e7781;
+
+    /* Safe-area insets (iOS PWA) */
+    --safe-area-top:    env(safe-area-inset-top,    0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left:   env(safe-area-inset-left,   0px);
+    --safe-area-right:  env(safe-area-inset-right,  0px);
+    
+    /* Animation & Gradients */
+    --nav-indicator-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, var(--primary), var(--accent));
+
+    /* color-scheme: tells the browser to render native UI (scrollbars,
+       inputs, selects) in light mode to match the theme */
+    color-scheme: light;
+
+    /* Syntax Highlighting (Light Mode) */
+    --hljs-keyword: #cf222e;
+    --hljs-string: #0a3069;
+    --hljs-comment: #6e7781;
+    --hljs-number: #0550ae;
+    --hljs-title: #8250df;
+    --hljs-type: #953800;
+    --hljs-literal: #0550ae;
+    --hljs-built_in: #116329;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────────────── */
+.dark {
+    --background:          #282c34; /* Soft Developer Charcoal/Slate-Gray (One Dark background) */
+    --foreground:          #f1f5f9; /* Bright Soft White text (Slate-100) */
+    --card:                #31353f; /* Slightly lighter elevated slate-gray */
+    --card-foreground:     #f1f5f9;
+    --popover:             #31353f;
+    --popover-foreground:  #f1f5f9;
+    --primary:             #61afef; /* Sky Blue */
+    --primary-foreground:  #282c34;
+    --secondary:           #3e4451; /* Dark Gray */
+    --secondary-foreground: #f1f5f9;
+    --muted:               #353b45;
+    --muted-foreground:    #abb2bf; /* Soft Gray */
+    --accent:              #c678dd; /* Purple */
+    --accent-foreground:   #ffffff;
+    --destructive:         #e06c75;
+    --destructive-foreground: #ffffff;
+    --border:              #21252b; /* Dark border */
+    --input:               #21252b;
+    --ring:                #61afef;
+    --selection:           #3e4451; /* Dark selection gray */
+    --selection-foreground: #ffffff;
+    --primary-opacity-20:  rgba(97, 175, 239, 0.2);
+
+    --sidebar:                    #21252b; /* Slightly darker sidebar for structure */
+    --sidebar-foreground:         #abb2bf;
+    --sidebar-primary:            #61afef;
+    --sidebar-primary-foreground: #21252b;
+    --sidebar-accent:             #2c313c;
+    --sidebar-accent-foreground:  #f1f5f9;
+    --sidebar-border:             #1e2227;
+    --sidebar-ring:               #61afef;
+
+    /* Heading Colors (Dark Mode) */
+    --h1:                  #61afef;
+    --h2:                  #d19a66;
+    --h3:                  #e5c07b;
+    --h4:                  #98c379;
+
+    --chart-1: #61afef;
+    --chart-2: #98c379;
+    --chart-3: #d19a66;
+    --chart-4: #c678dd;
+    --chart-5: #5c6370;
+
+    color-scheme: dark;
+
+    /* Syntax Highlighting (Dark Mode) */
+    --hljs-keyword: #c678dd;
+    --hljs-string: #98c379;
+    --hljs-comment: #5c6370;
+    --hljs-number: #d19a66;
+    --hljs-title: #61afef;
+    --hljs-type: #e5c07b;
+    --hljs-literal: #d19a66;
+    --hljs-built_in: #56b6c2;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RTL — Arabic font applied via dir attribute, not class
+───────────────────────────────────────────────────────────────────────────── */
+[dir="rtl"] {
+    font-family: var(--font-arabic);
+    letter-spacing: 0; /* Arabic script doesn't use letter-spacing */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE LAYER
+───────────────────────────────────────────────────────────────────────────── */
+@layer base {
+    *,
+    *::before,
+    *::after {
+        @apply border-border outline-ring/50;
+        box-sizing: border-box;
+    }
+
+    html {
+        @apply scroll-smooth;
+        font-family: var(--font-sans);
+        /* Required for iOS PWA full-height */
+        height: -webkit-fill-available;
+        /* Smooth font rendering */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased relative;
+        font-family: var(--font-sans);
+        overflow-x: hidden;
+        overscroll-behavior: none;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        touch-action: manipulation; /* Faster tap response */
+
+        /*  ⚠️  Global selection disabled as requested. 
+            Re-enabled specifically for editable areas and notes/tasks. */
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    /* Re-enable selection for content areas */
+    input,
+    textarea,
+    [contenteditable],
+    .prose-obel,
+    .cm-content,
+    /* Task related content */
+    .task-title,
+    .task-description,
+    .subtask-title,
+    .selectable-content {
+        user-select: text !important;
+        -webkit-user-select: text !important;
+    }
+
+    /* Branded watermark — subtle but visible */
+    body::before {
+        content: "Obel";
+        position: fixed;
+        inset: -50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 25vw;
+        font-weight: 900;
+        text-transform: uppercase;
+        color: var(--foreground);       /* responds to dark mode */
+        opacity: 0.03;                  /* was 0.012 — effectively invisible */
+        z-index: -1;
+        pointer-events: none;
+        white-space: nowrap;
+        transform: rotate(-12deg);
+        user-select: none;
+        -webkit-user-select: none;
+        letter-spacing: -0.05em;
+    }
+
+    /* Focus ring — accessible, visible, on-brand */
+    :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+        border-radius: var(--radius-sm);
+    }
+
+    /* Tap highlight removal for mobile */
+    a, button {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Thin cross-browser scrollbar */
+    * {
+        /* Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+    ::-webkit-scrollbar       { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--border);
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--muted-foreground);
+    }
+
+    /* Typography baseline */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-heading);
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PWA / STANDALONE
+───────────────────────────────────────────────────────────────────────────── */
+@media (display-mode: standalone) {
+    body {
+        padding-top: var(--safe-area-top);
+    }
+
+    .standalone-bottom-pad {
+        padding-bottom: var(--safe-area-bottom);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION
+   Must wrap every animation/transition added later.
+───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY LAYER — safe-area, nav, scrollbar variants
+───────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+    .pb-safe {
+        padding-bottom: max(var(--safe-area-bottom), 0.5rem);
+    }
+    .pt-safe {
+        padding-top: var(--safe-area-top);
+    }
+    .mb-safe {
+        margin-bottom: var(--safe-area-bottom);
+    }
+
+    /* References --nav-height so a single variable controls both nav and offset */
+    .pb-nav {
+        padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 1.5rem);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--border) 70%, transparent);
+        border-radius: 10px;
+    }
+
+    /* Premium Design Utilities */
+    .glass-card {
+        @apply bg-card/80 backdrop-blur-2xl border border-white/30 dark:border-white/10 shadow-xl;
+        background-image: radial-gradient(circle at top left, rgba(255,255,255,0.05) 0%, transparent 50%);
+    }
+    .inner-glow {
+        box-shadow: inset 0 0 20px 0 rgba(255, 255, 255, 0.05);
+    }
+    .premium-shadow {
+        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1), 0 10px 20px -10px rgba(0, 0, 0, 0.05);
+    }
+    .text-gradient {
+        @apply bg-clip-text text-transparent bg-linear-to-br from-foreground to-foreground/60;
+    }
+    .glow-primary {
+        box-shadow: 0 0 20px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+    .press-scale {
+        @apply active:scale-95 transition-transform duration-100;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+        background: linear-gradient(90deg, 
+            color-mix(in srgb, var(--muted) 40%, transparent) 25%, 
+            color-mix(in srgb, var(--muted) 80%, transparent) 50%, 
+            color-mix(in srgb, var(--muted) 40%, transparent) 75%
+        );
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite linear;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MARKDOWN PROSE — .prose-obel
+───────────────────────────────────────────────────────────────────────────── */
+.prose-obel {
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--foreground);
+    /* overflow-wrap replaces deprecated word-break: break-word */
+    overflow-wrap: break-word;
+    word-break: break-word; /* keep for CJK compatibility */
+    /* Removed max-width to align with editor's fluid width */
+}
+
+.prose-obel > *:first-child { margin-top: 0; }
+.prose-obel > *:last-child  { margin-bottom: 0; }
+
+.prose-obel h1,
+.prose-obel h2,
+.prose-obel h3,
+.prose-obel h4,
+.prose-obel h5,
+.prose-obel h6 {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--foreground);
+    line-height: 1.2;
+}
+.prose-obel h1 { font-size: 2.25em; border-bottom: 2px solid var(--border); padding-bottom: 0.1em; margin-top: 1em; color: var(--primary) !important; }
+.prose-obel h2 { font-size: 1.65em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; margin-top: 1.2em; color: var(--primary) !important; opacity: 0.95; }
+.prose-obel h3 { font-size: 1.35em; color: var(--primary) !important; opacity: 0.85; }
+.prose-obel h4 { font-size: 1.15em; color: var(--primary) !important; opacity: 0.75; }
+.prose-obel h5,
+.prose-obel h6 {
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+    opacity: 0.8;
+}
+
+.prose-obel p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  white-space: pre-wrap;
+}
+
+.prose-obel strong { font-weight: 700; color: var(--accent) !important; }
+.prose-obel em     { font-style: italic; }
+
+.prose-obel a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    font-weight: 500;
+    transition: text-decoration-color 0.2s ease;
+}
+.prose-obel a:hover {
+    text-decoration-color: var(--primary);
+}
+
+.prose-obel ul,
+.prose-obel ol {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    padding-left: 1.5em;
+}
+.prose-obel ul { list-style-type: disc; }
+.prose-obel ol { list-style-type: decimal; }
+.prose-obel li {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+.prose-obel li > ul,
+.prose-obel li > ol {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+/* Task-list checkboxes */
+.prose-obel ul:has(> li > input[type="checkbox"]) {
+    list-style: none;
+    padding-left: 0;
+}
+.prose-obel li > input[type="checkbox"] {
+    margin-right: 0.5em;
+    accent-color: var(--primary);
+    pointer-events: none;
+}
+
+.prose-obel blockquote {
+    border-left: 3px solid var(--primary);
+    padding: 0.5em 1em;
+    margin: 0.75em 0;
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--muted-foreground);
+    font-style: italic;
+}
+.prose-obel blockquote p {
+    margin: 0.25em 0;
+}
+
+.prose-obel code:not(pre code) {
+    background: var(--muted);
+    color: var(--foreground);
+    padding: 0.15em 0.4em;
+    border-radius: var(--radius-sm);
+    font-size: 0.85em;
+    font-weight: 500;
+    font-family: var(--font-mono);
+}
+
+.prose-obel pre {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5em 2em;
+    margin: 1.5em 0;
+    overflow-x: auto;
+    font-size: 0.825em;
+    line-height: 1.6;
+}
+.prose-obel pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    font-weight: 400;
+    font-family: var(--font-mono);
+}
+
+/* Syntax highlighting tokens mapping to theme colors */
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color: var(--hljs-keyword) !important; font-weight: 600; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-section { color: var(--hljs-string) !important; }
+.hljs-comment, .hljs-quote { color: var(--hljs-comment) !important; font-style: italic; }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet, .hljs-meta { color: var(--hljs-number) !important; }
+.hljs-title, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--hljs-title) !important; }
+.hljs-type, .hljs-class, .hljs-title.class_ { color: var(--hljs-type) !important; }
+.hljs-built_in, .hljs-doctag, .hljs-keyword.hljs-atrule { color: var(--hljs-built_in) !important; }
+
+.prose-obel hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5em 0;
+}
+
+.prose-obel table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75em 0;
+    font-size: 0.875em;
+}
+.prose-obel th,
+.prose-obel td {
+    border: 1px solid var(--border);
+    padding: 0.5em 0.75em;
+    text-align: left;
+}
+.prose-obel th {
+    background: var(--muted);
+    font-weight: 600;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+}
+.prose-obel tr:nth-child(even) {
+    background: color-mix(in srgb, var(--muted) 40%, transparent);
+}
+
+.prose-obel del {
+    text-decoration: line-through;
+    color: var(--muted-foreground);
+}
+
+.prose-obel img {
+    max-width: 100%;
+    border-radius: var(--radius);
+    margin: 0.75em 0;
+}
+
+/* WikiLinks Styling */
+.prose-obel a[href^="note:"] {
+    color: var(--primary);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    transition: all 0.2s ease;
+}
+.prose-obel a[href^="note:"]:hover {
+    border-bottom-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Math / KaTeX styling */
+.katex-display {
+    margin: 1.5em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1em 0;
+}
+.katex {
+    font-size: 1.1em;
+}
+
+/* CodeMirror overrides */
+.cm-editor {
+    outline: none !important;
+}
+.cm-editor .text-4xl { font-size: 2.25rem !important; }
+.cm-editor .text-2xl { font-size: 1.5rem !important; }
+.cm-editor .text-xl { font-size: 1.25rem !important; }
+.cm-scroller {
+    font-family: inherit !important;
+}
+.cm-content {
+    padding: 0;
+}
+/* Note Status Bar */
+.note-status-bar {
+    @apply flex items-center justify-between px-6 py-2 border-t border-border/10 bg-background/50 backdrop-blur-md text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest shrink-0;
+}
+.note-status-item {
+    @apply flex items-center gap-1.5 hover:text-foreground transition-colors cursor-default;
+}
+/* Mobile Font Scaling */
+@media (max-width: 768px) {
+    /* Font scaling ONLY for notes as requested */
+    .prose-obel, .cm-editor {
+        font-size: 13px !important;
+    }
+    
+    
+    /* Disable hover effects on touch devices to prevent stuck states */
+    *:hover {
+        @apply no-underline;
+    }
+    
+    .group:hover .group-hover\:opacity-100 {
+        @apply opacity-0;
+    }
+}
+
+@media (hover: hover) {
+    .hover-hover\:opacity-100:hover {
+        @apply opacity-100;
+    }
+    
+    .card-hover {
+        @apply hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300;
+    }
+}
+
+/* Mobile Drag and Drop Polyfill Styling */
+.dnd-poly-dragging {
+    opacity: 0.5 !important;
+}
+
+/* Zen Mode: Hide main app sidebar */
+body.zen-mode-active aside {
+    display: none !important;
+}
+
+/* Ensure content takes full width in zen mode */
+body.zen-mode-active main {
+    margin-left: 0 !important;
+}
+/* Custom Code Block Padding for Live Preview */
+.cm-code-block-line {
+    padding-left: 2.5rem !important;
+    padding-right: 2.5rem !important;
+}
+
+.cm-heading-1 { color: var(--primary) !important; }
+.cm-heading-2 { color: var(--primary) !important; opacity: 0.95; }
+.cm-heading-3 { color: var(--primary) !important; opacity: 0.85; }
+.cm-strong { color: var(--accent) !important; }

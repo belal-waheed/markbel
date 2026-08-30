@@ -76,7 +76,7 @@ router.post("/dispatch", async (req, res) => {
         userId,
         isArchived: { $ne: true },
         isRead: { $ne: true },
-        remindAt: { $ne: "", $lte: now },
+        remindAt: { $gt: "", $lte: now },
       }).lean();
 
       if (dueBookmarks.length === 0) continue;

@@ -14,8 +14,6 @@ export interface IBookmark {
   remindAt?: string
   isArchived?: boolean
   archiveGroup?: string
-  ticktickTaskId?: string
-  ticktickProjectId?: string
   createdAt: string
   updatedAt: string
   version: number
@@ -39,8 +37,6 @@ const BookmarkSchema = new Schema<IBookmarkDocument>(
     remindAt: { type: String, default: '' },
     isArchived: { type: Boolean, default: false },
     archiveGroup: { type: String, default: '' },
-    ticktickTaskId: { type: String, default: '' },
-    ticktickProjectId: { type: String, default: '' },
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
     version: { type: Number, required: true, default: 0 },

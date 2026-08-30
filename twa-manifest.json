@@ -1,0 +1,25 @@
+{
+  "packageId": "com.markbel.vault",
+  "host": "markbel.vercel.app",
+  "name": "Markbel",
+  "launcherName": "Markbel",
+  "themeColor": "#090d16",
+  "navigationColor": "#090d16",
+  "backgroundColor": "#090d16",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://markbel.vercel.app/logo.png",
+  "maskableIconUrl": "https://markbel.vercel.app/logo.png",
+  "appVersionCode": 1,
+  "appVersionName": "2.1.0",
+  "shareTarget": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

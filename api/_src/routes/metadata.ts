@@ -4,17 +4,43 @@ import * as cheerio from 'cheerio';
 
 const router = Router();
 
+function extractYouTubeVideoId(url: URL): string | null {
+  if (url.hostname.includes('youtu.be')) {
+    return url.pathname.replace(/^\//, '').split(/[?#]/)[0] || null;
+  }
+  if (url.hostname.includes('youtube.com')) {
+    return url.searchParams.get('v') || null;
+  }
+  return null;
+}
+
+function cleanHtmlEntities(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 router.get('/', authMiddleware, async (req, res) => {
-  const urlParam = req.query.url as string;
+  const rawUrl = (req.query.url as string || '').trim();
   
-  if (!urlParam) {
+  if (!rawUrl) {
     res.status(400).json({ error: 'URL is required' });
     return;
   }
   
   let targetUrl: URL;
   try {
-    targetUrl = new URL(urlParam);
+    const formattedUrl = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') 
+      ? rawUrl 
+      : `https://${rawUrl}`;
+    targetUrl = new URL(formattedUrl);
   } catch (err) {
     res.status(400).json({ error: 'Invalid URL format' });
     return;
@@ -22,16 +48,17 @@ router.get('/', authMiddleware, async (req, res) => {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    const timeout = setTimeout(() => controller.abort(), 7000); // 7 second bounded timeout
 
     const response = await fetch(targetUrl.toString(), {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'follow'
     });
     
     clearTimeout(timeout);
@@ -42,10 +69,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('text/html')) {
-      // If it's an image, video, etc., just return basic info
       res.json({
         title: targetUrl.hostname,
-        description: `File type: ${contentType}`,
+        description: `Resource type: ${contentType}`,
         image: contentType.startsWith('image/') ? targetUrl.toString() : ''
       });
       return;
@@ -62,22 +88,27 @@ router.get('/', authMiddleware, async (req, res) => {
     const twitterDesc = $('meta[name="twitter:description"]').attr('content');
     const htmlMetaDesc = $('meta[name="description"]').attr('content');
 
-    const ogImage = $('meta[property="og:image"]').attr('content');
-    const twitterImage = $('meta[name="twitter:image"]').attr('content');
+    let ogImage = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content');
 
-    // YouTube specific
+    // YouTube specific optimization
+    const ytVideoId = extractYouTubeVideoId(targetUrl);
     let ytTitle = '';
-    if (targetUrl.hostname.includes('youtube.com') || targetUrl.hostname.includes('youtu.be')) {
+    if (ytVideoId) {
       ytTitle = $('meta[name="title"]').attr('content') || '';
+      if (!ogImage) {
+        ogImage = `https://img.youtube.com/vi/${ytVideoId}/hqdefault.jpg`;
+      }
     }
 
-    const title = ytTitle || ogTitle || twitterTitle || htmlTitle || targetUrl.hostname;
-    const description = ogDesc || twitterDesc || htmlMetaDesc || '';
-    let image = ogImage || twitterImage || '';
+    const rawTitle = ytTitle || ogTitle || twitterTitle || htmlTitle || targetUrl.hostname;
+    const rawDescription = ogDesc || twitterDesc || htmlMetaDesc || '';
+    let image = ogImage || '';
 
     // Handle relative images
     if (image && !image.startsWith('http')) {
-      if (image.startsWith('/')) {
+      if (image.startsWith('//')) {
+        image = `${targetUrl.protocol}${image}`;
+      } else if (image.startsWith('/')) {
         image = `${targetUrl.protocol}//${targetUrl.host}${image}`;
       } else {
         image = `${targetUrl.protocol}//${targetUrl.host}/${image}`;
@@ -85,17 +116,20 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     res.json({
-      title: title.trim(),
-      description: description.trim(),
+      title: cleanHtmlEntities(rawTitle),
+      description: cleanHtmlEntities(rawDescription),
       image: image.trim()
     });
 
   } catch (err: any) {
-    // If it timeouts or fails, fail gracefully and return empty strings so the client doesn't crash
+    // Graceful fallback on network failure / timeout
+    const ytVideoId = extractYouTubeVideoId(targetUrl);
+    const fallbackImage = ytVideoId ? `https://img.youtube.com/vi/${ytVideoId}/hqdefault.jpg` : '';
+
     res.json({
-      title: '',
+      title: targetUrl.hostname.replace(/^www\./, ''),
       description: '',
-      image: ''
+      image: fallbackImage
     });
   }
 });

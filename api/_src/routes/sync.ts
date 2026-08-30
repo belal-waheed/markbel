@@ -3,6 +3,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth.js'
 import Bookmark from '../models/Bookmark.js'
 import Group from '../models/Group.js'
 import SyncChange from '../models/SyncChange.js'
+import { scrapeBookmarkMetadata } from '../scraper.js'
 
 const router = Router()
 
@@ -62,15 +63,26 @@ router.post('/push', authMiddleware, async (req: AuthRequest, res) => {
       }
       
       if (operation !== 'create' && currentVersion !== baseVersion) {
-        results.push({
-          changeId,
-          entityId,
-          status: 'conflict',
-          clientBaseVersion: baseVersion,
-          serverVersion: currentVersion,
-          serverRecord: record
-        })
-        continue
+        let isLWWWinner = false;
+        if (operation === 'update' && payload && payload.updatedAt && record && record.updatedAt) {
+          const incomingTime = new Date(payload.updatedAt).getTime();
+          const serverTime = new Date(record.updatedAt).getTime();
+          if (incomingTime > serverTime) {
+            isLWWWinner = true;
+          }
+        }
+        
+        if (!isLWWWinner) {
+          results.push({
+            changeId,
+            entityId,
+            status: 'conflict',
+            clientBaseVersion: baseVersion,
+            serverVersion: currentVersion,
+            serverRecord: record
+          })
+          continue
+        }
       }
 
       // Apply changes
@@ -87,6 +99,17 @@ router.post('/push', authMiddleware, async (req: AuthRequest, res) => {
           updatedAt: payload.updatedAt || now
         })
         await record.save()
+
+        if (entityType === 'bookmark') {
+          scrapeBookmarkMetadata({
+            id: entityId,
+            url: payload.url,
+            title: payload.title,
+            image: payload.image,
+            description: payload.description,
+            userId: userId
+          }).catch(err => console.error("[Sync Background Scrape] Error:", err));
+        }
       } else if (operation === 'update' && record) {
         const oldName = entityType === 'group' ? (record as any).name : null;
         Object.assign(record, payload)

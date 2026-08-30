@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MarkbelLogo from "../components/MarkbelLogo.js";
+import BookmarkImage from "../components/BookmarkImage.js";
 import { db } from "../db/db.js";
 import { bookmarkRepository } from "../db/SyncRepository.js";
 
@@ -192,18 +193,7 @@ export default function ArchivePage() {
                 key={b.id}
                 className="studio-card flex flex-col justify-between group overflow-hidden"
               >
-                {b.image && (
-                  <div className="relative aspect-[1.4/1] overflow-hidden bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)]">
-                    <img
-                      src={b.image}
-                      alt={b.title}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
+                <BookmarkImage src={b.image} alt={b.title} />
                 <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold tracking-wide text-[var(--color-text-primary)] bg-[var(--color-bg-element)] border border-[var(--color-border-default)] px-1.5 sm:px-2 py-0.5 rounded truncate max-w-[90px] sm:max-w-[150px]">

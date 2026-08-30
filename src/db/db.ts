@@ -14,8 +14,6 @@ export interface LocalBookmark {
   remindAt?: string;
   isArchived?: boolean;
   archiveGroup?: string;
-  ticktickTaskId?: string;
-  ticktickProjectId?: string;
   version: number;
   createdAt: string;
   updatedAt: string;

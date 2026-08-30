@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import LoginPage from './views/LoginPage.js'
 import BookmarksPage from './views/BookmarksPage.js'
-import ShareTargetPage from './views/ShareTargetPage.js'
+
 import SettingsPage from './views/SettingsPage.js'
 import ArchivePage from './views/ArchivePage.js'
 import SyncDebugPage from './views/SyncDebugPage.js'
@@ -40,14 +40,6 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <BookmarksPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/share-target"
-              element={
-                <ProtectedRoute>
-                  <ShareTargetPage />
                 </ProtectedRoute>
               }
             />

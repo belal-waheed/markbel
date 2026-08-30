@@ -9,10 +9,9 @@ Markbel is available everywhere you work:
 
 ## ✨ Features
 
-- **Instant Saving**: Just paste a URL, and Markbel automatically fetches the title, description, and image in the background.
-- **Syncs Everywhere**: Your bookmarks are synced across all your devices, and even work offline!
-- **TickTick Integration**: Optionally sync your saved links as tasks straight to your TickTick account.
-- **Beautiful Design**: A clean, light theme designed for focus and productivity.
+- **Instant PWA Quick Save**: Share links from Android / desktop directly into your offline vault in sub-100ms.
+- **Syncs Everywhere**: Your bookmarks are synced across all your devices, and work completely offline!
+- **Beautiful Design**: A clean, distraction-free interface designed for speed and productivity.
 - **Quick Organization**: Pin important links, archive old ones, and organize by custom colored groups.
 
 ---
