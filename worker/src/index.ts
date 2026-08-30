@@ -494,6 +494,7 @@ app.get("/api/sync/pull", authMiddleware, async (c) => {
       entityId: ch.entity_id,
       operation: ch.operation,
       version: ch.entity_version,
+      payload: parsedRecord,
       record: parsedRecord,
       deletedAt: ch.operation === "delete" ? (parsedRecord?.deleted_at || ch.changed_at) : null,
     };

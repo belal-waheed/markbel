@@ -52,6 +52,9 @@ export default defineConfig({
       output: {
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
+            if (id.includes('dexie')) {
+              return 'vendor-db'
+            }
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
               return 'vendor-react'
             }
@@ -60,9 +63,6 @@ export default defineConfig({
             }
             if (id.includes('framer-motion')) {
               return 'vendor-motion'
-            }
-            if (id.includes('dexie')) {
-              return 'vendor-db'
             }
             return 'vendor-others'
           }

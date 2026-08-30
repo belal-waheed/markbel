@@ -71,23 +71,39 @@ export class WebSyncStorage implements SyncStorage {
             } as any);
           }
         } else if (change.operation === 'create' || change.operation === 'update') {
-          if (!change.payload) continue;
+          const raw = change.payload || (change as any).record;
+          if (!raw) continue;
+
+          const data = {
+            ...raw,
+            group: raw.group || raw.group_name || 'Unsorted',
+            isRead: raw.isRead ?? (raw.is_read ? Boolean(raw.is_read) : false),
+            readAt: raw.readAt || raw.read_at || '',
+            isPinned: raw.isPinned ?? (raw.is_pinned ? Boolean(raw.is_pinned) : false),
+            remindAt: raw.remindAt || raw.remind_at || '',
+            isArchived: raw.isArchived ?? (raw.is_archived ? Boolean(raw.is_archived) : false),
+            archiveGroup: raw.archiveGroup || raw.archive_group || '',
+            createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+            updatedAt: raw.updatedAt || raw.updated_at || new Date().toISOString(),
+            deletedAt: change.deletedAt || raw.deletedAt || raw.deleted_at || null
+          };
+
           const localItem = await table.get(change.entityId);
           if (localItem) {
             // Update
             await table.update(change.entityId, {
-              ...change.payload,
+              ...data,
               version: change.version,
-              updatedAt: new Date().toISOString()
+              updatedAt: data.updatedAt || new Date().toISOString()
             } as any);
           } else {
             // Create
             await table.put({
-              ...change.payload,
+              ...data,
               id: change.entityId,
               version: change.version,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: data.createdAt || new Date().toISOString(),
+              updatedAt: data.updatedAt || new Date().toISOString(),
               deletedAt: null
             } as any);
           }
