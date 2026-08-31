@@ -264,6 +264,12 @@ export class MetadataService {
       }
     }
 
+    // 3b. Instagram & Threads / Meta Adapter
+    if (hostname.includes('instagram.com') || hostname.includes('instagr.am') || hostname.includes('threads.net')) {
+      const igResult = await this.extractInstagram(targetUrl, timeoutMs, options);
+      if (igResult) return igResult;
+    }
+
     // 4. GitHub Repository Adapter
     if (hostname === 'github.com' || hostname.endsWith('.github.com')) {
       const ghResult = await this.extractGitHub(targetUrl, timeoutMs);
@@ -457,6 +463,69 @@ export class MetadataService {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * Dedicated multi-engine extractor for Instagram (Meta crawler -> oEmbed -> Microlink fallback)
+   */
+  private static async extractInstagram(
+    targetUrl: URL,
+    timeoutMs: number,
+    options: MetadataScrapeOptions
+  ): Promise<BookmarkMetadata | null> {
+    const cleanUrlStr = targetUrl.toString();
+    const domain = targetUrl.hostname.replace(/^www\./, '');
+    const isReel = targetUrl.pathname.includes('/reel/');
+    const defaultTitle = isReel ? 'Instagram Reel' : 'Instagram Post';
+
+    // Layer 1: Direct Meta Crawler with facebookexternalhit User-Agent
+    const directResult = await this.scrapeHtmlAndArticle(targetUrl, cleanUrlStr, timeoutMs, {
+      ...options,
+      userAgent: 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_codedoc.html)',
+    });
+
+    if (directResult && directResult.image && !directResult.image.includes('google.com/s2/favicons')) {
+      return directResult;
+    }
+
+    // Layer 2: Public oEmbed API
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 3000));
+    try {
+      const oembedRes = await fetch(
+        `https://api.instagram.com/oembed/?url=${encodeURIComponent(cleanUrlStr)}`,
+        { signal: controller.signal }
+      );
+      if (oembedRes.ok) {
+        const oembedData: any = await oembedRes.json();
+        if (oembedData.thumbnail_url) {
+          return {
+            url: cleanUrlStr,
+            canonicalUrl: cleanUrlStr,
+            title: cleanText(oembedData.title) || (directResult?.title && directResult.title !== domain ? directResult.title : defaultTitle),
+            description: oembedData.author_name ? `@${oembedData.author_name} on Instagram` : defaultTitle,
+            image: oembedData.thumbnail_url,
+            favicon: `https://www.google.com/s2/favicons?domain=instagram.com&sz=128`,
+            siteName: 'Instagram',
+            author: oembedData.author_name || '',
+            publishedAt: '',
+            contentType: isReel ? 'video' : 'website',
+            readingTime: 0,
+            wordCount: 0,
+          };
+        }
+      }
+    } catch {} finally {
+      clearTimeout(timer);
+    }
+
+    // Layer 3: Microlink Visual Fallback
+    const mlResult = await this.extractMicrolink(targetUrl, cleanUrlStr, timeoutMs, options);
+    if (mlResult) {
+      return mlResult;
+    }
+
+    return directResult;
   }
 
   /**

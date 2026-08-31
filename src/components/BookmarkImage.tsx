@@ -49,6 +49,8 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
                 alt={alt || "Favicon"}
                 loading="lazy"
                 decoding="async"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 onLoad={() => setIsLoaded(true)}
                 onError={() => setHasError(true)}
                 className={`w-7 h-7 object-contain transition-opacity duration-300 ${
@@ -63,6 +65,8 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
             alt={alt || "Bookmark thumbnail"}
             loading="lazy"
             decoding="async"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
             onLoad={() => setIsLoaded(true)}
             onError={() => setHasError(true)}
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${

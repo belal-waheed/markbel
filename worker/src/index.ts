@@ -1323,9 +1323,52 @@ app.get("/api/metadata", async (c) => {
             metadataResult = {
               title: ogTitle,
               description: cleanText(ogDesc).slice(0, 350) || (targetUrl.pathname.includes("/reel/") ? "Instagram Reel" : "Instagram Post"),
-              image: ogImage.trim(),
+              image: ogImage.replace(/&amp;/g, '&').trim(),
             };
           }
+        }
+
+        // Instagram Engine Layer 2: Public oEmbed
+        if (!metadataResult?.image) {
+          try {
+            const igOembedRes = await fetchWithTimeout(
+              `https://api.instagram.com/oembed/?url=${encodeURIComponent(targetUrl.toString())}`,
+              {},
+              3000
+            );
+            if (igOembedRes.ok) {
+              const oembedData: any = await igOembedRes.json();
+              if (oembedData.thumbnail_url) {
+                metadataResult = {
+                  title: metadataResult?.title || cleanText(oembedData.title || (targetUrl.pathname.includes("/reel/") ? "Instagram Reel" : "Instagram Post")),
+                  description: metadataResult?.description || (oembedData.author_name ? `@${oembedData.author_name} on Instagram` : "Instagram Post"),
+                  image: oembedData.thumbnail_url,
+                };
+              }
+            }
+          } catch {}
+        }
+
+        // Instagram Engine Layer 3: Microlink Visual Engine Fallback
+        if (!metadataResult?.image) {
+          try {
+            const mlRes = await fetchWithTimeout(
+              `https://api.microlink.io/?url=${encodeURIComponent(targetUrl.toString())}`,
+              {},
+              3500
+            );
+            if (mlRes.ok) {
+              const mlData: any = await mlRes.json();
+              const mlImg = mlData.data?.image?.url || mlData.data?.logo?.url || "";
+              if (mlImg) {
+                metadataResult = {
+                  title: metadataResult?.title || cleanText(mlData.data?.title || (targetUrl.pathname.includes("/reel/") ? "Instagram Reel" : "Instagram Post")),
+                  description: metadataResult?.description || cleanText(mlData.data?.description || "Instagram Post"),
+                  image: mlImg,
+                };
+              }
+            }
+          } catch {}
         }
       } catch (igErr) {
         console.warn("[Instagram Scrape Adapter Error]:", igErr);
