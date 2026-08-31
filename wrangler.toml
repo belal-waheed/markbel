@@ -15,5 +15,3 @@ binding = "DB"
 database_name = "markbel-db"
 database_id = "2dd655d0-8119-43fa-ad51-5e466d6bdb7f"
 
-[vars]
-JWT_SECRET = "markbel-production-jwt-secret-replace-with-secret"

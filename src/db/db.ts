@@ -86,3 +86,18 @@ export class MarkbelDatabase extends Dexie {
 }
 
 export const db = new MarkbelDatabase();
+
+export async function clearAllLocalData(): Promise<void> {
+  await db.transaction('rw', [db.bookmarks, db.groups, db.syncOutbox, db.syncMetadata, db.appConfig], async () => {
+    await db.bookmarks.clear();
+    await db.groups.clear();
+    await db.syncOutbox.clear();
+    await db.syncMetadata.clear();
+    await db.appConfig.clear();
+  });
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('markbel_token');
+    localStorage.removeItem('markbel_user');
+    localStorage.removeItem('markbel_last_sync');
+  }
+}

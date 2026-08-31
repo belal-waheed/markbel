@@ -1,6 +1,6 @@
 {
   "packageId": "com.markbel.vault",
-  "host": "markbel.vercel.app",
+  "host": "mark.obel.workers.dev",
   "name": "Markbel",
   "launcherName": "Markbel",
   "themeColor": "#090d16",
@@ -8,8 +8,8 @@
   "backgroundColor": "#090d16",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://markbel.vercel.app/logo.png",
-  "maskableIconUrl": "https://markbel.vercel.app/logo.png",
+  "iconUrl": "https://mark.obel.workers.dev/logo.png",
+  "maskableIconUrl": "https://mark.obel.workers.dev/logo.png",
   "appVersionCode": 1,
   "appVersionName": "2.1.0",
   "shareTarget": {

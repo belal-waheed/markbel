@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -32,6 +32,19 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   const navigate = useNavigate()
   const { user, isGuest } = useAuth()
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      if (isSidebarOpen) {
+        document.body.style.overflow = 'hidden'
+      } else {
+        document.body.style.overflow = ''
+      }
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isSidebarOpen])
+
   const mergedGroups = useMemo(() => {
     const map = new Map<string, number>()
     dbGroups.forEach((g) => {
@@ -47,11 +60,21 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   }, [bookmarks, dbGroups])
 
   return (
-    <aside
-      className={`w-64 fixed md:static inset-y-0 left-0 z-50 flex flex-col transition-transform duration-300 ease-in-out border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)] ${
-        isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-      }`}
-    >
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300 ease-in-out cursor-pointer"
+          aria-label="Close sidebar overlay"
+        />
+      )}
+
+      <aside
+        className={`w-64 fixed md:static inset-y-0 left-0 z-50 flex flex-col transition-transform duration-300 ease-in-out border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)] shadow-2xl md:shadow-none ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
       <div className="p-4 flex items-center justify-between border-b border-[var(--color-border-default)]">
         <div className="flex items-center gap-3">
           <MarkbelLogo size={28} />
@@ -223,6 +246,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
         )}
       </div>
     </aside>
+    </>
   )
 }
 

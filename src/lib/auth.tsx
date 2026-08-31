@@ -75,22 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Silent background validation of user session
         const profile = await api.get<UserProfile>('/users/me')
-        setUser(profile)
-        localStorage.setItem('markbel_user', JSON.stringify(profile))
+        if (profile && profile.id) {
+          setUser(profile)
+          localStorage.setItem('markbel_user', JSON.stringify(profile))
+        }
         
-        await syncManager.registerDevice('web', '1.0.0')
+        await syncManager.registerDevice('web', '1.0.0').catch(() => {})
         syncManager.startPeriodicSync()
       } catch (err: any) {
-        if (err instanceof ApiError && err.status === 401) {
-          console.warn('[Auth] Session expired or invalid (401). Clearing credentials.')
-          localStorage.removeItem('markbel_token')
-          localStorage.removeItem('markbel_user')
-          setToken(null)
-          setUser(null)
-          sendTokenToNative(null)
-        } else {
-          console.warn('[Auth] Offline / network issue during profile verification. Retaining cached session:', err?.message || err)
-        }
+        console.warn('[Auth] Background profile verification notice:', err?.message || err)
+        // Keep cached token and user to maintain offline-first capability
       } finally {
         setLoading(false)
       }

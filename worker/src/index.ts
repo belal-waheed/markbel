@@ -113,7 +113,7 @@ const authMiddleware = async (c: any, next: any) => {
     return c.json({ error: "Missing authorization token" }, 401);
   }
 
-  const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
+  const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
   try {
     const payload = await verify(token, secret, "HS256");
     c.set("userId", (payload as any).id);
@@ -153,7 +153,7 @@ app.post("/api/users/signup", async (c) => {
       .bind(id, name, email.toLowerCase(), passwordHash, avatar || "", now)
       .run();
 
-    const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
+    const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
     const token = await sign({ id, email, exp }, secret, "HS256");
 
@@ -191,7 +191,7 @@ app.post("/api/users/login", async (c) => {
       return c.json({ error: "Invalid email or password" }, 401);
     }
 
-    const secret = c.env.JWT_SECRET || "markbel-edge-secret-key-2026";
+    const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
     const token = await sign({ id: user.id, email: user.email, exp }, secret, "HS256");
 

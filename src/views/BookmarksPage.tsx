@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, LocalBookmark } from "../db/db";
 import { syncManager } from "../db/SyncManager";
@@ -6,6 +6,7 @@ import { bookmarkRepository, groupRepository } from "../db/SyncRepository";
 import { useAuth } from "../lib/auth";
 import { useDebounce } from "../lib/useDebounce";
 import { useKeyboardShortcuts } from "../lib/useKeyboardShortcuts";
+import { useSwipeGesture } from "../lib/useSwipeGesture";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
@@ -14,11 +15,29 @@ import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
 import { GroupModal } from "../components/modals/GroupModal";
-import { Plus, Menu, RefreshCw, BookmarkX, X } from "lucide-react";
+import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
   const { logout, isGuest } = useAuth();
+
+  // Network Connectivity State
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncManager.sync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Reactive Dexie Live Queries
   const bookmarks =
@@ -55,6 +74,13 @@ export default function BookmarksPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Full-screen mobile swipe gestures
+  useSwipeGesture({
+    onSwipeRight: () => setIsSidebarOpen(true),
+    onSwipeLeft: () => setIsSidebarOpen(false),
+    minDistance: 45,
+  });
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -287,6 +313,14 @@ export default function BookmarksPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="bg-zinc-800 text-zinc-200 border-b border-zinc-700 px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-medium shrink-0">
+            <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>Offline Mode Active. Local changes will sync automatically when reconnected.</span>
+          </div>
+        )}
+
         {/* Guest Mode Notice Banner */}
         {isGuest && showGuestBanner && (
           <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 sm:px-6 flex items-center justify-between gap-3 text-xs shrink-0">
