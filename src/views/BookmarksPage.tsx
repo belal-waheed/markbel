@@ -7,6 +7,7 @@ import { useAuth } from "../lib/auth";
 import { useDebounce } from "../lib/useDebounce";
 import { useKeyboardShortcuts } from "../lib/useKeyboardShortcuts";
 import { useSwipeGesture } from "../lib/useSwipeGesture";
+import { useModalBackNavigation } from "../lib/useModalBackNavigation";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
@@ -27,15 +28,28 @@ export default function BookmarksPage() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      syncManager.sync();
+      syncManager.sync(true);
     };
     const handleOffline = () => setIsOnline(false);
+    const handleFocus = () => {
+      if (!document.hidden) {
+        syncManager.sync(true);
+      }
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    // Initial mount sync pull
+    syncManager.sync(true);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
     };
   }, []);
 
@@ -91,6 +105,16 @@ export default function BookmarksPage() {
     isOpen: boolean;
     initialName?: string;
   }>({ isOpen: false });
+
+  // Trap browser & Android Back button navigation when overlays are open
+  useModalBackNavigation([
+    { isOpen: Boolean(deletingBookmark), close: () => setDeletingBookmark(null) },
+    { isOpen: Boolean(archivingBookmark), close: () => setArchivingBookmark(null) },
+    { isOpen: groupModalState.isOpen, close: () => setGroupModalState({ isOpen: false }) },
+    { isOpen: Boolean(editingBookmark), close: () => setEditingBookmark(null) },
+    { isOpen: isAddModalOpen, close: () => setIsAddModalOpen(false) },
+    { isOpen: isSidebarOpen, close: () => setIsSidebarOpen(false) },
+  ]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -189,7 +213,7 @@ export default function BookmarksPage() {
   const triggerSync = async () => {
     setIsSyncing(true);
     try {
-      await syncManager.sync();
+      await syncManager.sync(true);
     } finally {
       setIsSyncing(false);
     }
@@ -202,7 +226,7 @@ export default function BookmarksPage() {
 
   const handleTogglePin = useCallback(async (b: LocalBookmark) => {
     await bookmarkRepository.update(b.id, { isPinned: !b.isPinned });
-    syncManager.sync();
+    syncManager.sync(true);
   }, []);
 
   const handleToggleRead = useCallback(async (b: LocalBookmark) => {
@@ -211,7 +235,7 @@ export default function BookmarksPage() {
       isRead,
       readAt: isRead ? new Date().toISOString() : "",
     });
-    syncManager.sync();
+    syncManager.sync(true);
   }, []);
 
   const handleAddBookmark = async (data: {
@@ -228,18 +252,18 @@ export default function BookmarksPage() {
       userId: user?.id || "local-user",
       ...data,
     });
-    syncManager.sync();
+    syncManager.sync(true);
   };
 
   const handleEditBookmark = async (id: string, updates: Partial<LocalBookmark>) => {
     await bookmarkRepository.update(id, updates);
-    syncManager.sync();
+    syncManager.sync(true);
   };
 
   const handleDeleteBookmark = async (id: string) => {
     await bookmarkRepository.delete(id);
     setDeletingBookmark(null);
-    syncManager.sync();
+    syncManager.sync(true);
   };
 
   const handleArchiveBookmark = async (id: string, archiveGroup?: string) => {
@@ -248,7 +272,7 @@ export default function BookmarksPage() {
       archiveGroup: archiveGroup || "",
     });
     setArchivingBookmark(null);
-    syncManager.sync();
+    syncManager.sync(true);
   };
 
   // Group Handlers
@@ -274,7 +298,7 @@ export default function BookmarksPage() {
         color: "blue",
       });
     }
-    syncManager.sync();
+    syncManager.sync(true);
   };
 
   const handleDeleteGroup = async (name: string, e: React.MouseEvent) => {
@@ -291,7 +315,7 @@ export default function BookmarksPage() {
       if (activeGroup === name) {
         setActiveGroup(null);
       }
-      syncManager.sync();
+      syncManager.sync(true);
     }
   };
 

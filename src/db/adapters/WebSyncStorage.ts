@@ -74,31 +74,100 @@ export class WebSyncStorage implements SyncStorage {
         
         if (change.operation === 'delete') {
           const localItem = await table.get(change.entityId);
+          const deleteTimestamp = change.deletedAt || new Date().toISOString();
+
           if (localItem) {
             await table.update(change.entityId, { 
-              deletedAt: change.deletedAt || new Date().toISOString(),
+              deletedAt: deleteTimestamp,
               version: change.version 
             } as any);
+          } else {
+            // Insert tombstone to prevent phantom resurrection
+            if (change.entityType === 'group') {
+              await db.groups.put({
+                id: change.entityId,
+                userId: 'remote-synced',
+                name: (change.payload as any)?.name || 'Deleted Group',
+                color: (change.payload as any)?.color || 'blue',
+                version: change.version,
+                createdAt: (change.payload as any)?.createdAt || deleteTimestamp,
+                updatedAt: (change.payload as any)?.updatedAt || deleteTimestamp,
+                deletedAt: deleteTimestamp,
+              } as any);
+            } else {
+              await db.bookmarks.put({
+                id: change.entityId,
+                userId: 'remote-synced',
+                title: (change.payload as any)?.title || 'Deleted Bookmark',
+                url: (change.payload as any)?.url || '',
+                description: (change.payload as any)?.description || '',
+                group: (change.payload as any)?.group || 'Unsorted',
+                isRead: false,
+                readAt: '',
+                isPinned: false,
+                remindAt: '',
+                isArchived: false,
+                archiveGroup: '',
+                version: change.version,
+                createdAt: (change.payload as any)?.createdAt || deleteTimestamp,
+                updatedAt: (change.payload as any)?.updatedAt || deleteTimestamp,
+                deletedAt: deleteTimestamp,
+              } as any);
+            }
           }
         } else if (change.operation === 'create' || change.operation === 'update') {
           const raw = change.payload || (change as any).record;
-          if (!raw) continue;
+          const localItem = await table.get(change.entityId);
+
+          if (!raw) {
+            if (localItem && change.version) {
+              await table.update(change.entityId, { version: change.version } as any);
+            }
+            continue;
+          }
+
+          // If local item was deleted and incoming change does not un-delete, preserve deletion
+          const rawDeletedAt = change.deletedAt || raw.deletedAt || raw.deleted_at || null;
+          const normalizedDeletedAt =
+            rawDeletedAt && typeof rawDeletedAt === 'string' && rawDeletedAt.trim() !== ''
+              ? rawDeletedAt
+              : (localItem?.deletedAt || null);
+
+          const isRead =
+            raw.isRead !== undefined
+              ? Boolean(raw.isRead)
+              : raw.is_read !== undefined
+              ? Boolean(raw.is_read)
+              : false;
+
+          const isPinned =
+            raw.isPinned !== undefined
+              ? Boolean(raw.isPinned)
+              : raw.is_pinned !== undefined
+              ? Boolean(raw.is_pinned)
+              : false;
+
+          const isArchived =
+            raw.isArchived !== undefined
+              ? Boolean(raw.isArchived)
+              : raw.is_archived !== undefined
+              ? Boolean(raw.is_archived)
+              : false;
 
           const data = {
             ...raw,
             group: raw.group || raw.group_name || 'Unsorted',
-            isRead: raw.isRead ?? (raw.is_read ? Boolean(raw.is_read) : false),
+            isRead,
             readAt: raw.readAt || raw.read_at || '',
-            isPinned: raw.isPinned ?? (raw.is_pinned ? Boolean(raw.is_pinned) : false),
+            isPinned,
             remindAt: raw.remindAt || raw.remind_at || '',
-            isArchived: raw.isArchived ?? (raw.is_archived ? Boolean(raw.is_archived) : false),
+            isArchived,
             archiveGroup: raw.archiveGroup || raw.archive_group || '',
             createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
             updatedAt: raw.updatedAt || raw.updated_at || new Date().toISOString(),
-            deletedAt: change.deletedAt || raw.deletedAt || raw.deleted_at || null
+            deletedAt: normalizedDeletedAt
           };
 
-          const localItem = await table.get(change.entityId);
           if (localItem) {
             // Update
             await table.update(change.entityId, {
@@ -114,7 +183,7 @@ export class WebSyncStorage implements SyncStorage {
               version: change.version,
               createdAt: data.createdAt || new Date().toISOString(),
               updatedAt: data.updatedAt || new Date().toISOString(),
-              deletedAt: null
+              deletedAt: normalizedDeletedAt
             } as any);
           }
         }

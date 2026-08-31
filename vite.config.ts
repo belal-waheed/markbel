@@ -38,6 +38,15 @@ export default defineConfig({
             url: 'url'
           }
         }
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/.*$/,
+            handler: 'NetworkOnly'
+          }
+        ]
       }
     })
   ],

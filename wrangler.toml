@@ -15,6 +15,10 @@ binding = "DB"
 database_name = "markbel-db"
 database_id = "2dd655d0-8119-43fa-ad51-5e466d6bdb7f"
 
+# Cloudflare Email Service Binding
+[[send_email]]
+name = "Mail_Pass"
+
 # Optional Upstash Redis & QStash configuration:
 # Run: npx wrangler secret put UPSTASH_REDIS_REST_URL
 # Run: npx wrangler secret put UPSTASH_REDIS_REST_TOKEN

@@ -19,7 +19,6 @@ export class WebEnvironment implements ConnectivityProvider, LifecycleProvider {
     };
   }
 
-  // LifecycleProvider
   subscribeForeground(callback: () => void): Unsubscribe {
     const handler = () => {
       if (!document.hidden) {
@@ -28,8 +27,10 @@ export class WebEnvironment implements ConnectivityProvider, LifecycleProvider {
     };
     
     document.addEventListener('visibilitychange', handler);
+    window.addEventListener('focus', handler);
     return () => {
       document.removeEventListener('visibilitychange', handler);
+      window.removeEventListener('focus', handler);
     };
   }
 

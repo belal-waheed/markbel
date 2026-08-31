@@ -1,12 +1,15 @@
 import {
+  AlertCircle,
   ArrowLeft,
   Bell,
   Check,
   CheckCircle,
   Clock,
   Copy,
+  KeyRound,
   Loader2,
   LogOut,
+  ShieldCheck,
   Sparkles,
   User as UserIcon,
 } from "lucide-react";
@@ -28,6 +31,50 @@ export default function SettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState("");
+
+  // Password Change State
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!currentPassword) {
+      setPasswordError("Please enter your current password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await api.post<{ success: boolean; message: string }>("/auth/change-password", {
+        currentPassword,
+        newPassword,
+      });
+      setPasswordSuccess(res.message || "Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(""), 5000);
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to update password. Please check your current password.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   // Check Push status
   useEffect(() => {
@@ -184,6 +231,98 @@ export default function SettingsPage() {
             </span>
           </div>
         </div>
+      </section>
+
+      {/* Security & Password Card */}
+      <section className="studio-card p-6 relative space-y-4">
+        <div className="flex items-center gap-2.5 border-b border-[var(--color-border-default)] pb-4">
+          <div className="w-7 h-7 bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center font-bold rounded">
+            <KeyRound className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+              Security & Password
+            </h3>
+            <p className="text-[11px] text-[var(--color-text-muted)]">
+              Update your account password
+            </p>
+          </div>
+        </div>
+
+        {passwordSuccess && (
+          <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+            <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+            <span>{passwordSuccess}</span>
+          </div>
+        )}
+
+        {passwordError && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{passwordError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handlePasswordChange} className="space-y-3.5 max-w-md">
+          <div>
+            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+              Current Password
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+              New Password (min 8 characters)
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+            />
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {passwordLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="w-4 h-4" />
+              )}
+              <span>Update Password</span>
+            </button>
+          </div>
+        </form>
       </section>
 
       {/* Web Push Notifications Card */}

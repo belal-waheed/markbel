@@ -19,6 +19,7 @@ export type Bindings = {
   CRON_SECRET?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
+  Mail_Pass?: any;
 };
 
 type Variables = {
@@ -240,6 +241,45 @@ app.get("/api/users/me", authMiddleware, async (c) => {
   });
 });
 
+app.post("/api/auth/change-password", authMiddleware, async (c) => {
+  try {
+    const userId = c.get("userId");
+    const { currentPassword, newPassword } = await c.req.json();
+
+    if (!currentPassword || !newPassword) {
+      return c.json({ error: "Current password and new password are required" }, 400);
+    }
+
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return c.json({ error: "New password must be at least 8 characters long" }, 400);
+    }
+
+    const user: any = await c.env.DB.prepare(
+      "SELECT id, password_hash FROM users WHERE id = ?"
+    )
+      .bind(userId)
+      .first();
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    const isValid = await verifyPassword(currentPassword, user.password_hash);
+    if (!isValid) {
+      return c.json({ error: "Current password is incorrect" }, 400);
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await c.env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+      .bind(newHash, userId)
+      .run();
+
+    return c.json({ success: true, message: "Password updated successfully" });
+  } catch (err: any) {
+    return c.json({ error: err.message || "Internal server error" }, 500);
+  }
+});
+
 app.post("/api/auth/forgot-password", async (c) => {
   try {
     const { email } = await c.req.json();
@@ -274,12 +314,48 @@ app.post("/api/auth/forgot-password", async (c) => {
       .bind(id, normalizedEmail, code, expiresAt, now)
       .run();
 
-    // If Resend API Key is configured, send email
-    const resendKey = c.env.RESEND_API_KEY;
     let emailDelivered = false;
     let resendNotice = "";
 
-    if (resendKey) {
+    // 1. Try Cloudflare Email Service Binding (Mail_Pass)
+    if (c.env.Mail_Pass) {
+      try {
+        const fromAddress = c.env.RESEND_FROM_EMAIL || "security@markbel.app";
+        const emailHtml = `<div style="font-family: sans-serif; padding: 20px; color: #111; max-width: 500px; margin: 0 auto; border: 1px solid #e4e4e7; border-radius: 8px;">
+          <h2 style="color: #0284c7;">Markbel Password Reset</h2>
+          <p>You requested a password reset for your Markbel account. Your 6-digit verification code is:</p>
+          <div style="background: #f4f4f5; padding: 15px; border-radius: 6px; text-align: center; margin: 20px 0;">
+            <span style="letter-spacing: 8px; color: #0284c7; font-size: 32px; font-weight: bold; font-family: monospace;">${code}</span>
+          </div>
+          <p style="color: #71717a; font-size: 13px;">This code will expire in 15 minutes. If you did not request this reset, you can safely ignore this email.</p>
+        </div>`;
+
+        const rawMime = buildRawMimeEmail(fromAddress, normalizedEmail, "Markbel Password Reset Code", emailHtml, code);
+
+        let emailPayload: any;
+        try {
+          const { EmailMessage } = await import("cloudflare:email");
+          emailPayload = new EmailMessage(fromAddress, normalizedEmail, rawMime);
+        } catch {
+          emailPayload = {
+            from: fromAddress,
+            to: normalizedEmail,
+            raw: rawMime,
+          };
+        }
+
+        if (typeof c.env.Mail_Pass.send === "function") {
+          await c.env.Mail_Pass.send(emailPayload);
+          emailDelivered = true;
+        }
+      } catch (cfEmailErr: any) {
+        console.warn("[Cloudflare Mail_Pass Notice]:", cfEmailErr?.message || cfEmailErr);
+      }
+    }
+
+    // 2. Try Resend API Key if not delivered yet
+    const resendKey = c.env.RESEND_API_KEY;
+    if (!emailDelivered && resendKey) {
       try {
         const fromAddress = c.env.RESEND_FROM_EMAIL || "Markbel Security <onboarding@resend.dev>";
         const resendRes = await fetch("https://api.resend.com/emails", {
@@ -499,17 +575,17 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
              WHERE id = ? AND user_id = ?`
           )
             .bind(
-              payload.title,
-              payload.url,
-              payload.description,
-              payload.image,
-              payload.group,
+              payload.title ?? null,
+              payload.url ?? null,
+              payload.description ?? null,
+              payload.image ?? null,
+              payload.group ?? null,
               payload.isRead !== undefined ? (payload.isRead ? 1 : 0) : null,
-              payload.readAt,
+              payload.readAt ?? null,
               payload.isPinned !== undefined ? (payload.isPinned ? 1 : 0) : null,
-              payload.remindAt,
+              payload.remindAt ?? null,
               payload.isArchived !== undefined ? (payload.isArchived ? 1 : 0) : null,
-              payload.archiveGroup,
+              payload.archiveGroup ?? null,
               newVersion,
               payload.updatedAt || now,
               entityId,
@@ -548,7 +624,14 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
           await c.env.DB.prepare(
             "UPDATE groups SET name = COALESCE(?, name), color = COALESCE(?, color), version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
           )
-            .bind(payload.name, payload.color, newVersion, payload.updatedAt || now, entityId, userId)
+            .bind(
+              payload.name ?? null,
+              payload.color ?? null,
+              newVersion,
+              payload.updatedAt || now,
+              entityId,
+              userId
+            )
             .run();
 
           // Cascade group rename to bookmarks in D1
@@ -760,6 +843,47 @@ function cleanText(str: string): string {
   return decodeHtmlEntities(str.replace(/\s+/g, " ").trim());
 }
 
+function buildRawMimeEmail(
+  from: string,
+  to: string,
+  subject: string,
+  html: string,
+  code: string
+): string {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+  const base64Html = btoa(unescape(encodeURIComponent(html)));
+  const base64Text = btoa(
+    unescape(
+      encodeURIComponent(
+        `Your Markbel verification code is: ${code}\n\nThis code expires in 15 minutes.`
+      )
+    )
+  );
+
+  return [
+    `From: Markbel Security <${from}>`,
+    `To: <${to}>`,
+    `Subject: ${encodedSubject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    base64Text,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    base64Html,
+    ``,
+    `--${boundary}--`,
+  ].join("\r\n");
+}
+
 function synthesizeMetadataFromUrl(targetUrl: URL): { title: string; description: string; image: string } {
   const rawSegments = targetUrl.pathname
     .split("/")
@@ -790,6 +914,176 @@ function synthesizeMetadataFromUrl(targetUrl: URL): { title: string; description
     description: `Saved link from ${targetUrl.hostname}`,
     image: faviconUrl,
   };
+}
+
+async function fetchAnimeMetadataFromAniList(
+  targetUrl: URL
+): Promise<{ title: string; description: string; image: string } | null> {
+  const hostname = targetUrl.hostname.toLowerCase();
+  const isAnimeSite =
+    hostname.includes("anime3rb.com") ||
+    hostname.includes("crunchyroll.com") ||
+    hostname.includes("gogoanime") ||
+    hostname.includes("aniwatch") ||
+    hostname.includes("animepahe") ||
+    hostname.includes("myanimelist.net") ||
+    hostname.includes("kitsu.io") ||
+    hostname.includes("9anime") ||
+    hostname.includes("anitaku") ||
+    hostname.includes("animedao") ||
+    hostname.includes("kickassanime") ||
+    targetUrl.pathname.includes("/episode/") ||
+    targetUrl.pathname.includes("/anime/");
+
+  if (!isAnimeSite) return null;
+
+  const pathParts = targetUrl.pathname.split("/").filter(Boolean);
+  let potentialTitle = "";
+  let episodeNum = "";
+
+  for (let i = 0; i < pathParts.length; i++) {
+    const part = decodeURIComponent(pathParts[i]).replace(/[-_+]/g, " ").trim();
+    if (/^\d+$/.test(part)) {
+      episodeNum = part;
+    } else if (
+      part.toLowerCase() !== "episode" &&
+      part.toLowerCase() !== "anime" &&
+      part.toLowerCase() !== "watch" &&
+      part.toLowerCase() !== "series" &&
+      part.length > 2
+    ) {
+      if (!potentialTitle) potentialTitle = part;
+    }
+  }
+
+  if (!potentialTitle) return null;
+
+    // 1. Try AniList GraphQL API
+    try {
+      const query = `
+        query ($search: String) {
+          Media(search: $search, type: ANIME) {
+            id
+            title {
+              english
+              romaji
+              native
+            }
+            coverImage {
+              extraLarge
+              large
+            }
+            bannerImage
+            description
+          }
+        }
+      `;
+
+      const res = await fetchWithTimeout(
+        "https://graphql.anilist.co",
+        {
+          method: "POST",
+          headers: {
+            "User-Agent": "MarkbelApp/2.1 (+https://markbel.app)",
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            query,
+            variables: { search: potentialTitle },
+          }),
+        },
+        4500
+      );
+
+      if (res.ok) {
+        const data: any = await res.json();
+        const media = data?.data?.Media;
+        if (media) {
+          const mainTitle =
+            media.title?.english || media.title?.romaji || media.title?.native || potentialTitle;
+          const titleWithEpisode = episodeNum
+            ? `${mainTitle} - Episode ${episodeNum}`
+            : mainTitle;
+
+          const cleanSynopsis = media.description
+            ? media.description
+                .replace(/<[^>]*>?/gm, "")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 320) + (media.description.length > 320 ? "..." : "")
+            : `Watch ${mainTitle} online.`;
+
+          const image =
+            media.coverImage?.extraLarge ||
+            media.coverImage?.large ||
+            media.bannerImage ||
+            "";
+
+          if (image) {
+            return {
+              title: cleanText(titleWithEpisode),
+              description: cleanText(cleanSynopsis),
+              image: image.trim(),
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[AniList GraphQL Fetch Error]:", err);
+    }
+
+    // 2. Try Kitsu REST API Fallback
+    try {
+      const kitsuRes = await fetchWithTimeout(
+        `https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(potentialTitle)}&page[limit]=1`,
+        {
+          headers: {
+            "User-Agent": "MarkbelApp/2.1 (+https://markbel.app)",
+            Accept: "application/vnd.api+json",
+            "Content-Type": "application/vnd.api+json",
+          },
+        },
+        4500
+      );
+
+      if (kitsuRes.ok) {
+        const kitsuData: any = await kitsuRes.json();
+        const anime = kitsuData.data?.[0];
+        if (anime && anime.attributes) {
+          const mainTitle = anime.attributes.canonicalTitle || potentialTitle;
+          const titleWithEpisode = episodeNum
+            ? `${mainTitle} - Episode ${episodeNum}`
+            : mainTitle;
+
+          const cleanSynopsis = anime.attributes.synopsis
+            ? anime.attributes.synopsis
+                .replace(/<[^>]*>?/gm, "")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 320) + (anime.attributes.synopsis.length > 320 ? "..." : "")
+            : `Watch ${mainTitle} online.`;
+
+          const image =
+            anime.attributes.posterImage?.large ||
+            anime.attributes.posterImage?.original ||
+            anime.attributes.coverImage?.large ||
+            "";
+
+          if (image) {
+            return {
+              title: cleanText(titleWithEpisode),
+              description: cleanText(cleanSynopsis),
+              image: image.trim(),
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[Kitsu REST Fetch Error]:", err);
+    }
+
+  return null;
 }
 
 app.get("/api/metadata", async (c) => {
@@ -950,7 +1244,118 @@ app.get("/api/metadata", async (c) => {
       } catch {}
     }
 
-    // 4. Standard Web Pages & Enhanced Multi-Source Scraper
+    // 4. GitHub Repository Adapter
+    if (!metadataResult && (hostname === "github.com" || hostname.endsWith(".github.com"))) {
+      const pathParts = targetUrl.pathname.split("/").filter(Boolean);
+      if (pathParts.length >= 2) {
+        const [owner, repo] = pathParts;
+        try {
+          const ghRes = await fetchWithTimeout(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            { headers: { "User-Agent": "MarkbelApp/2.1" } },
+            4000
+          );
+          if (ghRes.ok) {
+            const ghData: any = await ghRes.json();
+            metadataResult = {
+              title: `${owner}/${repo}: ${ghData.description || "GitHub Repository"}`,
+              description: ghData.description || `GitHub repository by ${owner}`,
+              image: `https://opengraph.githubassets.com/1/${owner}/${repo}`,
+            };
+          }
+        } catch {}
+      }
+    }
+
+    // 5. Wikipedia Article Adapter
+    if (!metadataResult && hostname.includes("wikipedia.org")) {
+      const pathParts = targetUrl.pathname.split("/wiki/").filter(Boolean);
+      if (pathParts.length >= 1) {
+        const titleKey = pathParts[pathParts.length - 1];
+        try {
+          const lang = hostname.split(".")[0] || "en";
+          const wikiRes = await fetchWithTimeout(
+            `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titleKey)}`,
+            { headers: { "User-Agent": "MarkbelApp/2.1" } },
+            4000
+          );
+          if (wikiRes.ok) {
+            const wikiData: any = await wikiRes.json();
+            metadataResult = {
+              title: wikiData.title || titleKey,
+              description: wikiData.extract ? wikiData.extract.slice(0, 350) : "Wikipedia Article",
+              image: wikiData.originalimage?.source || wikiData.thumbnail?.source || "",
+            };
+          }
+        } catch {}
+      }
+    }
+
+    // 6. Reddit Post Adapter
+    if (!metadataResult && hostname.includes("reddit.com")) {
+      try {
+        const jsonUrl = targetUrl.pathname.endsWith(".json")
+          ? targetUrl.toString()
+          : `${targetUrl.origin}${targetUrl.pathname.replace(/\/$/, "")}.json`;
+        const redditRes = await fetchWithTimeout(
+          jsonUrl,
+          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Markbel/2.1" } },
+          4000
+        );
+        if (redditRes.ok) {
+          const redditData: any = await redditRes.json();
+          const post = redditData?.[0]?.data?.children?.[0]?.data;
+          if (post) {
+            let rImage = "";
+            if (post.preview?.images?.[0]?.source?.url) {
+              rImage = post.preview.images[0].source.url.replace(/&amp;/g, "&");
+            } else if (post.thumbnail && post.thumbnail.startsWith("http")) {
+              rImage = post.thumbnail;
+            }
+            metadataResult = {
+              title: post.title ? cleanText(post.title) : `Reddit Post`,
+              description: post.selftext
+                ? cleanText(post.selftext).slice(0, 350)
+                : `Reddit post in r/${post.subreddit} by u/${post.author}`,
+              image: rImage,
+            };
+          }
+        }
+      } catch {}
+    }
+
+    // 7. Spotify Adapter
+    if (!metadataResult && hostname.includes("spotify.com")) {
+      try {
+        const spotifyRes = await fetchWithTimeout(
+          `https://open.spotify.com/oembed?url=${encodeURIComponent(targetUrl.toString())}`,
+          {},
+          4000
+        );
+        if (spotifyRes.ok) {
+          const spotifyData: any = await spotifyRes.json();
+          metadataResult = {
+            title: cleanText(spotifyData.title || "Spotify"),
+            description: spotifyData.author_name
+              ? `By ${spotifyData.author_name} on Spotify`
+              : "Listen on Spotify",
+            image: spotifyData.thumbnail_url || "",
+          };
+        }
+      } catch {}
+    }
+
+    // 8. Anime & Manga Dedicated Adapter (AniList GraphQL Engine)
+    if (!metadataResult) {
+      try {
+        const animeMeta = await fetchAnimeMetadataFromAniList(targetUrl);
+        if (animeMeta && (animeMeta.image || animeMeta.description)) {
+          metadataResult = animeMeta;
+        }
+      } catch {}
+    }
+
+    // 9. Standard Web Pages & Enhanced Multi-Source Scraper
     if (!metadataResult) {
       try {
         let response = await fetchWithTimeout(
@@ -1038,11 +1443,13 @@ app.get("/api/metadata", async (c) => {
             image =
               $('meta[property="og:image"]').attr("content") ||
               $('meta[property="og:image:secure_url"]').attr("content") ||
+              $('meta[property="og:image:url"]').attr("content") ||
               $('meta[name="og:image"]').attr("content") ||
               $('meta[name="twitter:image"]').attr("content") ||
               $('meta[name="twitter:image:src"]').attr("content") ||
               $('meta[itemprop="image"]').attr("content") ||
               $('link[rel="image_src"]').attr("href") ||
+              $('link[rel="apple-touch-icon"]').attr("href") ||
               "";
           }
 
@@ -1063,7 +1470,9 @@ app.get("/api/metadata", async (c) => {
 
           // D. Fallback: High Quality Image on Page
           if (!image) {
-            $("article img, main img, .content img, img").each((_, el) => {
+            $(
+              "article img, main img, figure img, [class*='cover'] img, [class*='poster'] img, [class*='thumbnail'] img, [class*='featured'] img, .content img, img"
+            ).each((_, el) => {
               if (image) return;
               const src =
                 $(el).attr("src") ||
@@ -1076,6 +1485,7 @@ app.get("/api/metadata", async (c) => {
                 !src.includes("logo") &&
                 !src.includes("icon") &&
                 !src.includes("pixel") &&
+                !src.includes("badge") &&
                 !src.endsWith(".svg")
               ) {
                 const firstSrc = src.split(",")[0].trim().split(" ")[0];
@@ -1108,9 +1518,41 @@ app.get("/api/metadata", async (c) => {
       } catch {}
     }
 
+    // 10. Anti-Bot / Headless Cloud Renderer Fallback (Microlink API)
+    if (!metadataResult || !metadataResult.image) {
+      try {
+        const microlinkRes = await fetchWithTimeout(
+          `https://api.microlink.io?url=${encodeURIComponent(targetUrl.toString())}`,
+          { headers: { "User-Agent": "MarkbelApp/2.1" } },
+          4500
+        );
+        if (microlinkRes.ok) {
+          const mlData: any = await microlinkRes.json();
+          if (mlData?.status === "success" && mlData?.data) {
+            const ml = mlData.data;
+            const mlImage = ml.image?.url || ml.logo?.url || "";
+            const mlTitle = ml.title || (metadataResult ? metadataResult.title : "");
+            const mlDesc = ml.description || (metadataResult ? metadataResult.description : "");
+            if (mlImage || mlTitle) {
+              metadataResult = {
+                title: cleanText(mlTitle) || (metadataResult?.title || targetUrl.hostname),
+                description: cleanText(mlDesc).slice(0, 350) || (metadataResult?.description || ""),
+                image: mlImage || (metadataResult?.image || ""),
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
     // Smart fallback if anti-bot/CAPTCHA blocked live scraping
     if (!metadataResult) {
       metadataResult = synthesizeMetadataFromUrl(targetUrl);
+    }
+
+    // Always ensure high-res favicon if image is still missing
+    if (metadataResult && !metadataResult.image) {
+      metadataResult.image = `https://www.google.com/s2/favicons?domain=${targetUrl.hostname}&sz=128`;
     }
 
     // Only cache high-quality results in Redis (NEVER cache empty/failed fallback results)

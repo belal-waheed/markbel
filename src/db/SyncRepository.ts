@@ -130,10 +130,30 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
           version
         } as LocalBookmark);
       } else if (operation === 'delete') {
+        const deleteTimestamp = deletedAt || new Date().toISOString();
         if (existing) {
-          existing.deletedAt = deletedAt || new Date().toISOString();
+          existing.deletedAt = deleteTimestamp;
           existing.version = version;
           await db.bookmarks.put(existing);
+        } else {
+          await db.bookmarks.put({
+            id: record.id,
+            userId: record.userId || 'remote-synced',
+            title: record.title || 'Deleted Bookmark',
+            url: record.url || '',
+            description: '',
+            group: 'Unsorted',
+            isRead: false,
+            readAt: '',
+            isPinned: false,
+            remindAt: '',
+            isArchived: false,
+            archiveGroup: '',
+            version,
+            createdAt: record.createdAt || deleteTimestamp,
+            updatedAt: record.updatedAt || deleteTimestamp,
+            deletedAt: deleteTimestamp
+          } as LocalBookmark);
         }
       }
     });
@@ -271,10 +291,22 @@ export class GroupRepository implements SyncRepository<LocalGroup> {
           version
         } as LocalGroup);
       } else if (operation === 'delete') {
+        const deleteTimestamp = deletedAt || new Date().toISOString();
         if (existing) {
-          existing.deletedAt = deletedAt || new Date().toISOString();
+          existing.deletedAt = deleteTimestamp;
           existing.version = version;
           await db.groups.put(existing);
+        } else {
+          await db.groups.put({
+            id: record.id,
+            userId: record.userId || 'remote-synced',
+            name: record.name || 'Deleted Group',
+            color: record.color || 'blue',
+            version,
+            createdAt: record.createdAt || deleteTimestamp,
+            updatedAt: record.updatedAt || deleteTimestamp,
+            deletedAt: deleteTimestamp
+          } as LocalGroup);
         }
       }
     });

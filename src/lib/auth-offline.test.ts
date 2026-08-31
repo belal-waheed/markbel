@@ -76,4 +76,18 @@ describe('Auth Offline & Session Resilience', () => {
     const removedToken = await storage.getAuthToken()
     expect(removedToken).toBeNull()
   })
+
+  it('validates password minimum length and 6-digit numeric verification code formatting', () => {
+    // Password validation
+    const isStrongPassword = (pwd: string) => typeof pwd === 'string' && pwd.length >= 8
+    expect(isStrongPassword('short')).toBe(false)
+    expect(isStrongPassword('validPass123')).toBe(true)
+
+    // Numeric verification code formatting (sanitizes accidental letters/usernames)
+    const sanitizeCode = (input: string) => input.replace(/[^0-9]/g, '').slice(0, 6)
+    expect(sanitizeCode('belwah')).toBe('')
+    expect(sanitizeCode('123456')).toBe('123456')
+    expect(sanitizeCode('abc-988-912-xyz')).toBe('988912')
+    expect(sanitizeCode('123456789')).toBe('123456')
+  })
 })

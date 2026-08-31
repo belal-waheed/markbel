@@ -44,14 +44,12 @@ export default function LoginPage() {
           '/auth/forgot-password',
           { email }
         )
-        if (res.devCode) {
-          setResetCode(res.devCode)
-        }
+        setResetCode('')
         setSuccessMessage(
           res.emailDelivered
-            ? `Verification code sent to ${email}. Please check your email inbox.`
+            ? `A 6-digit verification code was sent to ${email}. Please check your email inbox.`
             : res.devCode
-            ? `Verification code generated: ${res.devCode}`
+            ? `Resend Free Sandbox: Testing code is ${res.devCode} (to send real emails to non-owner addresses, verify a domain in Resend).`
             : 'If an account exists, a 6-digit verification code has been sent.'
         )
         setMode('forgot_reset')
@@ -170,11 +168,11 @@ export default function LoginPage() {
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    placeholder="123456"
+                    placeholder="· · · · · ·"
                     value={resetCode}
                     maxLength={6}
                     onChange={(e) => setResetCode(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm tracking-widest font-mono font-bold text-center"
+                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm tracking-widest font-mono font-bold text-center placeholder:font-normal placeholder:tracking-widest placeholder:text-gray-300 dark:placeholder:text-gray-600"
                     required
                   />
                 </div>

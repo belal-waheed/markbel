@@ -28,6 +28,7 @@ export class SyncManager {
   private unsubOnline: Unsubscribe | null = null;
   private unsubForeground: Unsubscribe | null = null;
   private _releaseLock: (() => void) | null = null;
+  private channel: BroadcastChannel | null = null;
 
   // Metrics
   public metrics = {
@@ -46,6 +47,21 @@ export class SyncManager {
     this.connectivity = config.connectivity;
     this.lifecycle = config.lifecycle;
     this.apiClient = config.apiClient;
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.channel = new BroadcastChannel('markbel-sync-channel');
+        this.channel.onmessage = (event) => {
+          if (event.data?.type === 'SYNC_REQUESTED') {
+            if (this.isLeader) {
+              this.sync(false);
+            }
+          } else if (event.data?.type === 'SYNC_COMPLETED') {
+            this.setState(this.state, { timestamp: event.data?.timestamp });
+          }
+        };
+      } catch {}
+    }
   }
   
   public get leaderStatus() {
@@ -146,7 +162,15 @@ export class SyncManager {
   // -------------------------------------------------------------
   async sync(isForce = false) {
     if (this.isPaused && !isForce) return;
-    if (this.isSyncing || !this.isLeader) return;
+    if (this.isSyncing || (!this.isLeader && !isForce)) {
+      // If we are a follower tab and a sync is requested, notify the leader tab
+      if (!this.isLeader && !isForce && this.channel) {
+        try {
+          this.channel.postMessage({ type: 'SYNC_REQUESTED', timestamp: Date.now() });
+        } catch {}
+      }
+      return;
+    }
     
     if (!(await this.connectivity.isOnline())) {
       this.setState(SyncState.Offline);
@@ -232,6 +256,11 @@ export class SyncManager {
       this.metrics.lastError = null;
 
       this.setState(SyncState.Idle);
+      if (this.channel) {
+        try {
+          this.channel.postMessage({ type: 'SYNC_COMPLETED', timestamp: Date.now() });
+        } catch {}
+      }
       
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -430,5 +459,12 @@ export class SyncManager {
       this._releaseLock();
     }
     this.isLeader = false;
+
+    if (this.channel) {
+      try {
+        this.channel.close();
+      } catch {}
+      this.channel = null;
+    }
   }
 }

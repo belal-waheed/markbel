@@ -80,13 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(profile)
           localStorage.setItem('markbel_user', JSON.stringify(profile))
         }
-        
-        await syncManager.registerDevice('web', '1.0.0').catch(() => {})
-        syncManager.startPeriodicSync()
       } catch (err: any) {
         console.warn('[Auth] Background profile verification notice:', err?.message || err)
         // Keep cached token and user to maintain offline-first capability
       } finally {
+        await syncManager.registerDevice('web', '1.0.0').catch(() => {})
+        syncManager.startPeriodicSync()
+        syncManager.sync(true).catch(() => {})
         setLoading(false)
       }
     }
