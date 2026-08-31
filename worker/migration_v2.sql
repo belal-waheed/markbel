@@ -1,0 +1,9 @@
+ALTER TABLE bookmarks ADD COLUMN favicon TEXT DEFAULT '';
+ALTER TABLE bookmarks ADD COLUMN site_name TEXT DEFAULT '';
+ALTER TABLE bookmarks ADD COLUMN author TEXT DEFAULT '';
+ALTER TABLE bookmarks ADD COLUMN published_at TEXT DEFAULT '';
+ALTER TABLE bookmarks ADD COLUMN content_type TEXT DEFAULT 'website';
+ALTER TABLE bookmarks ADD COLUMN reading_time INTEGER DEFAULT 0;
+ALTER TABLE bookmarks ADD COLUMN word_count INTEGER DEFAULT 0;
+ALTER TABLE bookmarks ADD COLUMN canonical_url TEXT DEFAULT '';
+ALTER TABLE bookmarks ADD COLUMN article_content TEXT DEFAULT '';
