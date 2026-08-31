@@ -1,0 +1,35 @@
+# Markbel
+
+> Markbel is an open-source, offline-first bookmark manager and rich media archiver built with React 19, Cloudflare Workers, Cloudflare D1 SQLite, and Dexie.js IndexedDB.
+
+## Core Capabilities
+- Offline-First Storage: Instant read/write locally using Dexie.js IndexedDB without mandatory authentication.
+- Cloud Delta Sync: Bi-directional delta synchronization using Last-Write-Wins (LWW) resolution on Cloudflare D1 SQLite.
+- Rich Media Scraper: Automated metadata extraction for YouTube Shorts, YouTube Videos, TikTok, and Twitter/X via official oEmbed endpoints.
+- Mobile Dual View: Responsive 2-column mobile grid and compact horizontal list view switcher.
+- Web Share Target: PWA `/share` endpoint to capture links directly from Android and mobile share sheets.
+- Resilient Authentication: Local token caching preventing refresh logouts, 6-digit email password reset flow, and password visibility toggles.
+
+## Tech Stack
+- Frontend: React 19, TypeScript, Tailwind CSS v4, Vite 6, Lucide React, Framer Motion
+- Local Database: Dexie.js 4 (IndexedDB)
+- Edge Backend: Cloudflare Workers, Hono, WebCrypto PBKDF2/JWT
+- Cloud Database: Cloudflare D1 (Serverless SQLite)
+- Service Worker: Vite Plugin PWA, Workbox
+
+## Key File Locations
+- Frontend Entry: `src/App.tsx`, `src/views/BookmarksPage.tsx`
+- Local Database: `src/db/db.ts`, `src/db/SyncManager.ts`, `src/db/SyncRepository.ts`
+- Cloudflare Worker: `worker/src/index.ts`, `worker/schema.sql`
+- Mobile Share Target: `src/views/ShareTargetPage.tsx`
+- Filter & Layout Controls: `src/components/BookmarkFilterBar.tsx`, `src/components/BookmarkCard.tsx`
+
+## API Endpoints
+- `GET /api/health` - Worker healthcheck
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login & JWT issuance
+- `POST /api/auth/forgot-password` - Request 6-digit password reset code
+- `POST /api/auth/reset-password` - Verify code and reset password
+- `GET /api/sync/pull?since={sequence}` - Delta pull changes
+- `POST /api/sync/push` - Delta push changes
+- `GET /api/metadata?url={url}` - Extract rich media metadata (YouTube, TikTok, Twitter, OpenGraph)

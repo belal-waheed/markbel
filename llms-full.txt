@@ -1,0 +1,34 @@
+# Markbel - Full System Specification & Architecture Manual
+
+## 1. Overview
+Markbel is a local-first, offline-capable bookmark management application designed for high performance, zero-latency local operations, and global edge synchronization.
+
+## 2. Data Architecture
+
+### Client Schema (Dexie.js IndexedDB)
+- `bookmarks`: Stores local bookmark entities (`id`, `userId`, `url`, `title`, `description`, `image`, `group`, `isRead`, `isPinned`, `isArchived`, `archiveGroup`, `remindAt`, `readAt`, `createdAt`, `updatedAt`, `deletedAt`).
+- `groups`: Stores custom category groups (`id`, `userId`, `name`, `color`, `createdAt`, `updatedAt`, `deletedAt`).
+- `syncQueue`: Local mutation queue storing offline operations (`id`, `entity`, `action`, `data`, `timestamp`).
+
+### Server Schema (Cloudflare D1 SQLite)
+- `users`: User identity table (`id`, `email`, `password`, `name`, `created_at`, `updated_at`).
+- `bookmarks`: Cloud bookmark replicas.
+- `groups`: Cloud group replicas.
+- `sync_changes`: Append-only change log storing incremental mutations (`id`, `user_id`, `entity`, `action`, `entity_id`, `data`, `sequence`, `created_at`).
+- `password_resets`: Temporary 6-digit verification codes (`id`, `email`, `token`, `expires_at`, `created_at`).
+
+## 3. Synchronization Protocol
+1. **Push Phase**: Client sends batched local mutations to `POST /api/sync/push`. The server writes entities inside a D1 transaction and records change events in `sync_changes` with monotonically increasing integer sequence numbers.
+2. **Pull Phase**: Client queries `GET /api/sync/pull?since={lastSequence}`. The server returns all changes logged after `lastSequence`.
+3. **Conflict Resolution**: Client applies Last-Write-Wins (LWW) comparisons between incoming `updatedAt` timestamps and local records.
+
+## 4. Metadata Engine
+When a URL is submitted, the metadata engine inspects the domain:
+- **YouTube**: Parses video IDs across `/watch`, `youtu.be/`, and `/shorts/`. Invokes YouTube oEmbed API (`https://www.youtube.com/oembed`) and generates `https://img.youtube.com/vi/{id}/hqdefault.jpg`.
+- **TikTok**: Queries `https://www.tiktok.com/oembed?url=...` for author names and video poster thumbnails.
+- **Twitter / X**: Queries `https://publish.twitter.com/oembed?url=...` for tweet excerpts and author handles.
+- **OpenGraph**: Scrapes `og:title`, `og:description`, and `og:image` with strict timeouts and HTML entity decoding.
+
+## 5. Security & Edge Configuration
+- Authentication: Stateless JWT signed via WebCrypto HMAC-SHA256. Passwords hashed using PBKDF2 with SHA-256 and unique salt per user.
+- CORS & Rate Limiting: Strict origin policies and IP-based rate limiting on sensitive auth endpoints.
