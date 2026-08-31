@@ -866,12 +866,11 @@ app.get(
   },
 );
 
-// Start server local
-if (!process.env.VERCEL) {
+// Start server
+if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`[Markbel Server] Running on http://localhost:${PORT}`);
   });
 }
 
-// vercel
 export default app;
