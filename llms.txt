@@ -3,33 +3,42 @@
 > Markbel is an open-source, offline-first bookmark manager and rich media archiver built with React 19, Cloudflare Workers, Cloudflare D1 SQLite, and Dexie.js IndexedDB.
 
 ## Core Capabilities
-- Offline-First Storage: Instant read/write locally using Dexie.js IndexedDB without mandatory authentication.
-- Cloud Delta Sync: Bi-directional delta synchronization using Last-Write-Wins (LWW) resolution on Cloudflare D1 SQLite.
-- Rich Media Scraper: Automated metadata extraction for YouTube Shorts, YouTube Videos, TikTok, and Twitter/X via official oEmbed endpoints.
-- Mobile Dual View: Responsive 2-column mobile grid and compact horizontal list view switcher.
-- Web Share Target: PWA `/share` endpoint to capture links directly from Android and mobile share sheets.
-- Resilient Authentication: Local token caching preventing refresh logouts, 6-digit email password reset flow, and password visibility toggles.
+- **Offline-First Storage**: Instant local read/write execution using Dexie.js IndexedDB with zero mandatory login.
+- **Bi-Directional Delta Sync**: Append-only change log synchronization on Cloudflare D1 SQLite with Last-Write-Wins (LWW) conflict resolution.
+- **Rich Media Extraction**: Edge-based oEmbed metadata scraper supporting YouTube Shorts, YouTube Videos, TikTok, and Twitter/X.
+- **Mobile Dual-View UI**: Fast switching between a responsive 2-column mobile card grid and a compact 56px list row layout.
+- **PWA Web Share Target**: Native share sheet handler (`/share`) to capture URLs directly from mobile operating systems.
+- **Resilient Authentication**: Non-destructive token caching, offline session survival, and 6-digit email password reset flow.
 
-## Tech Stack
-- Frontend: React 19, TypeScript, Tailwind CSS v4, Vite 6, Lucide React, Framer Motion
-- Local Database: Dexie.js 4 (IndexedDB)
-- Edge Backend: Cloudflare Workers, Hono, WebCrypto PBKDF2/JWT
-- Cloud Database: Cloudflare D1 (Serverless SQLite)
-- Service Worker: Vite Plugin PWA, Workbox
+## Technology Stack
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Vite 6, Lucide React, Framer Motion
+- **Local Storage Engine**: Dexie.js 4 (IndexedDB with live reactive queries)
+- **Edge Backend**: Cloudflare Workers, Hono, WebCrypto (PBKDF2 / HMAC-SHA256 JWT)
+- **Cloud Database**: Cloudflare D1 (Serverless SQLite)
+- **PWA & Caching**: Vite Plugin PWA, Workbox
 
-## Key File Locations
-- Frontend Entry: `src/App.tsx`, `src/views/BookmarksPage.tsx`
-- Local Database: `src/db/db.ts`, `src/db/SyncManager.ts`, `src/db/SyncRepository.ts`
-- Cloudflare Worker: `worker/src/index.ts`, `worker/schema.sql`
-- Mobile Share Target: `src/views/ShareTargetPage.tsx`
-- Filter & Layout Controls: `src/components/BookmarkFilterBar.tsx`, `src/components/BookmarkCard.tsx`
+## Key Project Directories
+- `src/App.tsx`: Main application router and state initializer
+- `src/views/BookmarksPage.tsx`: Primary bookmark feed, dual view grid/list layout, filtering, and search
+- `src/views/ShareTargetPage.tsx`: PWA Web Share Target receiver and processor
+- `src/db/db.ts`: Dexie.js database schema and table definitions
+- `src/db/SyncManager.ts`: Client synchronization engine and outbox scheduler
+- `src/sync/SyncLWW.ts`: Last-Write-Wins conflict resolution implementation
+- `src/sync/GuestMigration.ts`: Guest-to-authenticated account bookmark transfer
+- `worker/src/index.ts`: Cloudflare Workers edge router and API endpoints
+- `worker/schema.sql`: Authoritative Cloudflare D1 SQLite schema
 
-## API Endpoints
-- `GET /api/health` - Worker healthcheck
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login & JWT issuance
-- `POST /api/auth/forgot-password` - Request 6-digit password reset code
-- `POST /api/auth/reset-password` - Verify code and reset password
-- `GET /api/sync/pull?since={sequence}` - Delta pull changes
-- `POST /api/sync/push` - Delta push changes
-- `GET /api/metadata?url={url}` - Extract rich media metadata (YouTube, TikTok, Twitter, OpenGraph)
+## Primary API Endpoints
+- `GET /api/health` - Healthcheck endpoint
+- `POST /api/auth/register` - User account registration
+- `POST /api/auth/login` - User login and JWT issuance
+- `POST /api/auth/forgot-password` - Request 6-digit password reset verification code
+- `POST /api/auth/reset-password` - Verify code and reset account password
+- `GET /api/sync/pull?since={sequence}` - Delta pull mutations occurring after sequence cursor
+- `POST /api/sync/push` - Delta push batched local outbox mutations
+- `GET /api/metadata?url={url}` - Extract metadata and oEmbed assets for arbitrary URL
+
+## Synchronization Protocol Summary
+1. **Push**: Client sends queued mutations from IndexedDB outbox to `POST /api/sync/push`. The server records entities into D1 SQLite and writes rows to `sync_changes` with monotonic sequence IDs.
+2. **Pull**: Client requests `GET /api/sync/pull?since={lastSequence}` to retrieve mutations logged after `lastSequence`.
+3. **Reconciliation**: Client compares remote `updatedAt` with local record timestamps, applying Last-Write-Wins rules.

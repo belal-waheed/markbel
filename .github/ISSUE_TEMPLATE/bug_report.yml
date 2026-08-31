@@ -1,0 +1,49 @@
+name: Bug Report
+description: File a bug report to help us improve Markbel
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue. Please provide as much detail as possible.
+  - type: input
+    id: version
+    attributes:
+      label: Markbel Version / Environment
+      description: What version or deployment environment (e.g. mark.obel.workers.dev, local dev, PWA on Android) are you using?
+      placeholder: "e.g., mark.obel.workers.dev / Chrome 128 Android"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: A bug occurs when...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this behavior?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console Logs / Screenshots
+      description: Paste any browser console errors or network logs here.

@@ -1,34 +1,190 @@
 # Markbel - Full System Specification & Architecture Manual
 
-## 1. Overview
-Markbel is a local-first, offline-capable bookmark management application designed for high performance, zero-latency local operations, and global edge synchronization.
+## 1. System Overview
+Markbel is an open-source, local-first, offline-capable bookmark management and rich media archiving platform. It provides sub-millisecond local database interactions using Dexie.js (IndexedDB) and edge-based synchronization over Cloudflare Workers and Cloudflare D1 SQLite.
 
-## 2. Data Architecture
+---
 
-### Client Schema (Dexie.js IndexedDB)
-- `bookmarks`: Stores local bookmark entities (`id`, `userId`, `url`, `title`, `description`, `image`, `group`, `isRead`, `isPinned`, `isArchived`, `archiveGroup`, `remindAt`, `readAt`, `createdAt`, `updatedAt`, `deletedAt`).
-- `groups`: Stores custom category groups (`id`, `userId`, `name`, `color`, `createdAt`, `updatedAt`, `deletedAt`).
-- `syncQueue`: Local mutation queue storing offline operations (`id`, `entity`, `action`, `data`, `timestamp`).
+## 2. Database Schemas
 
-### Server Schema (Cloudflare D1 SQLite)
-- `users`: User identity table (`id`, `email`, `password`, `name`, `created_at`, `updated_at`).
-- `bookmarks`: Cloud bookmark replicas.
-- `groups`: Cloud group replicas.
-- `sync_changes`: Append-only change log storing incremental mutations (`id`, `user_id`, `entity`, `action`, `entity_id`, `data`, `sequence`, `created_at`).
-- `password_resets`: Temporary 6-digit verification codes (`id`, `email`, `token`, `expires_at`, `created_at`).
+### 2.1 Client Schema (Dexie.js IndexedDB)
+```typescript
+interface Bookmark {
+  id: string;              // Primary key (UUID v4 or nanoid)
+  userId: string;          // Account ID or 'guest'
+  url: string;             // Target URL
+  title: string;           // Bookmark title
+  description?: string;    // Extracted description or user note
+  image?: string;          // Extracted thumbnail or poster URL
+  group?: string;          // Group category ID or name
+  isRead: boolean;         // Read/Unread flag
+  isPinned: boolean;       // Pinned priority flag
+  isArchived: boolean;     // Archive status flag
+  archiveGroup?: string;   // Optional archive bucket
+  remindAt?: string;       // ISO 8601 reminder timestamp
+  readAt?: string;         // ISO 8601 read timestamp
+  createdAt: string;       // ISO 8601 creation timestamp
+  updatedAt: string;       // ISO 8601 mutation timestamp (used in LWW)
+  deletedAt?: string;      // Soft delete timestamp
+}
+
+interface Group {
+  id: string;              // Primary key
+  userId: string;          // Account ID or 'guest'
+  name: string;            // Group display name
+  color: string;           // Group accent color hex or token
+  createdAt: string;       // ISO 8601 creation timestamp
+  updatedAt: string;       // ISO 8601 mutation timestamp
+  deletedAt?: string;      // Soft delete timestamp
+}
+
+interface SyncQueueItem {
+  id: string;              // Local outbox mutation ID
+  entity: 'bookmark' | 'group';
+  action: 'create' | 'update' | 'delete';
+  entityId: string;
+  data: Partial<Bookmark | Group>;
+  timestamp: string;       // ISO 8601 timestamp
+}
+```
+
+### 2.2 Server Schema (Cloudflare D1 SQLite)
+```sql
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  name TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  image TEXT,
+  "group" TEXT,
+  is_read INTEGER DEFAULT 0,
+  is_pinned INTEGER DEFAULT 0,
+  is_archived INTEGER DEFAULT 0,
+  archive_group TEXT,
+  remind_at TEXT,
+  read_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS sync_changes (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  entity TEXT NOT NULL,
+  action TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  data TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence);
+```
+
+---
 
 ## 3. Synchronization Protocol
-1. **Push Phase**: Client sends batched local mutations to `POST /api/sync/push`. The server writes entities inside a D1 transaction and records change events in `sync_changes` with monotonically increasing integer sequence numbers.
-2. **Pull Phase**: Client queries `GET /api/sync/pull?since={lastSequence}`. The server returns all changes logged after `lastSequence`.
-3. **Conflict Resolution**: Client applies Last-Write-Wins (LWW) comparisons between incoming `updatedAt` timestamps and local records.
 
-## 4. Metadata Engine
-When a URL is submitted, the metadata engine inspects the domain:
-- **YouTube**: Parses video IDs across `/watch`, `youtu.be/`, and `/shorts/`. Invokes YouTube oEmbed API (`https://www.youtube.com/oembed`) and generates `https://img.youtube.com/vi/{id}/hqdefault.jpg`.
-- **TikTok**: Queries `https://www.tiktok.com/oembed?url=...` for author names and video poster thumbnails.
-- **Twitter / X**: Queries `https://publish.twitter.com/oembed?url=...` for tweet excerpts and author handles.
-- **OpenGraph**: Scrapes `og:title`, `og:description`, and `og:image` with strict timeouts and HTML entity decoding.
+### 3.1 Push Protocol
+- **Endpoint**: `POST /api/sync/push`
+- **Headers**: `Authorization: Bearer <JWT>`
+- **Request Body**:
+```json
+{
+  "changes": [
+    {
+      "id": "outbox_101",
+      "entity": "bookmark",
+      "action": "create",
+      "entityId": "bmk_abc123",
+      "data": {
+        "url": "https://example.com",
+        "title": "Example Title",
+        "updatedAt": "2026-08-31T12:00:00.000Z"
+      }
+    }
+  ]
+}
+```
+- **Response Body**:
+```json
+{
+  "success": true,
+  "synced": ["outbox_101"],
+  "latestSequence": 42
+}
+```
 
-## 5. Security & Edge Configuration
-- Authentication: Stateless JWT signed via WebCrypto HMAC-SHA256. Passwords hashed using PBKDF2 with SHA-256 and unique salt per user.
-- CORS & Rate Limiting: Strict origin policies and IP-based rate limiting on sensitive auth endpoints.
+### 3.2 Pull Protocol
+- **Endpoint**: `GET /api/sync/pull?since={sequence}`
+- **Headers**: `Authorization: Bearer <JWT>`
+- **Response Body**:
+```json
+{
+  "changes": [
+    {
+      "id": "evt_501",
+      "entity": "bookmark",
+      "action": "update",
+      "entityId": "bmk_abc123",
+      "data": {
+        "title": "Updated Title",
+        "updatedAt": "2026-08-31T12:05:00.000Z"
+      },
+      "sequence": 43
+    }
+  ],
+  "latestSequence": 43
+}
+```
+
+### 3.3 Conflict Resolution (Last-Write-Wins)
+When a pull payload arrives:
+1. The client looks up the local entity by `entityId`.
+2. If the local entity exists and `local.updatedAt > remote.updatedAt`, the remote change is rejected and the local state is preserved.
+3. If `local.updatedAt <= remote.updatedAt` or the local record is absent, the remote state overwrites local IndexedDB.
+4. The client cursor (`lastSequence`) is updated to the maximum sequence received.
+
+---
+
+## 4. Metadata Extraction Engine
+
+The edge metadata endpoint (`GET /api/metadata?url={url}`) extracts rich media:
+1. **YouTube**: Matches `youtube.com/watch?v=`, `youtu.be/`, and `youtube.com/shorts/`.
+   - Requests `https://www.youtube.com/oembed?url={url}&format=json`.
+   - Generates thumbnail fallback: `https://img.youtube.com/vi/{id}/hqdefault.jpg`.
+2. **TikTok**: Queries `https://www.tiktok.com/oembed?url={url}` for title, author name, and thumbnail URL.
+3. **Twitter / X**: Queries `https://publish.twitter.com/oembed?url={url}` for tweet HTML content and author name.
+4. **OpenGraph & Standard Web**: Fetches the target page with HTML parsing for `og:title`, `og:description`, `og:image`, `twitter:image`, and standard `<title>` / `<meta name="description">` tags.
+
+---
+
+## 5. Security & Authentication
+- **Password Hashing**: PBKDF2 with SHA-256 and unique user salts.
+- **Session Tokens**: Stateless JSON Web Tokens (JWT) signed using WebCrypto HMAC-SHA256.
+- **Offline Survival**: JWT is cached in `localStorage`; local IndexedDB reads/writes proceed without requiring an active network connection.
+- **Guest Migration**: Data created anonymously under `userId: 'guest'` is re-assigned to the user's account ID and scheduled for cloud delta push upon first login.

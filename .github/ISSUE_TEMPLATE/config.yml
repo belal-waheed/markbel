@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture & Sync Documentation
+    url: https://github.com/belal-waheed/markbel/tree/main/docs/architecture
+    about: Read our technical documentation on the delta sync protocol and architecture.
+  - name: Live Demo
+    url: https://mark.obel.workers.dev
+    about: Test Markbel live on Cloudflare Workers edge.

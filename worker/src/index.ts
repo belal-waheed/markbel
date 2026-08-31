@@ -1586,21 +1586,53 @@ app.get("/api/metadata", async (c) => {
       } catch {}
     }
 
-    // 10. Anti-Bot / Headless Cloud Renderer Fallback (Microlink API)
+    // 10. Anti-Bot / Headless Cloud Renderer Fallback (Microlink API with Screenshot Fallback)
     if (!metadataResult || !metadataResult.image) {
       try {
+        const mlHeaders: Record<string, string> = {
+          "User-Agent": "MarkbelApp/2.1",
+        };
+        const microlinkApiKey = (c.env as any).MICROLINK_API_KEY;
+        if (microlinkApiKey) {
+          mlHeaders["x-api-key"] = microlinkApiKey;
+        }
+
+        const encodedUrl = encodeURIComponent(targetUrl.toString());
         const microlinkRes = await fetchWithTimeout(
-          `https://api.microlink.io?url=${encodeURIComponent(targetUrl.toString())}`,
-          { headers: { "User-Agent": "MarkbelApp/2.1" } },
+          `https://api.microlink.io?url=${encodedUrl}&palette=true`,
+          { headers: mlHeaders },
           4500
         );
+
         if (microlinkRes.ok) {
           const mlData: any = await microlinkRes.json();
           if (mlData?.status === "success" && mlData?.data) {
             const ml = mlData.data;
-            const mlImage = ml.image?.url || ml.logo?.url || "";
+            let mlImage = ml.image?.url || "";
+
+            // If OpenGraph image is missing, request automated page screenshot
+            if (!mlImage) {
+              try {
+                const shotRes = await fetchWithTimeout(
+                  `https://api.microlink.io?url=${encodedUrl}&screenshot=true&meta=false`,
+                  { headers: mlHeaders },
+                  4500
+                );
+                if (shotRes.ok) {
+                  const shotData: any = await shotRes.json();
+                  mlImage = shotData.data?.screenshot?.url || "";
+                }
+              } catch {}
+            }
+
+            // If still no image, use high-res publisher logo
+            if (!mlImage && ml.logo?.url) {
+              mlImage = ml.logo.url;
+            }
+
             const mlTitle = ml.title || (metadataResult ? metadataResult.title : "");
             const mlDesc = ml.description || (metadataResult ? metadataResult.description : "");
+
             if (mlImage || mlTitle) {
               metadataResult = {
                 title: cleanText(mlTitle) || (metadataResult?.title || targetUrl.hostname),
@@ -1610,7 +1642,9 @@ app.get("/api/metadata", async (c) => {
             }
           }
         }
-      } catch {}
+      } catch (mlErr) {
+        console.warn("[Microlink Fetch Warning]:", mlErr);
+      }
     }
 
     // Smart fallback if anti-bot/CAPTCHA blocked live scraping
