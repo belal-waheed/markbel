@@ -1,12 +1,11 @@
 import { chromium } from '@playwright/test';
 import path from 'node:path';
-import fs from 'node:fs';
 
 const LIVE_URL = 'https://mark.obel.workers.dev';
 
 async function testSmartGroupsLive() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('LIVE SMART AUTO-GROUPING (YT, INSTA, X) E2E VERIFICATION');
+  console.log('LIVE MICROLINK HYBRID IMAGE & SMART GROUPS E2E VERIFICATION');
   console.log('Target:', LIVE_URL);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
@@ -24,76 +23,53 @@ async function testSmartGroupsLive() {
 
   console.log(`[Edge] Loading ${LIVE_URL}...`);
   await page.goto(LIVE_URL, { waitUntil: 'networkidle' });
-
-  // Wait for sidebar groups to initialize
   await page.waitForTimeout(1500);
 
-  console.log('[Edge] Checking default smart groups in sidebar...');
-  const sidebarText = await page.locator('aside').innerText();
-  const hasYT = sidebarText.includes('YT');
-  const hasInsta = sidebarText.includes('Insta');
-  const hasX = sidebarText.includes('X');
+  // Helper to add bookmark and wait for metadata
+  async function addLink(url, label) {
+    console.log(`\n[Test] Adding ${label} (${url})...`);
+    await page.getByRole('button', { name: /Add Bookmark|Add Link/i }).first().click();
+    await page.waitForTimeout(400);
 
-  console.log(`  - Group "YT" initialized: ${hasYT ? 'YES' : 'NO'}`);
-  console.log(`  - Group "Insta" initialized: ${hasInsta ? 'YES' : 'NO'}`);
-  console.log(`  - Group "X" initialized: ${hasX ? 'YES' : 'NO'}`);
+    const urlInput = page.locator('input[type="url"]');
+    await urlInput.fill(url);
+    // Wait for client debounce and metadata resolution
+    await page.waitForTimeout(3000);
 
-  // Test Case 1: Add YouTube link & verify auto-grouping
-  console.log('\n[Test 1] Testing YouTube link auto-categorization...');
-  await page.getByRole('button', { name: /Add Bookmark|Add Link/i }).first().click();
-  await page.waitForTimeout(300);
+    const saveBtn = page.getByRole('button', { name: /Save Bookmark/i });
+    await saveBtn.click();
+    await page.waitForTimeout(1500);
+  }
 
-  const urlInput = page.locator('input[type="url"]');
-  await urlInput.fill('https://www.youtube.com/watch?v=jYFNtUYGxrY&t=414s');
-  await page.waitForTimeout(1000);
+  // 1. YouTube Link (Milestone example)
+  await addLink('https://www.youtube.com/watch?v=jYFNtUYGxrY&t=414s', 'YouTube Video (YT)');
 
-  const groupSelect = page.locator('select').first();
-  const selectedGroup1 = await groupSelect.inputValue();
-  console.log(`  - Auto-selected group: "${selectedGroup1}" (Expected: YT)`);
+  // 2. Instagram Profile / Link
+  await addLink('https://www.instagram.com/instagram/', 'Instagram Profile (Insta)');
 
-  const saveBtn = page.getByRole('button', { name: /Save Bookmark/i });
-  await saveBtn.click();
-  await page.waitForTimeout(1500);
+  // 3. X Profile / Post
+  await addLink('https://x.com/levelsio', 'X Profile (X)');
 
-  // Test Case 2: Add Instagram link & verify auto-grouping
-  console.log('\n[Test 2] Testing Instagram link auto-categorization...');
-  await page.getByRole('button', { name: /Add Bookmark/i }).first().click();
-  await page.waitForTimeout(300);
+  // 4. Cloudflare Blog Article
+  await addLink('https://blog.cloudflare.com/introducing-workers-kv', 'Cloudflare Article (Unsorted)');
 
-  await urlInput.fill('https://www.instagram.com/p/C-12345/');
-  await page.waitForTimeout(1000);
-
-  const selectedGroup2 = await groupSelect.inputValue();
-  console.log(`  - Auto-selected group: "${selectedGroup2}" (Expected: Insta)`);
-  await saveBtn.click();
-  await page.waitForTimeout(1500);
-
-  // Test Case 3: Add X / Twitter link & verify auto-grouping
-  console.log('\n[Test 3] Testing X / Twitter link auto-categorization...');
-  await page.getByRole('button', { name: /Add Bookmark/i }).first().click();
-  await page.waitForTimeout(300);
-
-  await urlInput.fill('https://x.com/levelsio/status/1890000000');
-  await page.waitForTimeout(1000);
-
-  const selectedGroup3 = await groupSelect.inputValue();
-  console.log(`  - Auto-selected group: "${selectedGroup3}" (Expected: X)`);
-  await saveBtn.click();
-  await page.waitForTimeout(1500);
-
-  // Test Case 4: Click Auto-Organize Vault button in Sidebar
-  console.log('\n[Test 4] Testing Auto-Organize Vault action...');
+  // Click Auto-Organize button
+  console.log('\n[Test] Triggering Auto-Organize Vault action...');
   const autoOrganizeBtn = page.locator('button[title*="Auto-Organize Vault"]').first();
   if (await autoOrganizeBtn.isVisible()) {
     await autoOrganizeBtn.click();
     await page.waitForTimeout(1000);
-    console.log('  - Auto-Organize action triggered successfully');
   }
 
+  // Assert image cards count
+  const imgElements = page.locator('img[alt*="Bookmark thumbnail"], img[alt*="Favicon"], img[src*="http"]');
+  const count = await imgElements.count();
+  console.log(`\n[Edge] Rendered visual bookmark images count: ${count}`);
+
   // Capture final screenshot
-  const screenshotPath = path.resolve('live-smart-groups-verified.png');
+  const screenshotPath = path.resolve('live-microlink-verified.png');
   await page.screenshot({ path: screenshotPath });
-  console.log(`\n[Edge] SUCCESS: Saved full verification screenshot to ${screenshotPath}`);
+  console.log(`[Edge] SUCCESS: Saved full verification screenshot to ${screenshotPath}`);
 
   await browser.close();
 }

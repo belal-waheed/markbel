@@ -253,7 +253,15 @@ export class MetadataService {
     // 3. Twitter / X Adapter
     if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
       const xResult = await this.extractTwitterX(targetUrl, timeoutMs);
-      if (xResult) return xResult;
+      if (xResult) {
+        if (!xResult.image || xResult.image.includes('google.com/s2/favicons')) {
+          const ml = await this.extractMicrolink(targetUrl, cleanUrlStr, timeoutMs, options);
+          if (ml?.image) {
+            xResult.image = ml.image;
+          }
+        }
+        return xResult;
+      }
     }
 
     // 4. GitHub Repository Adapter
@@ -323,21 +331,132 @@ export class MetadataService {
     // TIER 2: GENERAL HTML SCRAPING & JSON-LD + OPENGRAPH + READABILITY
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    let htmlResult: BookmarkMetadata | null = null;
     try {
-      const htmlResult = await this.scrapeHtmlAndArticle(
+      htmlResult = await this.scrapeHtmlAndArticle(
         targetUrl,
         cleanUrlStr,
         timeoutMs,
         options
       );
-      if (htmlResult) {
+      if (htmlResult && htmlResult.image && !htmlResult.image.includes('google.com/s2/favicons')) {
         return htmlResult;
+      }
+    } catch {
+      // Fall through to Tier 3 Microlink
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // TIER 3: ANTI-BOT & HEADLESS SCREENSHOT ENGINE (MICROLINK API)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    try {
+      const mlResult = await this.extractMicrolink(
+        targetUrl,
+        cleanUrlStr,
+        timeoutMs,
+        options
+      );
+      if (mlResult) {
+        if (htmlResult) {
+          // Merge rich article content from Tier 2 with rich cover image from Microlink
+          return {
+            ...htmlResult,
+            image: mlResult.image || htmlResult.image,
+            title: htmlResult.title || mlResult.title,
+            description: htmlResult.description || mlResult.description,
+          };
+        }
+        return mlResult;
       }
     } catch {
       // Fallback
     }
 
+    if (htmlResult) {
+      return htmlResult;
+    }
+
     return synthesizeFallbackMetadata(targetUrl);
+  }
+
+  /**
+   * Tier 3 Anti-Bot / Headless Cloud Renderer Fallback using Microlink API.
+   */
+  public static async extractMicrolink(
+    targetUrl: URL,
+    cleanUrlStr: string,
+    timeoutMs: number = 4500,
+    options: MetadataScrapeOptions = {}
+  ): Promise<BookmarkMetadata | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const headers: Record<string, string> = {
+      'User-Agent': 'MarkbelMetadataEngine/2.1',
+    };
+    const apiKey = typeof process !== 'undefined' ? process.env?.MICROLINK_API_KEY : undefined;
+    if (apiKey) {
+      headers['x-api-key'] = apiKey;
+    }
+
+    try {
+      const encoded = encodeURIComponent(targetUrl.toString());
+      const res = await fetch(`https://api.microlink.io?url=${encoded}&palette=true`, {
+        headers,
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return null;
+
+      const body: any = await res.json();
+      if (body.status !== 'success' || !body.data) return null;
+
+      const data = body.data;
+      let imageUrl = data.image?.url || '';
+
+      // If OpenGraph image is missing, request automated page screenshot
+      if (!imageUrl) {
+        try {
+          const shotRes = await fetch(`https://api.microlink.io?url=${encoded}&screenshot=true&meta=false`, {
+            headers,
+            signal: controller.signal,
+          });
+          if (shotRes.ok) {
+            const shotBody: any = await shotRes.json();
+            imageUrl = shotBody.data?.screenshot?.url || '';
+          }
+        } catch {}
+      }
+
+      if (!imageUrl && data.logo?.url) {
+        imageUrl = data.logo.url;
+      }
+
+      const domain = targetUrl.hostname.replace(/^www\./, '');
+      const title = cleanText(data.title) || domain;
+      const description = cleanText(data.description).slice(0, 350) || `Saved link from ${domain}`;
+      const favicon = data.logo?.url || `https://www.google.com/s2/favicons?domain=${targetUrl.hostname}&sz=128`;
+
+      return {
+        url: cleanUrlStr,
+        canonicalUrl: data.url || cleanUrlStr,
+        title,
+        description,
+        image: imageUrl || favicon,
+        favicon,
+        siteName: data.publisher || domain,
+        author: data.author || '',
+        publishedAt: data.date || '',
+        contentType: 'website',
+        readingTime: 0,
+        wordCount: 0,
+      };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -752,7 +871,7 @@ export class MetadataService {
           canonicalUrl: targetUrl.toString(),
           title: author ? `Post by ${author}` : 'Post on X',
           description: cleanText(plainText).slice(0, 300),
-          image: `https://www.google.com/s2/favicons?domain=x.com&sz=128`,
+          image: '',
           favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
           siteName: 'X (Twitter)',
           author,

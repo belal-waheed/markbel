@@ -205,5 +205,92 @@ describe('MetadataService Unit Tests (AAA Pattern)', () => {
         globalThis.fetch = originalFetch;
       }
     });
+
+    it('should fallback to Microlink API when HTML scraping has no image', async () => {
+      // Arrange: Mock fetch for HTML without image, then Microlink API returning image
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('api.microlink.io')) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: 'success',
+              data: {
+                title: 'Protected Article on Paywall',
+                description: 'Insightful notes from the paid journal.',
+                image: { url: 'https://cdn.microlink.io/covers/paywall.png' },
+                publisher: 'Paywall News',
+              },
+            }),
+          } as any;
+        }
+        // Return image-less HTML
+        return {
+          ok: true,
+          url,
+          text: async () => '<html><head><title>Paywall Article</title></head><body><p>Content only</p></body></html>',
+          json: async () => ({}),
+        } as any;
+      });
+
+      try {
+        // Act
+        const meta = await MetadataService.extractMetadata('https://paywall-news.com/exclusive/123');
+
+        // Assert
+        expect(meta.image).toBe('https://cdn.microlink.io/covers/paywall.png');
+        expect(meta.title).toBe('Paywall Article');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('should request Microlink screenshot when Microlink OpenGraph image is missing', async () => {
+      // Arrange
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('screenshot=true')) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: 'success',
+              data: {
+                screenshot: { url: 'https://iad.microlink.io/screenshot-2560x1600.png' },
+              },
+            }),
+          } as any;
+        }
+        if (url.includes('api.microlink.io')) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: 'success',
+              data: {
+                title: 'Text Only Forum',
+                description: 'A plain text board without any og:image tags.',
+                image: null,
+                publisher: 'Forum Web',
+              },
+            }),
+          } as any;
+        }
+        return {
+          ok: false, // simulate 403 Forbidden on direct fetch
+          status: 403,
+          text: async () => '',
+        } as any;
+      });
+
+      try {
+        // Act
+        const meta = await MetadataService.extractMetadata('https://text-only-forum.org/threads/1');
+
+        // Assert
+        expect(meta.image).toBe('https://iad.microlink.io/screenshot-2560x1600.png');
+        expect(meta.title).toBe('Text Only Forum');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 });
