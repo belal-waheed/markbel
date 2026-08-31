@@ -21,9 +21,10 @@ function NativeBridge() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
 
-    // Configure cyberpunk native status bar
-    StatusBar.setBackgroundColor({ color: '#090d16' }).catch(() => {})
-    StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
+    // Configure native status bar to match Studio surface and prevent clipping
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {})
+    StatusBar.setBackgroundColor({ color: '#f6f5f0' }).catch(() => {})
+    StatusBar.setStyle({ style: Style.Light }).catch(() => {})
 
     // Hide splash screen once React is mounted
     SplashScreen.hide().catch(() => {})

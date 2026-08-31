@@ -204,7 +204,7 @@ export default function LoginPage() {
   const passStrength = calculatePasswordStrength(newPassword)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-default)] p-4 relative overflow-hidden text-[var(--color-text-primary)] font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-default)] p-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] relative overflow-hidden text-[var(--color-text-primary)] font-sans">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

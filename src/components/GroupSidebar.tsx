@@ -77,7 +77,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
           isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-      <div className="p-4 flex items-center justify-between border-b border-[var(--color-border-default)]">
+      <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] flex items-center justify-between border-b border-[var(--color-border-default)]">
         <div className="flex items-center gap-3">
           <MarkbelLogo size={28} />
           <div>
@@ -219,7 +219,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
       </div>
 
       {/* User / Guest Footer */}
-      <div className="p-3 border-t border-[var(--color-border-default)] bg-[var(--color-bg-element)] space-y-2">
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-[var(--color-border-default)] bg-[var(--color-bg-element)] space-y-2">
         {isGuest ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1 text-xs text-[var(--color-text-muted)]">

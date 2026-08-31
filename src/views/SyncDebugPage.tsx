@@ -108,7 +108,7 @@ export default function SyncDebugPage() {
   const heartbeatAge = metrics.leaderHeartbeat ? Math.round((Date.now() - metrics.leaderHeartbeat) / 1000) : '-';
 
   return (
-    <div className="p-8 max-w-4xl mx-auto dark:text-white pb-20">
+    <div className="p-8 pt-[calc(2rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] max-w-4xl mx-auto dark:text-white">
       <div className="flex items-center gap-3 mb-8">
         <Activity className="w-8 h-8 text-cyan-400" />
         <h1 className="text-3xl font-bold font-display">Sync Dashboard (Developer)</h1>

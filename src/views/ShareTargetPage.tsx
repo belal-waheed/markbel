@@ -121,7 +121,7 @@ export default function ShareTargetPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#090d16] p-4 text-[#e1e4ea] font-sans antialiased">
+    <div className="min-h-screen flex items-center justify-center bg-[#090d16] p-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] text-[#e1e4ea] font-sans antialiased">
       <div className="w-full max-w-sm bg-[#111622] border border-[#232b3e] rounded-2xl p-6 shadow-2xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#232b3e]/60">

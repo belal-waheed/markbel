@@ -103,7 +103,7 @@ export default function ArchivePage() {
   };
 
   return (
-    <div className="space-y-8 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 min-h-screen relative overflow-x-hidden text-[var(--color-text-primary)]">
+    <div className="space-y-8 p-4 sm:p-6 md:p-8 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(6rem+env(safe-area-inset-bottom,0px))] max-w-7xl mx-auto min-h-screen relative overflow-x-hidden text-[var(--color-text-primary)]">
       {/* Header */}
       <header className="studio-card px-5 py-4 flex items-center justify-between z-10 border border-[var(--color-border-default)]">
         <div className="flex items-center gap-3">

@@ -156,7 +156,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-5">
         <div className="flex items-center gap-3">

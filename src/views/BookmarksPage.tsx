@@ -389,7 +389,7 @@ export default function BookmarksPage() {
         )}
 
         {/* Top Header */}
-        <header className="flex-none h-16 bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="flex-none min-h-[4rem] pt-[env(safe-area-inset-top,0px)] bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -432,7 +432,7 @@ export default function BookmarksPage() {
         </header>
 
         {/* Scrollable Viewport */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
           <div className="max-w-[1600px] mx-auto">
             {/* Filter Bar & Search */}
             <BookmarkFilterBar
@@ -510,7 +510,7 @@ export default function BookmarksPage() {
       {/* Floating Action Button (Mobile FAB) */}
       <button
         onClick={() => setIsAddModalOpen(true)}
-        className="md:hidden fixed bottom-6 right-6 z-40 bg-[var(--color-accent)] text-white p-3.5 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center active:scale-95 transition-all"
+        className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-40 bg-[var(--color-accent)] text-white p-3.5 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center active:scale-95 transition-all"
         title="Add Bookmark (N)"
       >
         <Plus className="w-5 h-5" />

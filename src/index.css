@@ -25,6 +25,13 @@
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -33,6 +40,23 @@ body {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
+}
+
+/* Safe Area Inset Utilities for Mobile/Capacitor */
+@utility safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+@utility safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Light Studio UI Utilities */
