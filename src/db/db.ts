@@ -7,6 +7,15 @@ export interface LocalBookmark {
   url: string;
   description?: string;
   image?: string;
+  favicon?: string;
+  siteName?: string;
+  author?: string;
+  publishedAt?: string;
+  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website';
+  readingTime?: number;
+  wordCount?: number;
+  canonicalUrl?: string;
+  articleContent?: string;
   group: string;
   isRead?: boolean;
   readAt?: string;
@@ -81,6 +90,10 @@ export class MarkbelDatabase extends Dexie {
 
     this.version(3).stores({
       groups: 'id, userId, name, deletedAt'
+    }).upgrade(() => {});
+
+    this.version(4).stores({
+      bookmarks: 'id, userId, group, isArchived, isRead, contentType, deletedAt'
     }).upgrade(() => {});
   }
 }

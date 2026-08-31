@@ -7,6 +7,15 @@ export interface IBookmark {
   url: string
   description?: string
   image?: string
+  favicon?: string
+  siteName?: string
+  author?: string
+  publishedAt?: string
+  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website'
+  readingTime?: number
+  wordCount?: number
+  canonicalUrl?: string
+  articleContent?: string
   group: string
   isRead?: boolean
   readAt?: string
@@ -30,6 +39,19 @@ const BookmarkSchema = new Schema<IBookmarkDocument>(
     url: { type: String, required: true },
     description: { type: String, default: '' },
     image: { type: String, default: '' },
+    favicon: { type: String, default: '' },
+    siteName: { type: String, default: '' },
+    author: { type: String, default: '' },
+    publishedAt: { type: String, default: '' },
+    contentType: {
+      type: String,
+      enum: ['article', 'video', 'audio', 'tweet', 'code', 'website'],
+      default: 'website'
+    },
+    readingTime: { type: Number, default: 0 },
+    wordCount: { type: Number, default: 0 },
+    canonicalUrl: { type: String, default: '' },
+    articleContent: { type: String, default: '' },
     group: { type: String, required: true, default: 'Unsorted' },
     isRead: { type: Boolean, default: false },
     readAt: { type: String, default: '' },

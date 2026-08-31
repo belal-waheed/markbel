@@ -17,6 +17,8 @@
     "pages:deploy": "wrangler pages deploy dist --project-name markbel"
   },
   "dependencies": {
+    "@extractus/article-extractor": "^9.0.1",
+    "@extractus/oembed-extractor": "^6.0.0",
     "@tanstack/react-virtual": "^3.14.10",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",

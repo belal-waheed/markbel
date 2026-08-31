@@ -560,8 +560,8 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
       if (entityType === "bookmark") {
         if (operation === "create") {
           await c.env.DB.prepare(
-            `INSERT INTO bookmarks (id, user_id, title, url, description, image, group_name, is_read, read_at, is_pinned, remind_at, is_archived, archive_group, version, created_at, updated_at, deleted_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+            `INSERT INTO bookmarks (id, user_id, title, url, description, image, favicon, site_name, author, published_at, content_type, reading_time, word_count, canonical_url, article_content, group_name, is_read, read_at, is_pinned, remind_at, is_archived, archive_group, version, created_at, updated_at, deleted_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
           )
             .bind(
               entityId,
@@ -570,6 +570,15 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
               payload.url || "",
               payload.description || "",
               payload.image || "",
+              payload.favicon || "",
+              payload.siteName || "",
+              payload.author || "",
+              payload.publishedAt || "",
+              payload.contentType || "website",
+              payload.readingTime || 0,
+              payload.wordCount || 0,
+              payload.canonicalUrl || "",
+              payload.articleContent || "",
               payload.group || "Unsorted",
               payload.isRead ? 1 : 0,
               payload.readAt || "",
@@ -589,6 +598,15 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
               url = COALESCE(?, url),
               description = COALESCE(?, description),
               image = COALESCE(?, image),
+              favicon = COALESCE(?, favicon),
+              site_name = COALESCE(?, site_name),
+              author = COALESCE(?, author),
+              published_at = COALESCE(?, published_at),
+              content_type = COALESCE(?, content_type),
+              reading_time = COALESCE(?, reading_time),
+              word_count = COALESCE(?, word_count),
+              canonical_url = COALESCE(?, canonical_url),
+              article_content = COALESCE(?, article_content),
               group_name = COALESCE(?, group_name),
               is_read = COALESCE(?, is_read),
               read_at = COALESCE(?, read_at),
@@ -605,6 +623,15 @@ app.post("/api/sync/push", authMiddleware, async (c) => {
               payload.url ?? null,
               payload.description ?? null,
               payload.image ?? null,
+              payload.favicon ?? null,
+              payload.siteName ?? null,
+              payload.author ?? null,
+              payload.publishedAt ?? null,
+              payload.contentType ?? null,
+              payload.readingTime ?? null,
+              payload.wordCount ?? null,
+              payload.canonicalUrl ?? null,
+              payload.articleContent ?? null,
               payload.group ?? null,
               payload.isRead !== undefined ? (payload.isRead ? 1 : 0) : null,
               payload.readAt ?? null,
