@@ -1269,7 +1269,70 @@ app.get("/api/metadata", async (c) => {
       }
     }
 
-    // 2. TikTok Adapter (oEmbed)
+    // 2. Instagram & Threads / Meta Adapter (facebookexternalhit crawler engine)
+    if (
+      !metadataResult &&
+      (hostname.includes("instagram.com") ||
+        hostname.includes("instagr.am") ||
+        hostname.includes("threads.net") ||
+        hostname.includes("facebook.com"))
+    ) {
+      try {
+        const metaRes = await fetchWithTimeout(
+          targetUrl.toString(),
+          {
+            headers: {
+              "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_codedoc.html)",
+              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Sec-Fetch-Dest": "document",
+              "Sec-Fetch-Mode": "navigate",
+              "Sec-Fetch-Site": "none",
+            },
+          },
+          5000
+        );
+
+        if (metaRes.ok) {
+          const html = await metaRes.text();
+          const $ = cheerio.load(html);
+
+          let ogTitle =
+            $('meta[property="og:title"]').attr("content") ||
+            $('meta[name="twitter:title"]').attr("content") ||
+            $("title").text() ||
+            "";
+          let ogDesc =
+            $('meta[property="og:description"]').attr("content") ||
+            $('meta[name="twitter:description"]').attr("content") ||
+            $('meta[name="description"]').attr("content") ||
+            "";
+          let ogImage =
+            $('meta[property="og:image"]').attr("content") ||
+            $('meta[property="og:image:secure_url"]').attr("content") ||
+            $('meta[name="twitter:image"]').attr("content") ||
+            $('meta[name="twitter:image:src"]').attr("content") ||
+            "";
+
+          ogTitle = cleanText(ogTitle);
+          if (!ogTitle || (ogTitle.toLowerCase().includes("instagram") && targetUrl.pathname.includes("/reel/"))) {
+            ogTitle = ogTitle || "Instagram Reel";
+          }
+
+          if (ogImage || ogTitle) {
+            metadataResult = {
+              title: ogTitle,
+              description: cleanText(ogDesc).slice(0, 350) || (targetUrl.pathname.includes("/reel/") ? "Instagram Reel" : "Instagram Post"),
+              image: ogImage.trim(),
+            };
+          }
+        }
+      } catch (igErr) {
+        console.warn("[Instagram Scrape Adapter Error]:", igErr);
+      }
+    }
+
+    // 3. TikTok Adapter (oEmbed)
     if (!metadataResult && hostname.includes("tiktok.com")) {
       try {
         const oembedRes = await fetchWithTimeout(

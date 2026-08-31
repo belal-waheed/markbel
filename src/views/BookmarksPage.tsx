@@ -423,10 +423,10 @@ export default function BookmarksPage() {
 
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all"
+              className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-bold hidden sm:flex items-center gap-1.5 active:scale-95 transition-all"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Bookmark</span>
+              <span>Add Bookmark</span>
             </button>
           </div>
         </header>
