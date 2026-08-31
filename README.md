@@ -4,16 +4,18 @@
 
 **High-speed, offline-first bookmark manager and rich media archiver.**
 
+[![Android App](https://img.shields.io/badge/Android-Download%20APK-3DDC84?logo=android&logoColor=white)](../../releases/latest)
 [![Cloudflare Workers](https://img.shields.io/badge/Edge-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![Cloudflare D1](https://img.shields.io/badge/Database-Cloudflare%20D1%20SQLite-F38020?logo=sqlite&logoColor=white)](https://developers.cloudflare.com/d1/)
 [![React 19](https://img.shields.io/badge/Frontend-React%2019-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Capacitor](https://img.shields.io/badge/Mobile-Capacitor%208-119EFF?logo=capacitor&logoColor=white)](https://capacitorjs.com/)
 [![Tailwind CSS v4](https://img.shields.io/badge/Styles-Tailwind%20CSS%20v4-38B2AC?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Vite 6](https://img.shields.io/badge/Bundler-Vite%206-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![Dexie IndexedDB](https://img.shields.io/badge/Storage-Dexie.js%20IndexedDB-1F4B99)](https://dexie.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/badge/CI-Passing-brightgreen.svg)](.github/workflows/ci.yml)
 
-[Live Demo](https://mark.obel.workers.dev) • [Architecture Docs](docs/architecture/sync-protocol.md) • [LLM Specification](llms.txt) • [Contributing](CONTRIBUTING.md)
+[Live Demo](https://mark.obel.workers.dev) • [Download Android APK](../../releases/latest) • [Architecture Docs](docs/architecture/sync-protocol.md) • [LLM Specification](llms.txt) • [Contributing](CONTRIBUTING.md)
 
 </div>
 

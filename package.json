@@ -14,9 +14,17 @@
     "worker:deploy": "wrangler deploy",
     "d1:migrate:local": "wrangler d1 execute markbel-db --local --file=worker/schema.sql",
     "d1:migrate:remote": "wrangler d1 execute markbel-db --remote --file=worker/schema.sql",
-    "pages:deploy": "wrangler pages deploy dist --project-name markbel"
+    "pages:deploy": "wrangler pages deploy dist --project-name markbel",
+    "cap:sync": "npx cap sync",
+    "cap:build": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@extractus/article-extractor": "^9.0.1",
     "@extractus/oembed-extractor": "^6.0.0",
     "@tanstack/react-virtual": "^3.14.10",
@@ -45,6 +53,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@cloudflare/workers-types": "^5.20260830.1",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.2.2",

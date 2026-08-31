@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Markbel</string>
+    <string name="title_activity_main">Markbel</string>
+    <string name="package_name">com.markbel.vault</string>
+    <string name="custom_url_scheme">com.markbel.vault</string>
+</resources>

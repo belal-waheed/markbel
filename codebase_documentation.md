@@ -151,26 +151,27 @@ The desktop app loads the deployed production Vercel application by default. In 
 
 ## 5. Building Standalone/Production Packages
 
-### A. Mobile Standalone Build (Android .apk Preview)
-To generate a standalone `.apk` for Android using Expo Application Services (EAS):
-1. **Prerequisite**: Install the EAS CLI globally:
-   ```bash
-   npm install -g eas-cli
-   ```
-2. **Login**: Authenticate with your Expo developer account:
-   ```bash
-   eas login
-   ```
-3. **Configure**: If running for the first time, initialize the project:
-   ```bash
-   cd mobile
-   eas project:init
-   ```
-4. **Build Preview**: Run the preview builder profile (configured in [eas.json](file:///d:/dev/projects/bel_projects/markbel/mobile/eas.json) to output an `.apk` file instead of an App Bundle):
-   ```bash
-   eas build --platform android --profile preview
-   ```
-   *EAS will run a remote build, package the Android artifact, and output a QR code / download link to install the `.apk` directly onto a device.*
+### A. Mobile Standalone Build (Capacitor Android Native APK)
+Markbel includes a 100% free and open-source native Android container via Capacitor.js. You can build debug APKs locally or via automated GitHub Actions cloud builds with zero developer account fees, zero local Android Studio requirements, and zero credit card requirements.
+
+#### 1. Free Cloud Build (GitHub Actions — Recommended)
+1. Push changes to GitHub (`git push origin main`).
+2. Navigate to your repository's **Actions** tab on GitHub.
+3. Select **Build Android APK (Capacitor)** and click **Run workflow**.
+4. Once completed, download `markbel-android-apk` from the run's **Artifacts** section and install the `.apk` directly onto your Android device.
+
+#### 2. Local Android Sync and Development
+```bash
+# 1. Build web assets and sync native assets to Android
+npm run cap:build
+
+# 2. Open in Android Studio (if installed)
+npm run cap:open
+```
+
+#### 3. Native Android Share Sheet Integration
+Markbel natively registers the `android.intent.action.SEND` intent filter in `AndroidManifest.xml`. When you share a URL or text from Chrome, YouTube, X, Reddit, or any other app, Markbel catches the intent and opens directly into the offline-capable instant bookmark saving HUD (`/share`).
+
 
 ### B. Desktop Standalone Installer (Windows .exe)
 To compile, package, and generate a Windows installer package (`.exe`) for the Electron app:

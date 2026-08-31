@@ -1,0 +1,98 @@
+name: Build & Release Android APK (Capacitor)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Test Suite
+        run: npm test
+
+      - name: Build Production Frontend
+        run: npm run build
+
+      - name: Sync Capacitor Android Native Assets
+        run: npx cap sync android
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Build Android Debug APK with Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare Named Release Assets
+        run: |
+          mkdir -p release-assets
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/Markbel.apk
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: markbel-android-apk
+          path: release-assets/Markbel.apk
+          retention-days: 14
+
+      - name: Publish Versioned GitHub Release (on Tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Markbel ${{ github.ref_name }}
+          files: release-assets/Markbel.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Rolling GitHub Release (on Main / Manual Trigger)
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Markbel Android App (Latest Build)
+          tag_name: latest
+          prerelease: false
+          files: release-assets/Markbel.apk
+          body: |
+            ## Markbel Native Android App (Latest Build)
+
+            Direct standalone `.apk` download for Android devices.
+
+            ### Quick Installation:
+            1. Download [`Markbel.apk`](https://github.com/${{ github.repository }}/releases/download/latest/Markbel.apk) directly to your Android phone.
+            2. Tap the downloaded file to install (enable "Install unknown apps" if prompted).
+            3. Enjoy instant 0ms offline bookmarking, native dark theme, and Android Share Sheet integration!
+
+            ---
+            *Built automatically from commit `${{ github.sha }}`.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

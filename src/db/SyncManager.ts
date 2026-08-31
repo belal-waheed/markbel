@@ -1,6 +1,7 @@
 import { SyncManager, SyncState, ApiClient } from '@/sync';
 import { WebSyncStorage } from './adapters/WebSyncStorage';
 import { WebEnvironment } from './adapters/WebEnvironment';
+import { resolveApiUrl } from '@/lib/api';
 
 const storage = new WebSyncStorage();
 const env = new WebEnvironment();
@@ -16,7 +17,7 @@ function getAuthHeaders(extraHeaders?: any): Record<string, string> {
 
 const apiClient: ApiClient = {
   get: async (endpoint: string, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(endpoint, {
+    const res = await fetch(resolveApiUrl(endpoint), {
       headers: getAuthHeaders(headers),
       signal,
       credentials: 'include'
@@ -29,7 +30,7 @@ const apiClient: ApiClient = {
     return await res.json();
   },
   post: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(endpoint, {
+    const res = await fetch(resolveApiUrl(endpoint), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
       body: JSON.stringify(data),
@@ -44,7 +45,7 @@ const apiClient: ApiClient = {
     return await res.json();
   },
   put: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(endpoint, {
+    const res = await fetch(resolveApiUrl(endpoint), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
       body: JSON.stringify(data),

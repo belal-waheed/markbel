@@ -26,3 +26,12 @@ apps/desktop/build/
 apps/mobile/.expo/
 apps/mobile/android/app/build/
 apps/mobile/ios/build/
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties
+android/captures/
+android/.cxx/
