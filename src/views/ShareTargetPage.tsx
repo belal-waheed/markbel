@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, Link as LinkIcon } from 'lucide-react'
 import { bookmarkRepository } from '../db/SyncRepository.js'
 import { syncManager } from '../db/SyncManager.js'
 import { resolveSmartGroup } from '../lib/smartGroups.js'
+import { extractSharePayload } from '../lib/shareTarget.js'
 import { api } from '../lib/api.js'
 import MarkbelLogo from '../components/MarkbelLogo.js'
 
@@ -12,21 +13,19 @@ export default function ShareTargetPage() {
   const navigate = useNavigate()
   const [status, setStatus] = useState<'saving' | 'saved' | 'error'>('saving')
   const [savedTitle, setSavedTitle] = useState('')
+  const [resolvedGroup, setResolvedGroup] = useState('')
 
   useEffect(() => {
     async function processSharedLink() {
-      const rawTitle = searchParams.get('title') || ''
-      const rawText = searchParams.get('text') || ''
-      const rawUrl = searchParams.get('url') || ''
+      const rawTitle = searchParams.get('title')
+      const rawText = searchParams.get('text')
+      const rawUrl = searchParams.get('url')
 
-      // Extract URL from url parameter or text parameter
-      let targetUrl = rawUrl
-      if (!targetUrl && rawText) {
-        const urlMatch = rawText.match(/(https?:\/\/[^\s]+)/)
-        if (urlMatch) {
-          targetUrl = urlMatch[0]
-        }
-      }
+      const { targetUrl, title: initialTitle } = extractSharePayload({
+        rawUrl,
+        rawText,
+        rawTitle,
+      })
 
       if (!targetUrl) {
         setStatus('error')
@@ -35,23 +34,15 @@ export default function ShareTargetPage() {
       }
 
       try {
-        let initialTitle = rawTitle || rawText.replace(targetUrl, '').trim()
-        if (!initialTitle) {
-          try {
-            initialTitle = new URL(targetUrl).hostname
-          } catch {
-            initialTitle = targetUrl
-          }
-        }
-
         setSavedTitle(initialTitle)
 
-        // Auto-resolve smart group for shared URL
+        // Auto-resolve smart group for shared URL (YT, Insta, X, etc.)
         const smartGroup = resolveSmartGroup(targetUrl)
+        setResolvedGroup(smartGroup)
 
         // Save immediately to local IndexedDB for zero latency
         const bookmarkId = crypto.randomUUID()
-        const createdBookmark = await bookmarkRepository.create({
+        await bookmarkRepository.create({
           id: bookmarkId,
           userId: 'local-user',
           url: targetUrl,
@@ -116,7 +107,9 @@ export default function ShareTargetPage() {
         {status === 'saved' && (
           <div className="space-y-3">
             <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-            <h2 className="text-base font-bold text-[var(--color-text-primary)]">Saved to Vault</h2>
+            <h2 className="text-base font-bold text-[var(--color-text-primary)]">
+              Saved to Vault {resolvedGroup && resolvedGroup !== 'Unsorted' ? `(${resolvedGroup})` : ''}
+            </h2>
             <p className="text-xs text-[var(--color-text-muted)]">Redirecting to bookmarks...</p>
           </div>
         )}

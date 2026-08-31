@@ -35,6 +35,7 @@ app.use(cors({
   credentials: true 
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 const authLimiter = rateLimit({
@@ -68,6 +69,30 @@ app.use("/api/sync", syncRoutes);
 app.use("/api/devices", deviceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/metadata", metadataRoutes);
+
+// PWA Share Target POST Handler
+app.post("/share", (req, res) => {
+  const { title = "", text = "", url = "" } = req.body || {};
+  let targetUrl = String(url || "").trim();
+  if (!targetUrl && text) {
+    const urlMatch = String(text).match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) {
+      targetUrl = urlMatch[0];
+    }
+  }
+
+  if (targetUrl) {
+    targetUrl = targetUrl.replace(/[),.;]+$/, "");
+  }
+
+  const queryParams = new URLSearchParams();
+  if (targetUrl) queryParams.set("url", targetUrl);
+  if (title) queryParams.set("title", String(title));
+  if (text) queryParams.set("text", String(text));
+
+  const queryString = queryParams.toString();
+  res.redirect(303, queryString ? `/share?${queryString}` : "/share");
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // USER AUTH ROUTES
