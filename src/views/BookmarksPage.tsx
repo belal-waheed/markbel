@@ -19,7 +19,7 @@ import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
-  const { logout, isGuest } = useAuth();
+  const { logout, isGuest, user } = useAuth();
 
   // Network Connectivity State
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -225,7 +225,7 @@ export default function BookmarksPage() {
   }) => {
     await bookmarkRepository.create({
       id: crypto.randomUUID(),
-      userId: "local-user",
+      userId: user?.id || "local-user",
       ...data,
     });
     syncManager.sync();
@@ -269,7 +269,7 @@ export default function BookmarksPage() {
     } else {
       await groupRepository.create({
         id: crypto.randomUUID(),
-        userId: "local-user",
+        userId: user?.id || "local-user",
         name,
         color: "blue",
       });

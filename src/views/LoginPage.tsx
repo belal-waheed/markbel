@@ -40,14 +40,19 @@ export default function LoginPage() {
         await login(email, password)
         navigate(redirectUrl, { replace: true })
       } else if (mode === 'forgot_request') {
-        const res = await api.post<{ success: boolean; message: string; devCode?: string }>(
+        const res = await api.post<{ success: boolean; message: string; devCode?: string; emailDelivered?: boolean }>(
           '/auth/forgot-password',
           { email }
         )
+        if (res.devCode) {
+          setResetCode(res.devCode)
+        }
         setSuccessMessage(
-          res.devCode
-            ? `Verification code: ${res.devCode} (Dev mode preview)`
-            : 'Verification code sent to your email.'
+          res.emailDelivered
+            ? `Verification code sent to ${email}. Please check your email inbox.`
+            : res.devCode
+            ? `Verification code generated: ${res.devCode}`
+            : 'If an account exists, a 6-digit verification code has been sent.'
         )
         setMode('forgot_reset')
       } else if (mode === 'forgot_reset') {
@@ -107,8 +112,8 @@ export default function LoginPage() {
             <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mt-1.5 font-medium">
               {mode === 'signup' && 'Create a unified links vault with cloud sync'}
               {mode === 'login' && 'Sign in to access your saved links across devices'}
-              {mode === 'forgot_request' && 'Enter your email to receive a 6-digit password reset code'}
-              {mode === 'forgot_reset' && 'Provide the 6-digit code and your new password'}
+              {mode === 'forgot_request' && 'Enter your account email to receive a 6-digit verification code'}
+              {mode === 'forgot_reset' && 'Enter the 6-digit verification code and your new password'}
             </p>
           </div>
 
@@ -157,20 +162,25 @@ export default function LoginPage() {
             {mode === 'forgot_reset' && (
               <div>
                 <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
-                  6-Digit Verification Code
+                  6-Digit Numeric Verification Code
                 </label>
                 <div className="relative">
                   <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="123456"
                     value={resetCode}
                     maxLength={6}
-                    onChange={(e) => setResetCode(e.target.value)}
-                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm tracking-widest font-mono"
+                    onChange={(e) => setResetCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm tracking-widest font-mono font-bold text-center"
                     required
                   />
                 </div>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                  Enter the 6-digit number sent to your email.
+                </p>
               </div>
             )}
 

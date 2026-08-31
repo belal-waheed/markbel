@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { api, ApiError } from './api.js'
 import { syncManager } from '../db/SyncManager.js'
+import { migrateGuestData, clearAllLocalData } from '../db/db.js'
 
 export interface UserProfile {
   id: string
@@ -17,7 +18,7 @@ export interface AuthContextType {
   isGuest: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.token)
       setUser(data.user)
       sendTokenToNative(data.token)
+      await migrateGuestData(data.user.id).catch((err) => console.warn('[Auth] Guest data migration notice:', err))
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
     } finally {
@@ -118,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.token)
       setUser(data.user)
       sendTokenToNative(data.token)
+      await migrateGuestData(data.user.id).catch((err) => console.warn('[Auth] Guest data migration notice:', err))
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
     } finally {
@@ -125,13 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('markbel_token')
-    localStorage.removeItem('markbel_user')
+  const logout = async () => {
+    syncManager.stop()
+    sendTokenToNative(null)
     setToken(null)
     setUser(null)
-    sendTokenToNative(null)
-    syncManager.stop()
+    await clearAllLocalData().catch((err) => console.warn('[Auth] Clear local data notice:', err))
   }
 
   return (

@@ -58,4 +58,22 @@ describe('Auth Offline & Session Resilience', () => {
     expect(serverError instanceof ApiError && serverError.status === 401).toBe(false)
     expect(networkError instanceof ApiError).toBe(false)
   })
+
+  it('WebSyncStorage reads real token from localStorage and does not return hardcoded cookie', async () => {
+    (globalThis as any).window = {
+      localStorage: localStorageMock
+    }
+
+    const { WebSyncStorage } = await import('../db/adapters/WebSyncStorage')
+    const storage = new WebSyncStorage()
+
+    localStorageMock.setItem('markbel_token', 'valid-jwt-token-123')
+    const token = await storage.getAuthToken()
+    expect(token).toBe('valid-jwt-token-123')
+    expect(token).not.toBe('cookie')
+
+    await storage.removeAuthToken()
+    const removedToken = await storage.getAuthToken()
+    expect(removedToken).toBeNull()
+  })
 })

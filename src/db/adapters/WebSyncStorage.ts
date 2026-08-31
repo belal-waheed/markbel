@@ -49,12 +49,22 @@ export class WebSyncStorage implements SyncStorage {
   }
 
   async getAuthToken(): Promise<string | null> {
-    return 'cookie';
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('markbel_token');
+    }
+    return null;
+  }
+
+  async saveAuthToken(token: string): Promise<void> {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('markbel_token', token);
+    }
   }
 
   async removeAuthToken(): Promise<void> {
-    localStorage.removeItem('markbel_token');
-    localStorage.removeItem('token');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('markbel_token');
+    }
   }
 
   async applyRemoteChanges(changes: RemoteChange[]): Promise<void> {
