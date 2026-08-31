@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react'
-import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User } from 'lucide-react'
+import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import MarkbelLogo from './MarkbelLogo'
@@ -15,6 +15,7 @@ interface GroupSidebarProps {
   openEditGroup: (name: string) => void
   deleteGroup: (name: string, e: React.MouseEvent) => void
   openNewGroup: () => void
+  onAutoOrganize?: () => void
 }
 
 export const GroupSidebar: React.FC<GroupSidebarProps> = ({
@@ -27,7 +28,8 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   logout,
   openEditGroup,
   deleteGroup,
-  openNewGroup
+  openNewGroup,
+  onAutoOrganize,
 }) => {
   const navigate = useNavigate()
   const { user, isGuest } = useAuth()
@@ -139,13 +141,24 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
               Groups
             </span>
-            <button
-              onClick={openNewGroup}
-              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors p-1"
-              title="New Group"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {onAutoOrganize && (
+                <button
+                  onClick={onAutoOrganize}
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors p-1"
+                  title="Auto-Organize Vault into Smart Groups (YT, Insta, X)"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onClick={openNewGroup}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors p-1"
+                title="New Group"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="space-y-0.5">
             {mergedGroups.length === 0 ? (

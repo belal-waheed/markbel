@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Loader2, Globe, Sparkles, Plus, Calendar, Pin } from "lucide-react";
 import { api } from "../../lib/api";
 import { useDebounce } from "../../lib/useDebounce";
+import { resolveSmartGroup } from "../../lib/smartGroups";
 
 interface AddBookmarkModalProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
   const [group, setGroup] = useState("Unsorted");
+  const [hasManuallyChangedGroup, setHasManuallyChangedGroup] = useState(false);
+  const [isAutoGrouped, setIsAutoGrouped] = useState(false);
   const [remindAt, setRemindAt] = useState("");
   const [isPinned, setIsPinned] = useState(false);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
@@ -44,6 +47,8 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
       setDescription("");
       setImage("");
       setGroup("Unsorted");
+      setHasManuallyChangedGroup(false);
+      setIsAutoGrouped(false);
       setRemindAt("");
       setIsPinned(false);
       setTimeout(() => urlInputRef.current?.focus(), 50);
@@ -52,6 +57,15 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
 
   useEffect(() => {
     if (!debouncedUrl || !debouncedUrl.startsWith("http")) return;
+
+    // Smart Auto-Group pre-selection
+    if (!hasManuallyChangedGroup) {
+      const smartGroup = resolveSmartGroup(debouncedUrl, groups);
+      if (smartGroup && smartGroup !== "Unsorted") {
+        setGroup(smartGroup);
+        setIsAutoGrouped(true);
+      }
+    }
 
     let isMounted = true;
     const fetchMetadata = async () => {
@@ -186,12 +200,21 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
-                Group
+              <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 flex items-center justify-between">
+                <span>Group</span>
+                {isAutoGrouped && (
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--color-accent)] font-medium">
+                    <Sparkles className="w-3 h-3" /> Auto: {group}
+                  </span>
+                )}
               </label>
               <select
                 value={group}
-                onChange={(e) => setGroup(e.target.value)}
+                onChange={(e) => {
+                  setGroup(e.target.value);
+                  setHasManuallyChangedGroup(true);
+                  setIsAutoGrouped(false);
+                }}
                 className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-2 px-3 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-focused)]"
               >
                 <option value="Unsorted">Unsorted (Inbox)</option>

@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { resolveSmartGroup } from '../lib/smartGroups.js';
 
 export interface LocalBookmark {
   id: string;
@@ -210,4 +211,122 @@ export async function clearAllLocalData(): Promise<void> {
     localStorage.removeItem('markbel_user');
     localStorage.removeItem('markbel_last_sync');
   }
+}
+
+/**
+ * Initializes default smart groups (YT, Insta, X) for a given user if not already present.
+ */
+export async function initializeDefaultSmartGroups(userId: string = 'local-user'): Promise<void> {
+  const targetUserId = userId || 'local-user';
+  const now = new Date().toISOString();
+
+  const existingGroups = await db.groups
+    .filter((g) => (g.userId === targetUserId || !g.userId) && !g.deletedAt)
+    .toArray();
+
+  const existingNames = new Set(existingGroups.map((g) => g.name.toLowerCase()));
+
+  const DEFAULT_SEEDS = [
+    { name: 'YT', color: 'red' },
+    { name: 'Insta', color: 'purple' },
+    { name: 'X', color: 'slate' },
+  ];
+
+  await db.transaction('rw', [db.groups, db.syncOutbox], async () => {
+    for (const seed of DEFAULT_SEEDS) {
+      if (!existingNames.has(seed.name.toLowerCase())) {
+        const id = crypto.randomUUID();
+        const newGroup: LocalGroup = {
+          id,
+          userId: targetUserId,
+          name: seed.name,
+          color: seed.color,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        };
+
+        await db.groups.add(newGroup);
+
+        if (targetUserId !== 'local-user') {
+          await db.syncOutbox.add({
+            id: crypto.randomUUID(),
+            entityType: 'group',
+            entityId: id,
+            operation: 'create',
+            baseVersion: 0,
+            payload: newGroup,
+            status: 'pending',
+            attempts: 0,
+            createdAt: now,
+          });
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Scans all bookmarks in 'Unsorted' and automatically assigns them to matching smart groups (YT, Insta, X).
+ * Returns the count of newly organized bookmarks.
+ */
+export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user'): Promise<number> {
+  const targetUserId = userId || 'local-user';
+  const now = new Date().toISOString();
+
+  // 1. Ensure smart groups exist first
+  await initializeDefaultSmartGroups(targetUserId);
+
+  const activeGroups = await db.groups
+    .filter((g) => (g.userId === targetUserId || !g.userId) && !g.deletedAt)
+    .toArray();
+
+  const groupNames = activeGroups.map((g) => g.name);
+
+  let organizedCount = 0;
+
+  await db.transaction('rw', [db.bookmarks, db.syncOutbox], async () => {
+    const unsortedBookmarks = await db.bookmarks
+      .filter(
+        (b) =>
+          (b.userId === targetUserId || !b.userId) &&
+          !b.deletedAt &&
+          (!b.group || b.group.toLowerCase() === 'unsorted')
+      )
+      .toArray();
+
+    for (const b of unsortedBookmarks) {
+      const smartGroup = resolveSmartGroup(b.url, groupNames);
+      if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
+        const newVersion = (b.version || 0) + 1;
+        const updated: LocalBookmark = {
+          ...b,
+          group: smartGroup,
+          version: newVersion,
+          updatedAt: now,
+        };
+
+        await db.bookmarks.put(updated);
+
+        if (targetUserId !== 'local-user') {
+          await db.syncOutbox.add({
+            id: crypto.randomUUID(),
+            entityType: 'bookmark',
+            entityId: b.id,
+            operation: 'update',
+            baseVersion: b.version || 0,
+            payload: updated,
+            status: 'pending',
+            attempts: 0,
+            createdAt: now,
+          });
+        }
+
+        organizedCount++;
+      }
+    }
+  });
+
+  return organizedCount;
 }

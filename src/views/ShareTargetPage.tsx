@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, Link as LinkIcon } from 'lucide-react'
 import { bookmarkRepository } from '../db/SyncRepository.js'
 import { syncManager } from '../db/SyncManager.js'
+import { resolveSmartGroup } from '../lib/smartGroups.js'
 import { api } from '../lib/api.js'
 import MarkbelLogo from '../components/MarkbelLogo.js'
 
@@ -45,6 +46,9 @@ export default function ShareTargetPage() {
 
         setSavedTitle(initialTitle)
 
+        // Auto-resolve smart group for shared URL
+        const smartGroup = resolveSmartGroup(targetUrl)
+
         // Save immediately to local IndexedDB for zero latency
         const bookmarkId = crypto.randomUUID()
         const createdBookmark = await bookmarkRepository.create({
@@ -54,7 +58,7 @@ export default function ShareTargetPage() {
           title: initialTitle,
           description: '',
           image: '',
-          group: 'Unsorted',
+          group: smartGroup,
           isRead: false,
           isPinned: false,
         })

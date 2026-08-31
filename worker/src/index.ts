@@ -163,6 +163,21 @@ app.post("/api/users/signup", async (c) => {
       .bind(id, name, email.toLowerCase(), passwordHash, avatar || "", now)
       .run();
 
+    // Seed default smart groups (YT, Insta, X)
+    const defaultSmartGroups = [
+      { id: crypto.randomUUID(), name: "YT", color: "red" },
+      { id: crypto.randomUUID(), name: "Insta", color: "purple" },
+      { id: crypto.randomUUID(), name: "X", color: "slate" },
+    ];
+
+    for (const dg of defaultSmartGroups) {
+      await c.env.DB.prepare(
+        "INSERT INTO groups (id, user_id, name, color, version, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)"
+      )
+        .bind(dg.id, id, dg.name, dg.color, now, now)
+        .run();
+    }
+
     const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
     const token = await sign({ id, email, exp }, secret, "HS256");

@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, LocalBookmark } from "../db/db";
+import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks } from "../db/db";
 import { syncManager } from "../db/SyncManager";
 import { bookmarkRepository, groupRepository } from "../db/SyncRepository";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../components/Toast";
 import { useDebounce } from "../lib/useDebounce";
 import { useKeyboardShortcuts } from "../lib/useKeyboardShortcuts";
 import { useSwipeGesture } from "../lib/useSwipeGesture";
@@ -21,6 +22,7 @@ import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
   const { logout, isGuest, user } = useAuth();
+  const { showToast } = useToast();
 
   // Network Connectivity State
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -42,7 +44,8 @@ export default function BookmarksPage() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
 
-    // Initial mount sync pull
+    // Initial mount sync pull & smart groups initialization
+    initializeDefaultSmartGroups(user?.id || "local-user");
     syncManager.sync(true);
 
     return () => {
@@ -319,6 +322,18 @@ export default function BookmarksPage() {
     }
   };
 
+  const handleAutoOrganize = async () => {
+    const count = await autoOrganizeUnsortedBookmarks(user?.id || "local-user");
+    syncManager.sync(true);
+    showToast(
+      count > 0 ? "Smart Auto-Group" : "Vault Organized",
+      count > 0
+        ? `Organized ${count} bookmark${count === 1 ? "" : "s"} into smart groups (YT, Insta, X)`
+        : `All links in your vault are already categorized!`,
+      count > 0 ? "success" : "info"
+    );
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-default)] font-sans">
       {/* Sidebar Navigation */}
@@ -333,6 +348,7 @@ export default function BookmarksPage() {
         openEditGroup={handleOpenEditGroup}
         deleteGroup={handleDeleteGroup}
         openNewGroup={handleOpenNewGroup}
+        onAutoOrganize={handleAutoOrganize}
       />
 
       {/* Main Content Area */}
