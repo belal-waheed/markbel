@@ -406,6 +406,32 @@ app.post("/api/auth/forgot-password", async (c) => {
   }
 });
 
+app.post("/api/auth/verify-code", async (c) => {
+  try {
+    const { email, code } = await c.req.json();
+    if (!email || !code) {
+      return c.json({ error: "Email and verification code are required" }, 400);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const now = new Date().toISOString();
+
+    const resetRecord: any = await c.env.DB.prepare(
+      "SELECT id FROM password_resets WHERE email = ? AND token = ? AND expires_at > ?"
+    )
+      .bind(normalizedEmail, code.trim(), now)
+      .first();
+
+    if (!resetRecord) {
+      return c.json({ error: "Invalid or expired verification code" }, 400);
+    }
+
+    return c.json({ success: true, valid: true, message: "Verification code confirmed." });
+  } catch (err: any) {
+    return c.json({ error: err.message || "Internal server error" }, 500);
+  }
+});
+
 app.post("/api/auth/reset-password", async (c) => {
   try {
     const { email, code, newPassword } = await c.req.json();

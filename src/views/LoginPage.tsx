@@ -1,32 +1,184 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  Loader2,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  ArrowLeft,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react'
 import { useAuth } from '../lib/auth.js'
 import { api } from '../lib/api.js'
 import MarkbelLogo from '../components/MarkbelLogo.js'
+import { OtpInput } from '../components/OtpInput.js'
 
-type AuthMode = 'login' | 'signup' | 'forgot_request' | 'forgot_reset'
+type AuthMode = 'login' | 'signup' | 'forgot_request' | 'forgot_otp' | 'forgot_new_password'
+
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 40 : -40,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 40 : -40,
+    opacity: 0,
+    transition: { duration: 0.18 },
+  }),
+}
+
+function calculatePasswordStrength(pass: string): { score: number; label: string; color: string } {
+  if (!pass) return { score: 0, label: '', color: '' }
+  let score = 0
+  if (pass.length >= 6) score++
+  if (pass.length >= 8) score++
+  if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++
+  if (/[0-9]/.test(pass)) score++
+  if (/[^A-Za-z0-9]/.test(pass)) score++
+
+  if (score <= 2) return { score: 1, label: 'Weak', color: 'bg-rose-500' }
+  if (score <= 3) return { score: 2, label: 'Fair', color: 'bg-amber-500' }
+  return { score: 3, label: 'Strong', color: 'bg-emerald-500' }
+}
 
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login')
+  const [direction, setDirection] = useState(1)
+
+  // Form Fields
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [resetCode, setResetCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  // UI state
   const [showPassword, setShowPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   const { login, signup } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Resend Countdown Timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
+  const switchMode = (newMode: AuthMode, dir = 1) => {
+    setDirection(dir)
+    setMode(newMode)
+    setError('')
+    setSuccessMessage('')
+  }
+
+  // Handle Step 1: Request Code
+  const handleRequestCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setError('')
+    setSubmitting(true)
+
+    try {
+      const res = await api.post<{ success: boolean; message: string; devCode?: string; emailDelivered?: boolean }>(
+        '/auth/forgot-password',
+        { email }
+      )
+      setResetCode('')
+      setResendCooldown(60)
+      setSuccessMessage(
+        res.emailDelivered
+          ? `A 6-digit code was sent to ${email}.`
+          : res.devCode
+          ? `Sandbox code: ${res.devCode}`
+          : 'Verification code sent to your email.'
+      )
+      switchMode('forgot_otp', 1)
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset code. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Handle Step 2: Verify Code
+  const handleVerifyOtp = async (codeToVerify?: string) => {
+    const code = codeToVerify || resetCode
+    if (code.length < 6) {
+      setError('Please enter the full 6-digit verification code.')
+      return
+    }
+    setError('')
+    setSubmitting(true)
+
+    try {
+      await api.post('/auth/verify-code', { email, code })
+      setError('')
+      setSuccessMessage('Code verified! Please choose your new password.')
+      switchMode('forgot_new_password', 1)
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired verification code.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Handle Step 3: Set New Password
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword.length < 4) {
+      setError('Password must be at least 4 characters.')
+      return
+    }
+    if (confirmPassword && newPassword !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setError('')
+    setSubmitting(true)
+
+    try {
+      await api.post('/auth/reset-password', {
+        email,
+        code: resetCode,
+        newPassword,
+      })
+      setSuccessMessage('Password reset successfully! You can now sign in.')
+      setPassword('')
+      setResetCode('')
+      setNewPassword('')
+      setConfirmPassword('')
+      switchMode('login', -1)
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Handle Main Login / Signup
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccessMessage('')
@@ -39,45 +191,17 @@ export default function LoginPage() {
       } else if (mode === 'login') {
         await login(email, password)
         navigate(redirectUrl, { replace: true })
-      } else if (mode === 'forgot_request') {
-        const res = await api.post<{ success: boolean; message: string; devCode?: string; emailDelivered?: boolean }>(
-          '/auth/forgot-password',
-          { email }
-        )
-        setResetCode('')
-        setSuccessMessage(
-          res.emailDelivered
-            ? `A 6-digit verification code was sent to ${email}. Please check your email inbox.`
-            : res.devCode
-            ? `Resend Free Sandbox: Testing code is ${res.devCode} (to send real emails to non-owner addresses, verify a domain in Resend).`
-            : 'If an account exists, a 6-digit verification code has been sent.'
-        )
-        setMode('forgot_reset')
-      } else if (mode === 'forgot_reset') {
-        await api.post('/auth/reset-password', {
-          email,
-          code: resetCode,
-          newPassword,
-        })
-        setSuccessMessage('Password reset successfully. Please sign in with your new password.')
-        setMode('login')
-        setPassword('')
-        setResetCode('')
-        setNewPassword('')
       }
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || 'Authentication operation failed. Please try again.')
+      setError(err.message || 'Authentication failed.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const switchMode = (newMode: AuthMode) => {
-    setMode(newMode)
-    setError('')
-    setSuccessMessage('')
-  }
+  const isForgotFlow = mode.startsWith('forgot_')
+  const currentStep = mode === 'forgot_request' ? 1 : mode === 'forgot_otp' ? 2 : mode === 'forgot_new_password' ? 3 : 0
+  const passStrength = calculatePasswordStrength(newPassword)
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-default)] p-4 relative overflow-hidden text-[var(--color-text-primary)] font-sans">
@@ -100,249 +224,428 @@ export default function LoginPage() {
 
         {/* Studio Card Container */}
         <div className="studio-card p-6 sm:p-8">
+          {/* Multi-Step Wizard Progress Bar for Forgot Password */}
+          {isForgotFlow && (
+            <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-[var(--color-border)]">
+              <div
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  currentStep === 1
+                    ? 'bg-[var(--color-accent)] text-white ring-2 ring-[var(--color-accent)]/20'
+                    : currentStep > 1
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-[var(--color-bg-element)] text-[var(--color-text-muted)]'
+                }`}
+              >
+                {currentStep > 1 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span>1</span>}
+                <span className="ml-0.5">Email</span>
+              </div>
+              <div className={`w-4 h-0.5 ${currentStep >= 2 ? 'bg-emerald-500' : 'bg-[var(--color-border)]'}`} />
+              <div
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  currentStep === 2
+                    ? 'bg-[var(--color-accent)] text-white ring-2 ring-[var(--color-accent)]/20'
+                    : currentStep > 2
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-[var(--color-bg-element)] text-[var(--color-text-muted)]'
+                }`}
+              >
+                {currentStep > 2 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span>2</span>}
+                <span className="ml-0.5">Verify</span>
+              </div>
+              <div className={`w-4 h-0.5 ${currentStep >= 3 ? 'bg-emerald-500' : 'bg-[var(--color-border)]'}`} />
+              <div
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  currentStep === 3
+                    ? 'bg-[var(--color-accent)] text-white ring-2 ring-[var(--color-accent)]/20'
+                    : 'bg-[var(--color-bg-element)] text-[var(--color-text-muted)]'
+                }`}
+              >
+                <span>3</span>
+                <span className="ml-0.5">Password</span>
+              </div>
+            </div>
+          )}
+
+          {/* Heading Section */}
           <div className="text-center mb-6 mt-1">
             <h2 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight">
               {mode === 'signup' && 'Create Account'}
               {mode === 'login' && 'Welcome Back'}
-              {mode === 'forgot_request' && 'Reset Password'}
-              {mode === 'forgot_reset' && 'Enter Verification Code'}
+              {mode === 'forgot_request' && 'Reset Your Password'}
+              {mode === 'forgot_otp' && 'Enter Verification Code'}
+              {mode === 'forgot_new_password' && 'Create New Password'}
             </h2>
             <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mt-1.5 font-medium">
               {mode === 'signup' && 'Create a unified links vault with cloud sync'}
               {mode === 'login' && 'Sign in to access your saved links across devices'}
-              {mode === 'forgot_request' && 'Enter your account email to receive a 6-digit verification code'}
-              {mode === 'forgot_reset' && 'Enter the 6-digit verification code and your new password'}
+              {mode === 'forgot_request' && 'Enter your email to receive a 6-digit recovery code'}
+              {mode === 'forgot_otp' && `We sent a 6-digit code to ${email}`}
+              {mode === 'forgot_new_password' && 'Choose a strong password for your account'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name Input (Signup only) */}
-            {mode === 'signup' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                transition={{ duration: 0.2 }}
-              >
-                <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-                  <input
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
-                    required={mode === 'signup'}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {/* Email Input (All modes except reset step if already set) */}
-            {mode !== 'forgot_reset' && (
-              <div>
-                <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-                  <input
-                    type="email"
-                    placeholder="name@domain.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Verification Code Input (Reset step only) */}
-            {mode === 'forgot_reset' && (
-              <div>
-                <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
-                  6-Digit Numeric Verification Code
-                </label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="· · · · · ·"
-                    value={resetCode}
-                    maxLength={6}
-                    onChange={(e) => setResetCode(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="w-full studio-input px-4 py-2.5 pl-11 text-sm tracking-widest font-mono font-bold text-center placeholder:font-normal placeholder:tracking-widest placeholder:text-gray-300 dark:placeholder:text-gray-600"
-                    required
-                  />
-                </div>
-                <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-                  Enter the 6-digit number sent to your email.
-                </p>
-              </div>
-            )}
-
-            {/* Password Input (Login / Signup) */}
+          <AnimatePresence mode="wait" custom={direction}>
+            {/* STAGE 1: LOGIN / SIGNUP */}
             {(mode === 'login' || mode === 'signup') && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-[var(--color-text-muted)]">Password</label>
-                  {mode === 'login' && (
+              <motion.form
+                key={mode}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                onSubmit={handleAuthSubmit}
+                className="space-y-4"
+              >
+                {mode === 'signup' && (
+                  <div>
+                    <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">Name</label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                      <input
+                        type="text"
+                        placeholder="Your name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type="email"
+                      placeholder="name@domain.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-[var(--color-text-muted)]">Password</label>
+                    {mode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => switchMode('forgot_request', 1)}
+                        className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full studio-input px-4 py-2.5 pl-11 pr-11 text-sm"
+                      required
+                      minLength={4}
+                    />
                     <button
                       type="button"
-                      onClick={() => switchMode('forgot_request')}
-                      className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded"
+                      title={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      Forgot password?
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full studio-button-primary py-2.5 flex items-center justify-center gap-2 font-semibold text-sm shadow-sm mt-2 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
                   )}
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full studio-input px-4 py-2.5 pl-11 pr-11 text-sm"
-                    required
-                    minLength={4}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded"
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+                </button>
+              </motion.form>
             )}
 
-            {/* New Password Input (Reset mode only) */}
-            {mode === 'forgot_reset' && (
-              <div>
-                <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
-                  New Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full studio-input px-4 py-2.5 pl-11 pr-11 text-sm"
-                    required
-                    minLength={4}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded"
-                    title={showNewPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Success Feedback Message */}
-            {successMessage && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3 font-semibold flex items-center gap-2"
+            {/* STAGE 2: FORGOT - STEP 1 (ENTER EMAIL) */}
+            {mode === 'forgot_request' && (
+              <motion.form
+                key="forgot_request"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                onSubmit={handleRequestCode}
+                className="space-y-4"
               >
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{successMessage}</span>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
+                    Account Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type="email"
+                      placeholder="name@domain.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting || !email}
+                  className="w-full studio-button-primary py-2.5 flex items-center justify-center gap-2 font-semibold text-sm shadow-sm mt-2 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Send Verification Code</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login', -1)}
+                    className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] font-medium transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Sign In</span>
+                  </button>
+                </div>
+              </motion.form>
+            )}
+
+            {/* STAGE 3: FORGOT - STEP 2 (ENTER 6-DIGIT OTP) */}
+            {mode === 'forgot_otp' && (
+              <motion.div
+                key="forgot_otp"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-4"
+              >
+                <div className="text-center">
+                  <OtpInput
+                    value={resetCode}
+                    onChange={(val) => {
+                      setResetCode(val)
+                      setError('')
+                    }}
+                    onComplete={(code) => handleVerifyOtp(code)}
+                    disabled={submitting}
+                    error={Boolean(error)}
+                  />
+                  <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                    Enter the 6-digit code sent to your inbox.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleVerifyOtp()}
+                  disabled={submitting || resetCode.length < 6}
+                  className="w-full studio-button-primary py-2.5 flex items-center justify-center gap-2 font-semibold text-sm shadow-sm mt-2 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Verify Code</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                {/* Resend & Change Email Row */}
+                <div className="flex items-center justify-between pt-2 text-xs border-t border-[var(--color-border)]">
+                  <button
+                    type="button"
+                    onClick={() => switchMode('forgot_request', -1)}
+                    className="inline-flex items-center gap-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] font-medium transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Change Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0 || submitting}
+                    onClick={handleRequestCode}
+                    className="inline-flex items-center gap-1.5 text-[var(--color-accent)] hover:underline font-medium disabled:opacity-50 disabled:no-underline"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}`} />
+                    <span>{resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}</span>
+                  </button>
+                </div>
               </motion.div>
             )}
 
-            {/* Error Feedback Message */}
-            {error && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xs text-[var(--color-status-error)] bg-red-50 border border-red-200 rounded-md p-3 font-semibold text-center"
+            {/* STAGE 4: FORGOT - STEP 3 (NEW PASSWORD) */}
+            {mode === 'forgot_new_password' && (
+              <motion.form
+                key="forgot_new_password"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                onSubmit={handleResetPassword}
+                className="space-y-4"
               >
-                {error}
-              </motion.p>
-            )}
+                <div>
+                  <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="At least 6 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full studio-input px-4 py-2.5 pl-11 pr-11 text-sm"
+                      autoFocus
+                      required
+                      minLength={4}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
 
-            {/* Submit Action Button */}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full flex items-center justify-center gap-2 btn-primary py-2.5 px-4 active:scale-[0.98] mt-6 font-bold"
+                  {/* Password Strength Indicator */}
+                  {newPassword && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex gap-1.5 h-1.5 w-full">
+                        <div
+                          className={`flex-1 rounded-full transition-all ${
+                            passStrength.score >= 1 ? passStrength.color : 'bg-[var(--color-bg-element)]'
+                          }`}
+                        />
+                        <div
+                          className={`flex-1 rounded-full transition-all ${
+                            passStrength.score >= 2 ? passStrength.color : 'bg-[var(--color-bg-element)]'
+                          }`}
+                        />
+                        <div
+                          className={`flex-1 rounded-full transition-all ${
+                            passStrength.score >= 3 ? passStrength.color : 'bg-[var(--color-bg-element)]'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-[var(--color-text-muted)]">
+                        <span>Strength</span>
+                        <span className="font-semibold">{passStrength.label}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-[var(--color-text-muted)] mb-1.5 block">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="Repeat new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full studio-input px-4 py-2.5 pl-11 text-sm"
+                      required
+                      minLength={4}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting || !newPassword}
+                  className="w-full studio-button-primary py-2.5 flex items-center justify-center gap-2 font-semibold text-sm shadow-sm mt-2 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Update Password & Sign In</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {/* Feedback Alerts */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2"
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span className="text-sm">
-                    {mode === 'signup' && 'Create Account'}
-                    {mode === 'login' && 'Sign In'}
-                    {mode === 'forgot_request' && 'Send Verification Code'}
-                    {mode === 'forgot_reset' && 'Update Password'}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+              <span>{error}</span>
+            </motion.div>
+          )}
 
-          {/* Navigation Links */}
-          <div className="mt-6 space-y-3 text-center border-t border-[var(--color-border-default)] pt-4">
-            {mode === 'login' && (
-              <button
-                type="button"
-                onClick={() => switchMode('signup')}
-                className="text-xs sm:text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer group font-medium block w-full"
-              >
-                Don't have an account? <span className="text-[var(--color-accent)] group-hover:underline font-bold ml-1">Sign Up</span>
-              </button>
-            )}
-
-            {mode === 'signup' && (
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                className="text-xs sm:text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer group font-medium block w-full"
-              >
-                Already have an account? <span className="text-[var(--color-accent)] group-hover:underline font-bold ml-1">Sign In</span>
-              </button>
-            )}
-
-            {(mode === 'forgot_request' || mode === 'forgot_reset') && (
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                className="text-xs sm:text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors font-semibold flex items-center justify-center gap-1.5 w-full"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Sign In</span>
-              </button>
-            )}
-
-            {/* Continue as Guest Button */}
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] underline py-1 block w-full transition-colors"
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2"
             >
-              Continue as Guest (Offline Local Storage)
-            </button>
-          </div>
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successMessage}</span>
+            </motion.div>
+          )}
+
+          {/* Mode Switcher Footer */}
+          {!isForgotFlow && (
+            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)] text-center">
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                <button
+                  type="button"
+                  onClick={() => switchMode(mode === 'login' ? 'signup' : 'login', mode === 'login' ? 1 : -1)}
+                  className="text-[var(--color-accent)] font-semibold hover:underline"
+                >
+                  {mode === 'login' ? 'Sign up' : 'Sign in'}
+                </button>
+              </p>
+            </div>
+          )}
         </div>
-
-        <p className="text-center text-xs text-[var(--color-text-muted)] mt-6 tracking-wide">
-          Understated, high-performance link vault
-        </p>
       </motion.div>
     </div>
   )
 }
-

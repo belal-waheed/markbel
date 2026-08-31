@@ -90,4 +90,23 @@ describe('Auth Offline & Session Resilience', () => {
     expect(sanitizeCode('abc-988-912-xyz')).toBe('988912')
     expect(sanitizeCode('123456789')).toBe('123456')
   })
+
+  it('correctly calculates password strength tiers', () => {
+    const calculateStrength = (pass: string) => {
+      let score = 0
+      if (pass.length >= 6) score++
+      if (pass.length >= 8) score++
+      if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++
+      if (/[0-9]/.test(pass)) score++
+      if (/[^A-Za-z0-9]/.test(pass)) score++
+      if (score <= 2) return 'Weak'
+      if (score <= 3) return 'Fair'
+      return 'Strong'
+    }
+
+    expect(calculateStrength('123')).toBe('Weak')
+    expect(calculateStrength('password123')).toBe('Fair')
+    expect(calculateStrength('P@ssw0rd!2026')).toBe('Strong')
+  })
 })
+
