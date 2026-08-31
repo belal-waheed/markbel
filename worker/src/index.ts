@@ -320,7 +320,7 @@ app.post("/api/auth/forgot-password", async (c) => {
     // 1. Try Cloudflare Email Service Binding (Mail_Pass)
     if (c.env.Mail_Pass) {
       try {
-        const fromAddress = c.env.RESEND_FROM_EMAIL || "security@markbel.app";
+        const fromAddress = c.env.RESEND_FROM_EMAIL || "security@markbel.belal.is-a.dev";
         const emailHtml = `<div style="font-family: sans-serif; padding: 20px; color: #111; max-width: 500px; margin: 0 auto; border: 1px solid #e4e4e7; border-radius: 8px;">
           <h2 style="color: #0284c7;">Markbel Password Reset</h2>
           <p>You requested a password reset for your Markbel account. Your 6-digit verification code is:</p>
@@ -357,7 +357,7 @@ app.post("/api/auth/forgot-password", async (c) => {
     const resendKey = c.env.RESEND_API_KEY;
     if (!emailDelivered && resendKey) {
       try {
-        const fromAddress = c.env.RESEND_FROM_EMAIL || "Markbel Security <onboarding@resend.dev>";
+        const fromAddress = c.env.RESEND_FROM_EMAIL || "Markbel Security <security@markbel.belal.is-a.dev>";
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
