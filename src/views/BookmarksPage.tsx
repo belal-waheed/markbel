@@ -8,17 +8,17 @@ import { useDebounce } from "../lib/useDebounce";
 import { useKeyboardShortcuts } from "../lib/useKeyboardShortcuts";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
-import { BookmarkFilterBar, FilterTab } from "../components/BookmarkFilterBar";
+import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
 import { AddBookmarkModal } from "../components/modals/AddBookmarkModal";
 import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
 import { GroupModal } from "../components/modals/GroupModal";
-import { Plus, Menu, RefreshCw, BookmarkX } from "lucide-react";
+import { Plus, Menu, RefreshCw, BookmarkX, X } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
-  const { logout } = useAuth();
+  const { logout, isGuest } = useAuth();
 
   // Reactive Dexie Live Queries
   const bookmarks =
@@ -36,6 +36,21 @@ export default function BookmarksPage() {
   // Filter & UI States
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<FilterTab>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("markbel_view_mode") as ViewMode) || "grid";
+    }
+    return "grid";
+  });
+  const [showGuestBanner, setShowGuestBanner] = useState(true);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("markbel_view_mode", mode);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -272,6 +287,33 @@ export default function BookmarksPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Guest Mode Notice Banner */}
+        {isGuest && showGuestBanner && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 sm:px-6 flex items-center justify-between gap-3 text-xs shrink-0">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)] min-w-0">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+              <span className="truncate">
+                <strong>Local Storage Active:</strong> Bookmarks are saved on this device. Sign in or create a free account to back up and sync across devices.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href="/login"
+                className="btn-primary text-xs px-2.5 py-1 font-bold rounded shadow-xs"
+              >
+                Sign In / Sync
+              </a>
+              <button
+                onClick={() => setShowGuestBanner(false)}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] p-1 rounded"
+                title="Dismiss banner"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Header */}
         <header className="flex-none h-16 bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -294,14 +336,16 @@ export default function BookmarksPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={triggerSync}
-              disabled={isSyncing}
-              className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors active:scale-95 disabled:opacity-50"
-              title="Sync Now"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-            </button>
+            {!isGuest && (
+              <button
+                onClick={triggerSync}
+                disabled={isSyncing}
+                className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors active:scale-95 disabled:opacity-50"
+                title="Sync Now"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+              </button>
+            )}
 
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -314,7 +358,7 @@ export default function BookmarksPage() {
         </header>
 
         {/* Scrollable Viewport */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6">
           <div className="max-w-[1600px] mx-auto">
             {/* Filter Bar & Search */}
             <BookmarkFilterBar
@@ -322,11 +366,13 @@ export default function BookmarksPage() {
               onTabChange={setCurrentTab}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              viewMode={viewMode}
+              onViewModeChange={handleViewModeChange}
               counts={counts}
               searchInputRef={searchInputRef}
             />
 
-            {/* Bookmarks Grid / Empty State */}
+            {/* Bookmarks Grid / List / Empty State */}
             {filteredBookmarks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center px-4">
                 <div className="w-12 h-12 rounded-2xl bg-[var(--color-bg-element)] flex items-center justify-center text-[var(--color-text-muted)] mb-3">
@@ -350,12 +396,29 @@ export default function BookmarksPage() {
                   Add Link
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
+            ) : viewMode === "list" ? (
+              <div className="flex flex-col gap-2 sm:gap-2.5">
                 {filteredBookmarks.map((b) => (
                   <BookmarkCard
                     key={b.id}
                     bookmark={b}
+                    viewMode="list"
+                    onClick={handleCardClick}
+                    onTogglePin={handleTogglePin}
+                    onToggleRead={handleToggleRead}
+                    onArchive={(bookmark) => setArchivingBookmark(bookmark)}
+                    onEdit={(bookmark) => setEditingBookmark(bookmark)}
+                    onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
+                {filteredBookmarks.map((b) => (
+                  <BookmarkCard
+                    key={b.id}
+                    bookmark={b}
+                    viewMode="grid"
                     onClick={handleCardClick}
                     onTogglePin={handleTogglePin}
                     onToggleRead={handleToggleRead}

@@ -3,13 +3,25 @@ export interface APIResponse<T = any> {
   error?: string
 }
 
+export class ApiError extends Error {
+  status: number
+  data?: any
+
+  constructor(message: string, status: number, data?: any) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.data = data
+  }
+}
+
 const API_BASE = '/api'
 
 function getHeaders(): HeadersInit {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   }
-  const token = localStorage.getItem('markbel_token')
+  const token = typeof window !== 'undefined' ? localStorage.getItem('markbel_token') : null
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
@@ -23,8 +35,10 @@ export const api = {
       headers: getHeaders(),
       credentials: 'include'
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Request failed')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
+    }
     return data as T
   },
 
@@ -35,8 +49,10 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify(body)
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Request failed')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
+    }
     return data as T
   },
 
@@ -47,8 +63,10 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify(body)
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Request failed')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
+    }
     return data as T
   },
 
@@ -59,8 +77,10 @@ export const api = {
       credentials: 'include',
       body: body ? JSON.stringify(body) : undefined
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Request failed')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
+    }
     return data as T
   },
 
@@ -74,8 +94,10 @@ export const api = {
       opts.body = JSON.stringify(body)
     }
     const res = await fetch(`${API_BASE}${path}`, opts)
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Request failed')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
+    }
     return data as T
   }
 }

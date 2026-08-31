@@ -231,6 +231,121 @@ app.get("/api/users/me", authMiddleware, async (c) => {
   });
 });
 
+app.post("/api/auth/forgot-password", async (c) => {
+  try {
+    const { email } = await c.req.json();
+    if (!email) {
+      return c.json({ error: "Email is required" }, 400);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await c.env.DB.prepare("SELECT id, name FROM users WHERE email = ?")
+      .bind(normalizedEmail)
+      .first();
+
+    if (!user) {
+      // Return success anyway to avoid user enumeration
+      return c.json({ success: true, message: "If an account exists, a reset code has been sent." });
+    }
+
+    // Generate 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+
+    // Clean up older tokens for this email
+    await c.env.DB.prepare("DELETE FROM password_resets WHERE email = ?")
+      .bind(normalizedEmail)
+      .run();
+
+    await c.env.DB.prepare(
+      "INSERT INTO password_resets (id, email, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+    )
+      .bind(id, normalizedEmail, code, expiresAt, now)
+      .run();
+
+    // If Resend API Key is configured, send email
+    const resendKey = c.env.RESEND_API_KEY;
+    if (resendKey) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Markbel Security <auth@markbel.app>",
+            to: [normalizedEmail],
+            subject: "Markbel Password Reset Code",
+            html: `<div style="font-family: sans-serif; padding: 20px; color: #111;">
+              <h2>Password Reset Request</h2>
+              <p>Your 6-digit verification code is:</p>
+              <h1 style="letter-spacing: 4px; color: #0284c7; font-size: 32px;">${code}</h1>
+              <p>This code will expire in 15 minutes. If you did not request this, you can safely ignore this email.</p>
+            </div>`,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("[Resend Error]:", emailErr);
+      }
+    } else {
+      console.log(`[Dev Password Reset Code for ${normalizedEmail}]: ${code}`);
+    }
+
+    return c.json({
+      success: true,
+      message: "If an account exists, a reset code has been sent.",
+      // Include dev preview code if in local development
+      devCode: !c.env.RESEND_API_KEY ? code : undefined,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message || "Internal server error" }, 500);
+  }
+});
+
+app.post("/api/auth/reset-password", async (c) => {
+  try {
+    const { email, code, newPassword } = await c.req.json();
+    if (!email || !code || !newPassword) {
+      return c.json({ error: "Email, reset code, and new password are required" }, 400);
+    }
+
+    if (newPassword.length < 4) {
+      return c.json({ error: "Password must be at least 4 characters long" }, 400);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const now = new Date().toISOString();
+
+    const resetRecord: any = await c.env.DB.prepare(
+      "SELECT id FROM password_resets WHERE email = ? AND token = ? AND expires_at > ?"
+    )
+      .bind(normalizedEmail, code.trim(), now)
+      .first();
+
+    if (!resetRecord) {
+      return c.json({ error: "Invalid or expired verification code" }, 400);
+    }
+
+    const newHash = await hashPassword(newPassword);
+
+    await c.env.DB.prepare("UPDATE users SET password_hash = ? WHERE email = ?")
+      .bind(newHash, normalizedEmail)
+      .run();
+
+    // Invalidate reset code
+    await c.env.DB.prepare("DELETE FROM password_resets WHERE email = ?")
+      .bind(normalizedEmail)
+      .run();
+
+    return c.json({ success: true, message: "Password reset successfully. You can now sign in." });
+  } catch (err: any) {
+    return c.json({ error: err.message || "Internal server error" }, 500);
+  }
+});
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SYNC ROUTES (D1 Cloudflare SQLite with Last-Write-Wins)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -512,10 +627,25 @@ app.get("/api/sync/pull", authMiddleware, async (c) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// EDGE LINK METADATA SCRAPER (Cheerio on Cloudflare Workers)
+// MULTI-PLATFORM RICH MEDIA & LINK METADATA SCRAPER (Cloudflare Edge)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-app.get("/api/metadata", authMiddleware, async (c) => {
+function decodeHtmlEntities(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&hellip;/g, "…");
+}
+
+app.get("/api/metadata", async (c) => {
   const rawUrl = (c.req.query("url") || "").trim();
   if (!rawUrl) {
     return c.json({ error: "URL is required" }, 400);
@@ -531,14 +661,98 @@ app.get("/api/metadata", authMiddleware, async (c) => {
     return c.json({ error: "Invalid URL format" }, 400);
   }
 
+  const hostname = targetUrl.hostname.toLowerCase();
+
+  // 1. YouTube Adapter (Videos, Shorts, Embeds)
+  if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
+    let ytId: string | null = null;
+    if (targetUrl.pathname.startsWith("/shorts/")) {
+      ytId = targetUrl.pathname.split("/")[2]?.split("?")[0] || null;
+    } else if (targetUrl.pathname.startsWith("/watch")) {
+      ytId = targetUrl.searchParams.get("v");
+    } else if (targetUrl.pathname.startsWith("/embed/")) {
+      ytId = targetUrl.pathname.split("/")[2]?.split("?")[0] || null;
+    } else if (hostname.includes("youtu.be")) {
+      ytId = targetUrl.pathname.slice(1).split("/")[0]?.split("?")[0] || null;
+    }
+
+    if (ytId) {
+      const thumbnail = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      let ytTitle = targetUrl.pathname.startsWith("/shorts/") ? "YouTube Short" : "YouTube Video";
+      let ytAuthor = "";
+
+      try {
+        const oembedRes = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`,
+          { signal: AbortSignal.timeout(3000) }
+        );
+        if (oembedRes.ok) {
+          const oembedData: any = await oembedRes.json();
+          if (oembedData.title) ytTitle = oembedData.title;
+          if (oembedData.author_name) ytAuthor = oembedData.author_name;
+        }
+      } catch {}
+
+      return c.json({
+        title: decodeHtmlEntities(ytTitle),
+        description: ytAuthor ? `By ${ytAuthor}` : "",
+        image: thumbnail,
+      });
+    }
+  }
+
+  // 2. TikTok Adapter (oEmbed)
+  if (hostname.includes("tiktok.com")) {
+    try {
+      const oembedRes = await fetch(
+        `https://www.tiktok.com/oembed?url=${encodeURIComponent(targetUrl.toString())}`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      if (oembedRes.ok) {
+        const oembedData: any = await oembedRes.json();
+        return c.json({
+          title: decodeHtmlEntities(oembedData.title || `TikTok by @${oembedData.author_unique_id || oembedData.author_name}`),
+          description: oembedData.author_name ? `@${oembedData.author_unique_id || oembedData.author_name} on TikTok` : "TikTok Video",
+          image: oembedData.thumbnail_url || "",
+        });
+      }
+    } catch {}
+  }
+
+  // 3. Twitter / X Adapter (Publish oEmbed)
+  if (hostname.includes("twitter.com") || hostname.includes("x.com")) {
+    try {
+      const oembedRes = await fetch(
+        `https://publish.twitter.com/oembed?url=${encodeURIComponent(targetUrl.toString())}&omit_script=true`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      if (oembedRes.ok) {
+        const oembedData: any = await oembedRes.json();
+        // Strip HTML tags from tweet text
+        const plainText = (oembedData.html || "").replace(/<[^>]*>?/gm, "").trim();
+        return c.json({
+          title: oembedData.author_name ? `Post by ${oembedData.author_name}` : "Post on X",
+          description: decodeHtmlEntities(plainText).slice(0, 200),
+          image: "",
+        });
+      }
+    } catch {}
+  }
+
+  // 4. Standard Web Pages & Fallback OpenGraph Parsing
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 3500);
+
+    let userAgent =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+    if (hostname.includes("instagram.com") || hostname.includes("facebook.com")) {
+      userAgent = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_codedoc.html)";
+    }
 
     const response = await fetch(targetUrl.toString(), {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "User-Agent": userAgent,
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       },
       signal: controller.signal,
@@ -566,19 +780,11 @@ app.get("/api/metadata", authMiddleware, async (c) => {
 
     let image =
       $('meta[property="og:image"]').attr("content") ||
+      $('meta[property="og:image:secure_url"]').attr("content") ||
       $('meta[name="twitter:image"]').attr("content") ||
+      $('meta[name="twitter:image:src"]').attr("content") ||
+      $('link[rel="image_src"]').attr("href") ||
       "";
-
-    // YouTube thumbnail resolution
-    if (targetUrl.hostname.includes("youtube.com") || targetUrl.hostname.includes("youtu.be")) {
-      let ytId = targetUrl.searchParams.get("v");
-      if (!ytId && targetUrl.hostname.includes("youtu.be")) {
-        ytId = targetUrl.pathname.slice(1).split("/")[0];
-      }
-      if (ytId && !image) {
-        image = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-      }
-    }
 
     if (image && !image.startsWith("http")) {
       try {
@@ -587,8 +793,8 @@ app.get("/api/metadata", authMiddleware, async (c) => {
     }
 
     return c.json({
-      title: title.trim(),
-      description: description.trim(),
+      title: decodeHtmlEntities(title.trim()),
+      description: decodeHtmlEntities(description.trim()),
       image: image.trim(),
     });
   } catch (err: any) {

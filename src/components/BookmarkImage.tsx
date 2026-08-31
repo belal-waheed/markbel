@@ -12,7 +12,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   src,
   alt,
   className = "",
-  aspectRatioClass = "aspect-[1.4/1]",
+  aspectRatioClass = "aspect-video",
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -21,7 +21,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
 
   return (
     <div
-      className={`relative w-full overflow-hidden bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] select-none ${aspectRatioClass} ${className}`}
+      className={`relative w-full overflow-hidden bg-[var(--color-bg-element)] select-none ${aspectRatioClass} ${className}`}
     >
       {/* Background Icon Placeholder / Skeleton */}
       <div className="absolute inset-0 flex items-center justify-center text-[var(--color-text-muted)] opacity-25">

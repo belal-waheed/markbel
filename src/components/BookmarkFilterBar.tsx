@@ -1,13 +1,16 @@
 import React from "react";
-import { Search, X, Pin, Clock, BookOpen, Layers } from "lucide-react";
+import { Search, X, Pin, Clock, BookOpen, Layers, LayoutGrid, List } from "lucide-react";
 
 export type FilterTab = "all" | "unread" | "pinned" | "due";
+export type ViewMode = "grid" | "list";
 
 interface BookmarkFilterBarProps {
   currentTab: FilterTab;
   onTabChange: (tab: FilterTab) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (m: ViewMode) => void;
   counts: {
     all: number;
     unread: number;
@@ -22,6 +25,8 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
   onTabChange,
   searchQuery,
   onSearchChange,
+  viewMode,
+  onViewModeChange,
   counts,
   searchInputRef,
 }) => {
@@ -65,28 +70,60 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
         })}
       </div>
 
-      {/* Search Input for Mobile/Desktop */}
-      <div className="relative flex-1 sm:max-w-xs">
-        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[var(--color-text-muted)]">
-          <Search className="w-3.5 h-3.5" />
+      {/* Right Controls: Search + View Mode Switcher */}
+      <div className="flex items-center gap-2">
+        {/* Search Input */}
+        <div className="relative flex-1 sm:w-64">
+          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[var(--color-text-muted)]">
+            <Search className="w-3.5 h-3.5" />
+          </div>
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Filter bookmarks... (/)"
+            className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-1.5 pl-8 pr-7 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focused)] focus:ring-1 focus:ring-[var(--color-border-focused)] transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute inset-y-0 right-0 pr-2 flex items-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-        <input
-          ref={searchInputRef}
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filter bookmarks... (/)"
-          className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-1.5 pl-8 pr-7 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focused)] focus:ring-1 focus:ring-[var(--color-border-focused)] transition-colors"
-        />
-        {searchQuery && (
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-[var(--color-bg-element)] p-0.5 rounded-lg border border-[var(--color-border-default)] shrink-0">
           <button
-            onClick={() => onSearchChange("")}
-            className="absolute inset-y-0 right-0 pr-2 flex items-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            type="button"
+            onClick={() => onViewModeChange("grid")}
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "grid"
+                ? "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm"
+                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            }`}
+            title="Grid View"
           >
-            <X className="w-3.5 h-3.5" />
+            <LayoutGrid className="w-3.5 h-3.5" />
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => onViewModeChange("list")}
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "list"
+                ? "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm"
+                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            }`}
+            title="Compact List View"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+

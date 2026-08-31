@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
-import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut } from 'lucide-react'
+import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../lib/auth'
 import MarkbelLogo from './MarkbelLogo'
 
 interface GroupSidebarProps {
@@ -29,6 +30,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   openNewGroup
 }) => {
   const navigate = useNavigate()
+  const { user, isGuest } = useAuth()
 
   const mergedGroups = useMemo(() => {
     const map = new Map<string, number>()
@@ -94,16 +96,18 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
             <Archive className="w-4 h-4" />
             Archive
           </button>
-          <button
-            onClick={() => {
-              setIsSidebarOpen(false);
-              navigate("/settings");
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-          >
-            <Settings className="w-4 h-4" />
-            Settings
-          </button>
+          {!isGuest && (
+            <button
+              onClick={() => {
+                setIsSidebarOpen(false);
+                navigate("/settings");
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </button>
+          )}
         </div>
 
         {/* Groups List */}
@@ -178,16 +182,47 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
         </div>
       </div>
 
-      {/* User Footer */}
-      <div className="p-4 border-t border-[var(--color-border-default)]">
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-[var(--color-status-error)] hover:bg-red-50 active:scale-95 active:bg-red-100 rounded-md transition-all whitespace-nowrap"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+      {/* User / Guest Footer */}
+      <div className="p-3 border-t border-[var(--color-border-default)] bg-[var(--color-bg-element)] space-y-2">
+        {isGuest ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1 text-xs text-[var(--color-text-muted)]">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="truncate font-medium">Guest Mode (Local)</span>
+            </div>
+            <button
+              onClick={() => {
+                setIsSidebarOpen(false);
+                navigate("/login");
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold btn-primary rounded-md transition-all active:scale-95"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In / Sync</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-7 h-7 rounded-full bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center text-xs font-bold">
+                {user?.name ? user.name[0].toUpperCase() : <User className="w-3.5 h-3.5" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-[var(--color-text-primary)] truncate">{user?.name || "User"}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] truncate">{user?.email || ""}</p>
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[var(--color-status-error)] hover:bg-red-50 active:scale-95 rounded-md transition-all whitespace-nowrap"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   )
 }
+

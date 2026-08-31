@@ -3,10 +3,10 @@ import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import LoginPage from './views/LoginPage.js'
 import BookmarksPage from './views/BookmarksPage.js'
-
 import SettingsPage from './views/SettingsPage.js'
 import ArchivePage from './views/ArchivePage.js'
 import SyncDebugPage from './views/SyncDebugPage.js'
+import ShareTargetPage from './views/ShareTargetPage.js'
 import { Loader2 } from 'lucide-react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-main)] gap-3 font-sans">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-default)] gap-3 font-sans">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
         <span className="text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">Loading Markbel...</span>
       </div>
@@ -35,27 +35,14 @@ export default function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <BookmarksPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/" element={<BookmarksPage />} />
+            <Route path="/share" element={<ShareTargetPage />} />
+            <Route path="/archive" element={<ArchivePage />} />
             <Route
               path="/settings"
               element={
                 <ProtectedRoute>
                   <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/archive"
-              element={
-                <ProtectedRoute>
-                  <ArchivePage />
                 </ProtectedRoute>
               }
             />
@@ -74,3 +61,4 @@ export default function App() {
     </AuthProvider>
   )
 }
+

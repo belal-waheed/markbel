@@ -71,9 +71,20 @@ CREATE TABLE IF NOT EXISTS devices (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Password Resets Table
+CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    token TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, is_archived, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_group ON bookmarks(user_id, group_name);
 CREATE INDEX IF NOT EXISTS idx_groups_user ON groups(user_id, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_sync_changes_pull ON sync_changes(user_id, entity_type, sequence);
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+

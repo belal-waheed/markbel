@@ -9,6 +9,7 @@ import { connectToDatabase } from "./db.js";
 import User from "./models/User.js";
 import Bookmark from "./models/Bookmark.js";
 import Group from "./models/Group.js";
+import PasswordReset from "./models/PasswordReset.js";
 import syncRoutes from "./routes/sync.js";
 import deviceRoutes from "./routes/device.js";
 import notificationRoutes from "./routes/notifications.js";
@@ -179,6 +180,107 @@ app.post("/api/users/login", authLimiter, async (req, res) => {
 app.post("/api/users/logout", (req, res) => {
   res.clearCookie("markbel_token");
   res.json({ message: "Logged out successfully" });
+});
+
+// POST /api/auth/forgot-password
+app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail }).lean();
+
+    if (!user) {
+      res.json({ success: true, message: "If an account exists, a reset code has been sent." });
+      return;
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await PasswordReset.deleteMany({ email: normalizedEmail });
+    await PasswordReset.create({
+      email: normalizedEmail,
+      token: code,
+      expiresAt,
+    });
+
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Markbel Security <auth@markbel.app>",
+            to: [normalizedEmail],
+            subject: "Markbel Password Reset Code",
+            html: `<div style="font-family: sans-serif; padding: 20px; color: #111;">
+              <h2>Password Reset Request</h2>
+              <p>Your 6-digit verification code is:</p>
+              <h1 style="letter-spacing: 4px; color: #0284c7; font-size: 32px;">${code}</h1>
+              <p>This code will expire in 15 minutes.</p>
+            </div>`,
+          }),
+        });
+      } catch (err) {
+        console.error("[Resend Error]:", err);
+      }
+    } else {
+      console.log(`[Dev Password Reset Code for ${normalizedEmail}]: ${code}`);
+    }
+
+    res.json({
+      success: true,
+      message: "If an account exists, a reset code has been sent.",
+      devCode: !resendKey ? code : undefined,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+// POST /api/auth/reset-password
+app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      res.status(400).json({ error: "Email, reset code, and new password are required" });
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      res.status(400).json({ error: "Password must be at least 4 characters long" });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const resetRecord = await PasswordReset.findOne({
+      email: normalizedEmail,
+      token: code.trim(),
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!resetRecord) {
+      res.status(400).json({ error: "Invalid or expired verification code" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await User.updateOne({ email: normalizedEmail }, { $set: { password: hashedPassword } });
+    await PasswordReset.deleteMany({ email: normalizedEmail });
+
+    res.json({ success: true, message: "Password reset successfully. You can now sign in." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
 });
 
 // GET /api/users/me (Get profile)

@@ -26,37 +26,80 @@ export const scrapeBookmarkMetadata = async (bookmark: {
 
   try {
     const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase();
 
-    // 1. YouTube video ID extraction for fast thumbnail
     let ytId: string | null = null;
-    if (parsedUrl.hostname.includes("youtube.com")) {
-      if (parsedUrl.pathname.startsWith("/watch")) {
+    if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
+      if (parsedUrl.pathname.startsWith("/shorts/")) {
+        ytId = parsedUrl.pathname.split("/")[2]?.split("?")[0] || null;
+      } else if (parsedUrl.pathname.startsWith("/watch")) {
         ytId = parsedUrl.searchParams.get("v");
       } else if (parsedUrl.pathname.startsWith("/embed/")) {
-        ytId = parsedUrl.pathname.split("/")[2];
-      } else if (parsedUrl.pathname.startsWith("/shorts/")) {
-        ytId = parsedUrl.pathname.split("/")[2];
+        ytId = parsedUrl.pathname.split("/")[2]?.split("?")[0] || null;
+      } else if (hostname.includes("youtu.be")) {
+        ytId = parsedUrl.pathname.slice(1).split("/")[0]?.split("?")[0] || null;
       }
-    } else if (parsedUrl.hostname.includes("youtu.be")) {
-      const parts = parsedUrl.pathname.slice(1).split("/");
-      ytId = parts[0];
     }
 
     let scrapedTitle = "";
     let scrapedDesc = "";
-    let scrapedImage = ytId
-      ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
-      : "";
+    let scrapedImage = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : "";
 
-    // 2. Fetch page HTML if needed
-    if (!ytId || shouldScrapeTitle || shouldScrapeDesc || (!scrapedImage && shouldScrapeImage)) {
+    // 1. YouTube oEmbed
+    if (ytId) {
+      try {
+        const oembedRes = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`,
+          { signal: AbortSignal.timeout(3000) }
+        );
+        if (oembedRes.ok) {
+          const oembedData: any = await oembedRes.json();
+          if (oembedData.title) scrapedTitle = oembedData.title;
+          if (oembedData.author_name) scrapedDesc = `By ${oembedData.author_name}`;
+        }
+      } catch {}
+    }
+
+    // 2. TikTok oEmbed
+    if (hostname.includes("tiktok.com")) {
+      try {
+        const oembedRes = await fetch(
+          `https://www.tiktok.com/oembed?url=${encodeURIComponent(parsedUrl.toString())}`,
+          { signal: AbortSignal.timeout(3000) }
+        );
+        if (oembedRes.ok) {
+          const oembedData: any = await oembedRes.json();
+          scrapedTitle = oembedData.title || `TikTok by @${oembedData.author_unique_id || oembedData.author_name}`;
+          scrapedDesc = oembedData.author_name ? `@${oembedData.author_unique_id || oembedData.author_name} on TikTok` : "TikTok Video";
+          if (oembedData.thumbnail_url) scrapedImage = oembedData.thumbnail_url;
+        }
+      } catch {}
+    }
+
+    // 3. Twitter / X oEmbed
+    if (hostname.includes("twitter.com") || hostname.includes("x.com")) {
+      try {
+        const oembedRes = await fetch(
+          `https://publish.twitter.com/oembed?url=${encodeURIComponent(parsedUrl.toString())}&omit_script=true`,
+          { signal: AbortSignal.timeout(3000) }
+        );
+        if (oembedRes.ok) {
+          const oembedData: any = await oembedRes.json();
+          scrapedTitle = oembedData.author_name ? `Post by ${oembedData.author_name}` : "Post on X";
+          scrapedDesc = (oembedData.html || "").replace(/<[^>]*>?/gm, "").trim().slice(0, 200);
+        }
+      } catch {}
+    }
+
+    // 4. Fetch page HTML if needed
+    if (!scrapedTitle || !scrapedImage || !scrapedDesc) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
         let userAgent =
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-        if (parsedUrl.hostname.includes("instagram.com")) {
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+        if (hostname.includes("instagram.com") || hostname.includes("facebook.com")) {
           userAgent =
             "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_codedoc.html)";
         }
@@ -76,19 +119,23 @@ export const scrapeBookmarkMetadata = async (bookmark: {
           const $ = cheerio.load(html);
 
           // Extract Title
-          scrapedTitle =
-            $('meta[property="og:title"]').attr("content") ||
-            $('meta[name="twitter:title"]').attr("content") ||
-            $("title").text() ||
-            $('meta[name="title"]').attr("content") ||
-            "";
+          if (!scrapedTitle) {
+            scrapedTitle =
+              $('meta[property="og:title"]').attr("content") ||
+              $('meta[name="twitter:title"]').attr("content") ||
+              $("title").text() ||
+              $('meta[name="title"]').attr("content") ||
+              "";
+          }
 
           // Extract Description
-          scrapedDesc =
-            $('meta[property="og:description"]').attr("content") ||
-            $('meta[name="twitter:description"]').attr("content") ||
-            $('meta[name="description"]').attr("content") ||
-            "";
+          if (!scrapedDesc) {
+            scrapedDesc =
+              $('meta[property="og:description"]').attr("content") ||
+              $('meta[name="twitter:description"]').attr("content") ||
+              $('meta[name="description"]').attr("content") ||
+              "";
+          }
 
           // Extract Image
           if (!scrapedImage) {
@@ -103,9 +150,7 @@ export const scrapeBookmarkMetadata = async (bookmark: {
             if (img && !img.startsWith("http")) {
               try {
                 img = new URL(img, parsedUrl.origin).toString();
-              } catch {
-                // Ignore url parse error
-              }
+              } catch {}
             }
             scrapedImage = img;
           }

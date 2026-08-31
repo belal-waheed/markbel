@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { api } from './api.js'
+import { api, ApiError } from './api.js'
 import { syncManager } from '../db/SyncManager.js'
 
-interface UserProfile {
+export interface UserProfile {
   id: string
   name: string
   email: string
@@ -10,10 +10,11 @@ interface UserProfile {
   createdAt: string
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: UserProfile | null
   token: string | null
   loading: boolean
+  isGuest: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
@@ -22,43 +23,79 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [token, setToken] = useState<string | null>(null)
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (typeof window === 'undefined') return null
+    const cached = localStorage.getItem('markbel_user')
+    if (cached) {
+      try {
+        return JSON.parse(cached)
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
+
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('markbel_token')
+  })
+
   const [loading, setLoading] = useState(true)
+
+  const isGuest = !token
 
   const sendTokenToNative = (t: string | null) => {
     if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
       (window as any).ReactNativeWebView.postMessage(
         JSON.stringify({ type: 'TOKEN_SYNC', token: t })
-      );
+      )
     }
   }
 
   useEffect(() => {
     async function bootstrap() {
       const savedToken = localStorage.getItem('markbel_token')
+      const savedUser = localStorage.getItem('markbel_user')
+
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser))
+        } catch {}
+      }
+
       if (!savedToken) {
         setLoading(false)
         return
       }
 
+      setToken(savedToken)
+      sendTokenToNative(savedToken)
+
       try {
+        // Silent background validation of user session
         const profile = await api.get<UserProfile>('/users/me')
         setUser(profile)
-        setToken(savedToken)
-        sendTokenToNative(savedToken)
+        localStorage.setItem('markbel_user', JSON.stringify(profile))
+        
         await syncManager.registerDevice('web', '1.0.0')
         syncManager.startPeriodicSync()
-      } catch (err) {
-        console.log('[Auth] Not logged in or session expired')
-        localStorage.removeItem('markbel_token')
-        setToken(null)
-        setUser(null)
-        sendTokenToNative(null)
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 401) {
+          console.warn('[Auth] Session expired or invalid (401). Clearing credentials.')
+          localStorage.removeItem('markbel_token')
+          localStorage.removeItem('markbel_user')
+          setToken(null)
+          setUser(null)
+          sendTokenToNative(null)
+        } else {
+          console.warn('[Auth] Offline / network issue during profile verification. Retaining cached session:', err?.message || err)
+        }
       } finally {
         setLoading(false)
       }
     }
+
     bootstrap()
   }, [])
 
@@ -67,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await api.post<{ token: string; user: UserProfile }>('/users/login', { email, password })
       localStorage.setItem('markbel_token', data.token)
+      localStorage.setItem('markbel_user', JSON.stringify(data.user))
       setToken(data.token)
       setUser(data.user)
       sendTokenToNative(data.token)
@@ -82,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await api.post<{ token: string; user: UserProfile }>('/users/signup', { name, email, password })
       localStorage.setItem('markbel_token', data.token)
+      localStorage.setItem('markbel_user', JSON.stringify(data.user))
       setToken(data.token)
       setUser(data.user)
       sendTokenToNative(data.token)
@@ -92,8 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = async () => {
+  const logout = () => {
     localStorage.removeItem('markbel_token')
+    localStorage.removeItem('markbel_user')
     setToken(null)
     setUser(null)
     sendTokenToNative(null)
@@ -101,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, isGuest, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   )
@@ -114,3 +154,4 @@ export function useAuth() {
   }
   return context
 }
+

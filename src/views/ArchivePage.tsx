@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowLeft,
   ExternalLink,
+  Folder,
   Link as LinkIcon,
   Loader2,
   RotateCcw,
@@ -155,13 +156,15 @@ export default function ArchivePage() {
           <button
             key={g.name}
             onClick={() => setActiveArchiveGroup(g.name)}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
               activeArchiveGroup === g.name
                 ? "bg-amber-100 text-amber-800 border border-amber-200"
                 : "bg-white text-[var(--color-text-muted)] border border-[var(--color-border-default)] hover:border-amber-300"
             }`}
           >
-            📁 {g.name} ({g.count})
+            <Folder className="w-3.5 h-3.5 text-amber-500" />
+            <span>{g.name}</span>
+            <span className="text-[10px] opacity-75">({g.count})</span>
           </button>
         ))}
       </section>
@@ -196,8 +199,9 @@ export default function ArchivePage() {
                 <BookmarkImage src={b.image} alt={b.title} />
                 <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold tracking-wide text-[var(--color-text-primary)] bg-[var(--color-bg-element)] border border-[var(--color-border-default)] px-1.5 sm:px-2 py-0.5 rounded truncate max-w-[90px] sm:max-w-[150px]">
-                      📁 {b.archiveGroup || "archive-general"}
+                    <span className="text-[10px] font-bold tracking-wide text-[var(--color-text-primary)] bg-[var(--color-bg-element)] border border-[var(--color-border-default)] px-1.5 sm:px-2 py-0.5 rounded truncate max-w-[90px] sm:max-w-[150px] flex items-center gap-1">
+                      <Folder className="w-2.5 h-2.5 text-amber-500" />
+                      <span className="truncate">{b.archiveGroup || "archive-general"}</span>
                     </span>
                     <span className="text-[9px] sm:text-[10px] text-[var(--color-text-muted)] font-bold uppercase truncate max-w-[80px] sm:max-w-[120px]">
                       {b.group || "Unsorted"}
