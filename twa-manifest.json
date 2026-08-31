@@ -8,14 +8,13 @@
   "backgroundColor": "#090d16",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://mark.obel.workers.dev/logo.png",
-  "maskableIconUrl": "https://mark.obel.workers.dev/logo.png",
-  "appVersionCode": 1,
+  "iconUrl": "https://mark.obel.workers.dev/pwa-512x512.png",
+  "maskableIconUrl": "https://mark.obel.workers.dev/pwa-512x512.png",
+  "appVersionCode": 2,
   "appVersionName": "2.1.0",
   "shareTarget": {
     "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
+    "method": "GET",
     "params": {
       "title": "title",
       "text": "text",
