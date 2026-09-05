@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markbel Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="settings-container">
+    <header class="settings-header">
+      <div class="settings-brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <h1>MARKBEL CONFIGURATION</h1>
+      </div>
+    </header>
+
+    <!-- Account Section -->
+    <section class="settings-card">
+      <h2>Account & Session</h2>
+      <div id="account-logged-in" class="account-state hidden">
+        <p class="account-info">Signed in as <strong id="user-email"></strong></p>
+        <button id="btn-logout" class="btn-danger" type="button">Sign Out</button>
+      </div>
+
+      <div id="account-logged-out" class="account-state">
+        <p class="account-info">Not currently authenticated.</p>
+        <form id="form-options-login">
+          <div class="form-row">
+            <input type="email" id="opt-email" placeholder="Email address" required>
+            <input type="password" id="opt-password" placeholder="Password" required>
+            <button type="submit" id="btn-opt-login" class="btn-primary">Sign In</button>
+          </div>
+          <div id="opt-auth-error" class="banner banner-error hidden"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Edge API Endpoint Section -->
+    <section class="settings-card">
+      <h2>API Endpoint</h2>
+      <p class="section-desc">Configure the target Markbel backend server. Defaults to the official Cloudflare Workers production edge API.</p>
+      
+      <form id="form-api-config">
+        <div class="form-group">
+          <label for="input-api-url">API Base URL</label>
+          <div class="input-with-button">
+            <input type="url" id="input-api-url" required placeholder="https://mark.obel.workers.dev/api">
+            <button type="submit" class="btn-secondary">Save URL</button>
+            <button type="button" id="btn-reset-api" class="btn-secondary">Reset Default</button>
+          </div>
+        </div>
+        <div id="api-status-banner" class="banner hidden"></div>
+      </form>
+    </section>
+
+    <!-- Keyboard Shortcuts Guide -->
+    <section class="settings-card">
+      <h2>Keyboard Shortcuts</h2>
+      <div class="shortcuts-list">
+        <div class="shortcut-item">
+          <span class="shortcut-desc">Open Bookmark HUD</span>
+          <kbd>Alt + Shift + M</kbd>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-desc">Quick-Save Current Tab</span>
+          <kbd>Alt + Shift + S</kbd>
+        </div>
+      </div>
+      <p class="shortcut-hint">Shortcuts can be customized in your browser's extension settings (<code>chrome://extensions/shortcuts</code>).</p>
+    </section>
+  </div>
+
+  <script type="module" src="./options.ts"></script>
+</body>
+</html>

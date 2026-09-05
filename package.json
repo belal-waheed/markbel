@@ -17,7 +17,9 @@
     "pages:deploy": "wrangler pages deploy dist --project-name markbel",
     "cap:sync": "npx cap sync",
     "cap:build": "npm run build && npx cap sync android",
-    "cap:open": "npx cap open android"
+    "cap:open": "npx cap open android",
+    "build:extension": "vite build --config vite.config.extension.ts",
+    "extension:zip": "npm run build:extension && node scripts/zip-extension.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
@@ -58,6 +60,7 @@
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/bcryptjs": "^2.4.6",
+    "@types/chrome": "^0.2.8",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",

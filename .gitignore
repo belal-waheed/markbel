@@ -9,12 +9,14 @@ image*.png
 
 # Build Outputs
 dist/
+dist-extension/
 out/
 build/
 .next/
 .expo/
 *.tsbuildinfo
 *.log
+*.zip
 
 # Desktop Specific
 release/

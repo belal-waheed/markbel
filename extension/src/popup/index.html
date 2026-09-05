@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markbel</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="hud-container">
+    <!-- Header -->
+    <header class="hud-header">
+      <div class="hud-brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="brand-title">MARKBEL</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-open-vault" class="btn-icon" title="Open Web Vault" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+        <button id="btn-options" class="btn-icon" title="Settings" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Unauthenticated View -->
+    <div id="view-auth" class="hud-view hidden">
+      <div class="auth-box">
+        <p class="auth-prompt">Sign in to sync bookmarks to your vault</p>
+        <form id="form-login">
+          <div class="form-group">
+            <label for="input-email">Email</label>
+            <input type="email" id="input-email" required placeholder="user@domain.com">
+          </div>
+          <div class="form-group">
+            <label for="input-password">Password</label>
+            <input type="password" id="input-password" required placeholder="••••••••">
+          </div>
+          <div id="auth-error" class="error-banner hidden"></div>
+          <button type="submit" id="btn-login-submit" class="btn-primary">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Bookmark Save View -->
+    <div id="view-save" class="hud-view">
+      <!-- Media Thumbnail Preview -->
+      <div id="preview-image-container" class="preview-card hidden">
+        <img id="preview-image" alt="Thumbnail Preview" src="">
+      </div>
+
+      <!-- Bookmark Form -->
+      <form id="form-save" class="bookmark-form">
+        <div class="form-group">
+          <label for="input-title">Title</label>
+          <input type="text" id="input-title" required>
+        </div>
+
+        <div class="form-group">
+          <label for="input-url">URL</label>
+          <input type="text" id="input-url" readonly class="input-readonly">
+        </div>
+
+        <div class="form-group">
+          <label for="input-desc">Notes / Description</label>
+          <textarea id="input-desc" rows="2" placeholder="Optional notes or excerpt..."></textarea>
+        </div>
+
+        <!-- Smart Groups Selector -->
+        <div class="form-group">
+          <label>Group</label>
+          <div class="group-chips" id="group-chips-container">
+            <button type="button" class="chip" data-group="YT">YT</button>
+            <button type="button" class="chip" data-group="Insta">Insta</button>
+            <button type="button" class="chip" data-group="X">X</button>
+            <button type="button" class="chip active" data-group="Unsorted">Unsorted</button>
+          </div>
+          <input type="text" id="input-custom-group" class="input-subtle" placeholder="Or enter custom group...">
+        </div>
+
+        <!-- Pin Toggle -->
+        <div class="form-row-toggle">
+          <label for="toggle-pin" class="toggle-label">
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="17" x2="12" y2="22"></line>
+              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+            </svg>
+            <span>Pin to Top</span>
+          </label>
+          <input type="checkbox" id="toggle-pin" class="toggle-checkbox">
+        </div>
+
+        <div id="save-status-msg" class="status-banner hidden"></div>
+
+        <!-- Action Submit Button -->
+        <div class="form-actions">
+          <button type="submit" id="btn-save-submit" class="btn-primary">
+            <span id="btn-save-text">Save Bookmark</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Success HUD Confirmation -->
+    <div id="view-success" class="hud-view hud-success hidden">
+      <div class="success-icon-wrapper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <h3 class="success-title">Saved to Vault</h3>
+      <p id="success-group-label" class="success-subtitle">Assigned to Unsorted</p>
+    </div>
+  </div>
+
+  <script type="module" src="./popup.ts"></script>
+</body>
+</html>
