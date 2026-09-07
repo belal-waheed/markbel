@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import LoginPage from './views/LoginPage.js'
 import BookmarksPage from './views/BookmarksPage.js'
+import RootGateway from './views/RootGateway.js'
+import LandingPage from './views/LandingPage.js'
 import SettingsPage from './views/SettingsPage.js'
 import ArchivePage from './views/ArchivePage.js'
 import SyncDebugPage from './views/SyncDebugPage.js'
@@ -111,7 +113,8 @@ export default function App() {
           <NativeBridge />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<BookmarksPage />} />
+            <Route path="/" element={<RootGateway />} />
+            <Route path="/landing" element={<LandingPage forceShow />} />
             <Route path="/share" element={<ShareTargetPage />} />
             <Route path="/archive" element={<ArchivePage />} />
             <Route
