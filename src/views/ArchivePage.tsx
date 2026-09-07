@@ -108,7 +108,7 @@ export default function ArchivePage() {
       <header className="studio-card px-5 py-4 flex items-center justify-between z-10 border border-[var(--color-border-default)]">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/app")}
             className="btn-secondary p-2 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
             title="Back to Vault"
           >

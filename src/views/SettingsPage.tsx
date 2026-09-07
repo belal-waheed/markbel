@@ -161,7 +161,7 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-5">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/app")}
             className="p-2 rounded-md hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors active:scale-95"
             title="Back to Bookmarks"
           >

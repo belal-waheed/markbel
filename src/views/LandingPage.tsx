@@ -96,7 +96,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
       onLaunchApp()
     } else {
       localStorage.setItem('markbel_guest_initialized', 'true')
-      navigate('/')
+      navigate('/app')
     }
   }
 
@@ -167,7 +167,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
             ) : (
               <>
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate('/login?redirect=/app')}
                   className="text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] px-2.5 py-1.5 rounded transition-colors"
                 >
                   Sign In
@@ -639,7 +639,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
             <a href="https://github.com/belal-waheed/markbel/releases" target="_blank" rel="noreferrer" className="hover:underline">
               Releases
             </a>
-            <button onClick={() => navigate('/login')} className="hover:underline cursor-pointer">
+            <button onClick={() => navigate('/login?redirect=/app')} className="hover:underline cursor-pointer">
               Sign In
             </button>
           </div>

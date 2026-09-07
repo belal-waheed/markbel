@@ -1,5 +1,5 @@
 self.addEventListener('push', (event) => {
-  let data = { title: 'Markbel Notification', body: 'You have updates in your bookmark vault!', url: '/' };
+  let data = { title: 'Markbel Notification', body: 'You have updates in your bookmark vault!', url: '/app' };
   try {
     if (event.data) {
       data = event.data.json();
@@ -13,7 +13,7 @@ self.addEventListener('push', (event) => {
     icon: '/logo.png',
     badge: '/logo.png',
     data: {
-      url: data.url || '/'
+      url: data.url || '/app'
     },
     vibrate: [100, 50, 100],
     actions: [
@@ -29,7 +29,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = event.notification.data?.url || '/app';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -134,7 +134,7 @@ self.addEventListener('fetch', (event) => {
         );
       } catch (err) {
         console.error('[SW Share Target Error]', err);
-        return Response.redirect('/', 303);
+        return Response.redirect('/app', 303);
       }
     })());
   }

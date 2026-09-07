@@ -2,7 +2,7 @@
   "name": "Markbel Bookmarks Vault",
   "short_name": "Markbel",
   "description": "High-performance bookmarks vault and link manager",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#090d16",
   "theme_color": "#090d16",

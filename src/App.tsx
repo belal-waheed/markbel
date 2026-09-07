@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
@@ -8,7 +8,6 @@ import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import LoginPage from './views/LoginPage.js'
 import BookmarksPage from './views/BookmarksPage.js'
-import RootGateway from './views/RootGateway.js'
 import LandingPage from './views/LandingPage.js'
 import SettingsPage from './views/SettingsPage.js'
 import ArchivePage from './views/ArchivePage.js'
@@ -19,9 +18,18 @@ import { Loader2 } from 'lucide-react'
 function NativeBridge() {
   const navigate = useNavigate()
   const location = useLocation()
+  const hasBootedRef = useRef(false)
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
+
+    // Initial native cold-boot routing: start directly in vault (/app)
+    if (!hasBootedRef.current) {
+      hasBootedRef.current = true
+      if (location.pathname === '/' || location.pathname === '') {
+        navigate('/app', { replace: true })
+      }
+    }
 
     // Configure native status bar to match Studio surface and prevent clipping
     StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {})
@@ -32,11 +40,11 @@ function NativeBridge() {
     SplashScreen.hide().catch(() => {})
 
     // Hardware back button navigation
-    const backHandlerPromise = CapApp.addListener('backButton', ({ canGoBack }) => {
-      if (location.pathname !== '/' && location.pathname !== '/login') {
-        navigate(-1)
-      } else {
+    const backHandlerPromise = CapApp.addListener('backButton', () => {
+      if (location.pathname === '/app' || location.pathname === '/login') {
         CapApp.exitApp()
+      } else {
+        navigate(-1)
       }
     })
 
@@ -112,9 +120,10 @@ export default function App() {
         <Router>
           <NativeBridge />
           <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
+            <Route path="/app" element={<BookmarksPage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<RootGateway />} />
-            <Route path="/landing" element={<LandingPage forceShow />} />
             <Route path="/share" element={<ShareTargetPage />} />
             <Route path="/archive" element={<ArchivePage />} />
             <Route
@@ -133,6 +142,9 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Silently redirect bad /app/* sub-routes to /app */}
+            <Route path="/app/*" element={<Navigate to="/app" replace />} />
+            {/* Catch-all unknown routes redirect to landing page */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>

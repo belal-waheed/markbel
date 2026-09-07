@@ -75,7 +75,7 @@ export default function LoginPage() {
   const { login, signup } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const redirectUrl = searchParams.get('redirect') || '/'
+  const redirectUrl = searchParams.get('redirect') || '/app'
 
   // Resend Countdown Timer
   useEffect(() => {

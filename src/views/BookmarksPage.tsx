@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks } from "../db/db";
 import { syncManager } from "../db/SyncManager";
@@ -21,6 +22,7 @@ import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
+  const navigate = useNavigate();
   const { logout, isGuest, user } = useAuth();
   const { showToast } = useToast();
 
@@ -372,7 +374,7 @@ export default function BookmarksPage() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <a
-                href="/login"
+                href="/login?redirect=/app"
                 className="btn-primary text-xs px-2.5 py-1 font-bold rounded shadow-xs"
               >
                 Sign In / Sync
@@ -398,12 +400,16 @@ export default function BookmarksPage() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 md:hidden">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 md:hidden hover:opacity-85 transition-opacity cursor-pointer text-left"
+              title="About Markbel"
+            >
               <MarkbelLogo size={24} />
               <h1 className="text-base font-bold tracking-tight text-[var(--color-text-primary)]">
                 Markbel
               </h1>
-            </div>
+            </button>
             <h2 className="text-base font-bold text-[var(--color-text-primary)] truncate hidden md:block">
               {activeGroup ? activeGroup : "All Bookmarks"}
             </h2>

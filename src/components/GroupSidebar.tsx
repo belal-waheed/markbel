@@ -78,14 +78,21 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
         }`}
       >
       <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] flex items-center justify-between border-b border-[var(--color-border-default)]">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            setIsSidebarOpen(false);
+            navigate("/");
+          }}
+          className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer"
+          title="Markbel - About & Downloads"
+        >
           <MarkbelLogo size={28} />
           <div>
             <h1 className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
               Markbel
             </h1>
           </div>
-        </div>
+        </button>
         <button
           onClick={() => setIsSidebarOpen(false)}
           className="md:hidden p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
@@ -124,12 +131,12 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
           <button
             onClick={() => {
               setIsSidebarOpen(false);
-              navigate("/landing");
+              navigate("/");
             }}
             className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
           >
             <Smartphone className="w-4 h-4" />
-            Get Apps & Info
+            About & Downloads
           </button>
           {!isGuest && (
             <button

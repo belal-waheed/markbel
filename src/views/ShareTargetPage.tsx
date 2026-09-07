@@ -50,13 +50,13 @@ export default function ShareTargetPage() {
 
     if (Capacitor.isNativePlatform()) {
       CapApp.exitApp().catch(() => {
-        navigate('/', { replace: true })
+        navigate('/app', { replace: true })
       })
     } else {
       if (typeof window !== 'undefined') {
         window.close()
         setTimeout(() => {
-          navigate('/', { replace: true })
+          navigate('/app', { replace: true })
         }, 150)
       }
     }
@@ -67,7 +67,7 @@ export default function ShareTargetPage() {
     if (autoCloseTimerRef.current) {
       clearTimeout(autoCloseTimerRef.current)
     }
-    navigate('/', { replace: true })
+    navigate('/app', { replace: true })
   }
 
   useEffect(() => {
