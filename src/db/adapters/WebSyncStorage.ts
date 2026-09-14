@@ -154,8 +154,26 @@ export class WebSyncStorage implements SyncStorage {
               ? Boolean(raw.is_archived)
               : false;
 
+          const bookmarkFields =
+            change.entityType === 'bookmark'
+              ? {
+                  title: raw.title || '',
+                  description: raw.description || '',
+                  image: raw.image || '',
+                  favicon: raw.favicon || '',
+                  siteName: raw.siteName || raw.site_name || '',
+                  author: raw.author || '',
+                  contentType: raw.contentType || raw.content_type || 'website',
+                  readingTime: raw.readingTime ?? raw.reading_time ?? 0,
+                  wordCount: raw.wordCount ?? raw.word_count ?? 0,
+                  canonicalUrl: raw.canonicalUrl || raw.canonical_url || '',
+                  articleContent: raw.articleContent || raw.article_content || '',
+                }
+              : {};
+
           const data = {
             ...raw,
+            ...bookmarkFields,
             group: raw.group || raw.group_name || 'Unsorted',
             isRead,
             readAt: raw.readAt || raw.read_at || '',

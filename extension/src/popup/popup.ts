@@ -10,6 +10,7 @@ import {
   getApiBase
 } from '../api';
 import { resolveSmartGroup } from '@/lib/smartGroups';
+import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from '../content';
 
 // DOM Elements
@@ -126,6 +127,23 @@ async function loadActiveTabData(): Promise<void> {
       siteName: '',
       selectedText: ''
     };
+
+    // Apply instant media heuristics if image is missing or title is bare URL
+    if (currentMeta.url && (!currentMeta.image || !currentMeta.title || currentMeta.title === currentMeta.url)) {
+      const instant = extractInstantMediaMetadata(currentMeta.url);
+      if (instant.image && !currentMeta.image) {
+        currentMeta.image = instant.image;
+      }
+      if (instant.title && (!currentMeta.title || currentMeta.title === currentMeta.url)) {
+        currentMeta.title = instant.title;
+      }
+      if (instant.siteName && !currentMeta.siteName) {
+        currentMeta.siteName = instant.siteName;
+      }
+      if (instant.description && !currentMeta.description && !currentMeta.selectedText) {
+        currentMeta.description = instant.description;
+      }
+    }
 
     // Populate Fields
     inputTitle.value = currentMeta.title;

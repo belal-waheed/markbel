@@ -79,7 +79,7 @@ export default function ShareTargetPage() {
       const rawText = searchParams.get('text')
       const rawUrl = searchParams.get('url')
 
-      const { targetUrl: cleanUrl, title: fallbackTitle } = extractSharePayload({
+      const { targetUrl: cleanUrl, title: fallbackTitle, image: instantImage } = extractSharePayload({
         rawUrl,
         rawText,
         rawTitle,
@@ -92,6 +92,9 @@ export default function ShareTargetPage() {
 
       setTargetUrl(cleanUrl)
       setSavedTitle(fallbackTitle)
+      if (instantImage) {
+        setSavedImage(instantImage)
+      }
 
       const smartGroup = resolveSmartGroup(cleanUrl)
       setResolvedGroup(smartGroup)
@@ -101,15 +104,15 @@ export default function ShareTargetPage() {
 
       let finalTitle = fallbackTitle
       let finalDescription = ''
-      let finalImage = ''
+      let finalImage = instantImage || ''
 
       // Eager metadata scrape with timeout for fast thumbnail extraction
-      try {
-        const metaPromise = api.get<{ title?: string; description?: string; image?: string }>(
-          `/metadata?url=${encodeURIComponent(cleanUrl)}`
-        )
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1800))
+      const metaPromise = api.get<{ title?: string; description?: string; image?: string }>(
+        `/metadata?url=${encodeURIComponent(cleanUrl)}`
+      )
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
 
+      try {
         const meta = await Promise.race([metaPromise, timeoutPromise])
 
         if (meta) {
@@ -142,6 +145,31 @@ export default function ShareTargetPage() {
         // Queue background sync to Cloudflare D1
         syncManager.sync(true)
         setStatus('saved')
+
+        // Asynchronous background enrichment if metadata arrives after timeout
+        metaPromise
+          .then(async (enrichedMeta) => {
+            if (!enrichedMeta) return
+            const updates: Partial<{ title: string; description: string; image: string }> = {}
+            const t = enrichedMeta.title?.trim()
+            const d = enrichedMeta.description?.trim()
+            const img = enrichedMeta.image?.trim()
+
+            if (t && t !== finalTitle) updates.title = t
+            if (d && d !== finalDescription) updates.description = d
+            if (img && img !== finalImage) updates.image = img
+
+            if (Object.keys(updates).length > 0) {
+              await bookmarkRepository.update(bookmarkId, updates)
+              if (updates.title) setSavedTitle(updates.title)
+              if (updates.description) setSavedDescription(updates.description)
+              if (updates.image) setSavedImage(updates.image)
+              syncManager.sync(true)
+            }
+          })
+          .catch((enrichErr) => {
+            console.warn('[Share Target] Background enrichment error:', enrichErr)
+          })
 
         // Auto-dismiss HUD overlay after 1.5s
         autoCloseTimerRef.current = setTimeout(() => {

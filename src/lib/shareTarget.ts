@@ -2,6 +2,8 @@
  * PWA Web Share Target Processing & Sanitization Utilities
  */
 
+import { extractInstantMediaMetadata } from './mediaHeuristics';
+
 /**
  * Strips tracking and referral parameters commonly injected by social platforms
  * (e.g. Instagram ?igsh=..., YouTube ?si=..., Twitter ?ref_src=..., UTM tags).
@@ -39,7 +41,7 @@ export function sanitizeSharedUrl(raw: string): string {
 }
 
 /**
- * Extracts clean target URL, fallback title, and notes from raw share target parameters.
+ * Extracts clean target URL, fallback title, image, siteName, and notes from raw share target parameters.
  */
 export function extractSharePayload(params: {
   rawUrl?: string | null;
@@ -49,6 +51,8 @@ export function extractSharePayload(params: {
   targetUrl: string;
   title: string;
   description: string;
+  image: string;
+  siteName: string;
 } {
   const rawUrl = (params.rawUrl || '').trim();
   const rawText = (params.rawText || '').trim();
@@ -64,6 +68,7 @@ export function extractSharePayload(params: {
   }
 
   const targetUrl = sanitizeSharedUrl(detectedUrl);
+  const instant = extractInstantMediaMetadata(targetUrl);
 
   // 2. Resolve Title
   let title = rawTitle;
@@ -74,21 +79,14 @@ export function extractSharePayload(params: {
     }
   }
 
+  if (!title && instant.title) {
+    title = instant.title;
+  }
+
   if (!title && targetUrl) {
     try {
       const parsed = new URL(targetUrl);
-      const host = parsed.hostname.toLowerCase();
-      if (host.includes('instagram.com')) {
-        title = parsed.pathname.includes('/reel/') ? 'Instagram Reel' : 'Instagram Post';
-      } else if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        title = parsed.pathname.includes('/shorts/') ? 'YouTube Short' : 'YouTube Video';
-      } else if (host.includes('x.com') || host.includes('twitter.com')) {
-        title = 'X Post';
-      } else if (host.includes('tiktok.com')) {
-        title = 'TikTok Video';
-      } else {
-        title = parsed.hostname.replace(/^www\./, '');
-      }
+      title = parsed.hostname.replace(/^www\./, '');
     } catch {
       title = targetUrl;
     }
@@ -97,6 +95,8 @@ export function extractSharePayload(params: {
   return {
     targetUrl,
     title,
-    description: '',
+    description: instant.description || '',
+    image: instant.image || '',
+    siteName: instant.siteName || '',
   };
 }

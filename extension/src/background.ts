@@ -5,6 +5,7 @@
 
 import { saveBookmark, getSession } from './api';
 import { resolveSmartGroup } from '@/lib/smartGroups';
+import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from './content';
 
 // Setup context menus on installation
@@ -105,6 +106,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
     }
 
+    // Apply instant media heuristics fallback when image is missing or when saving a link
+    if (url && (!image || !title || title === url)) {
+      const instant = extractInstantMediaMetadata(url);
+      if (instant.image && !image) {
+        image = instant.image;
+      }
+      if (instant.title && (!title || title === url)) {
+        title = instant.title;
+      }
+      if (instant.description && !description) {
+        description = instant.description;
+      }
+    }
+
     const group = resolveSmartGroup(url);
 
     await saveBookmark({
@@ -156,6 +171,20 @@ chrome.commands.onCommand.addListener(async (command) => {
           description = liveMeta.description || '';
           image = liveMeta.image || '';
           favicon = liveMeta.favicon || favicon;
+        }
+      }
+
+      // Apply instant media heuristics fallback when image is missing or title is bare URL
+      if (url && (!image || !title || title === url)) {
+        const instant = extractInstantMediaMetadata(url);
+        if (instant.image && !image) {
+          image = instant.image;
+        }
+        if (instant.title && (!title || title === url)) {
+          title = instant.title;
+        }
+        if (instant.description && !description) {
+          description = instant.description;
         }
       }
 

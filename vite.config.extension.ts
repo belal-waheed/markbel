@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 export default defineConfig({
+  publicDir: false,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -54,7 +55,6 @@ export default defineConfig({
         }
 
         // Ensure popup/index.html and options/index.html are in dist-extension/popup and dist-extension/options
-        // If Vite placed them in nested paths like dist-extension/extension/src/popup/index.html:
         const nestedPopup = path.resolve(outDir, 'extension/src/popup/index.html');
         if (fs.existsSync(nestedPopup)) {
           const targetDir = path.resolve(outDir, 'popup');
@@ -67,6 +67,12 @@ export default defineConfig({
           const targetDir = path.resolve(outDir, 'options');
           fs.mkdirSync(targetDir, { recursive: true });
           fs.copyFileSync(nestedOptions, path.resolve(targetDir, 'index.html'));
+        }
+
+        // Clean up redundant nested rollup source directory
+        const nestedExtensionDir = path.resolve(outDir, 'extension');
+        if (fs.existsSync(nestedExtensionDir)) {
+          fs.rmSync(nestedExtensionDir, { recursive: true, force: true });
         }
       }
     }

@@ -58,7 +58,7 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
       expect(payload.title).toBe('Instagram Reel')
     })
 
-    it('should generate fallback title for YouTube Shorts', () => {
+    it('should generate fallback title for YouTube Shorts and populate instant thumbnail and siteName', () => {
       const payload = extractSharePayload({
         rawUrl: 'https://www.youtube.com/shorts/abcdef12345?si=trk',
         rawText: '',
@@ -67,6 +67,21 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
 
       expect(payload.targetUrl).toBe('https://www.youtube.com/shorts/abcdef12345')
       expect(payload.title).toBe('YouTube Short')
+      expect(payload.image).toBe('https://img.youtube.com/vi/abcdef12345/hqdefault.jpg')
+      expect(payload.siteName).toBe('YouTube')
+    })
+
+    it('should extract instant thumbnail and siteName for YouTube watch URLs', () => {
+      const payload = extractSharePayload({
+        rawUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        rawText: '',
+        rawTitle: '',
+      })
+
+      expect(payload.targetUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+      expect(payload.title).toBe('YouTube Video')
+      expect(payload.image).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+      expect(payload.siteName).toBe('YouTube')
     })
 
     it('should generate fallback title for X Posts', () => {
@@ -78,9 +93,10 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
 
       expect(payload.targetUrl).toBe('https://x.com/user/status/123456789')
       expect(payload.title).toBe('X Post')
+      expect(payload.siteName).toBe('X')
     })
 
-    it('should prioritize explicit rawTitle when provided', () => {
+    it('should prioritize explicit rawTitle when provided while populating instant image for GitHub', () => {
       const payload = extractSharePayload({
         rawUrl: 'https://github.com/facebook/react',
         rawText: 'Some shared text',
@@ -89,6 +105,8 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
 
       expect(payload.targetUrl).toBe('https://github.com/facebook/react')
       expect(payload.title).toBe('React - A JavaScript library for building user interfaces')
+      expect(payload.image).toBe('https://opengraph.githubassets.com/1/facebook/react')
+      expect(payload.siteName).toBe('GitHub')
     })
 
     it('should return empty targetUrl when no URL is present in params', () => {
@@ -99,6 +117,8 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
       })
 
       expect(payload.targetUrl).toBe('')
+      expect(payload.image).toBe('')
+      expect(payload.siteName).toBe('')
     })
   })
 })
