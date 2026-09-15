@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link as LinkIcon, ImageOff } from "lucide-react";
+import { resolveApiUrl } from "@/lib/api";
 
 interface BookmarkImageProps {
   src?: string | null;
@@ -16,15 +17,36 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isProxyFallback, setIsProxyFallback] = useState(false);
 
   const trimmedSrc = src?.trim();
+  const [activeSrc, setActiveSrc] = useState<string | undefined>(trimmedSrc);
+
+  // Sync state whenever src prop changes
+  useEffect(() => {
+    setActiveSrc(trimmedSrc);
+    setHasError(false);
+    setIsLoaded(false);
+    setIsProxyFallback(false);
+  }, [trimmedSrc]);
+
   const isFavicon = Boolean(
-    trimmedSrc &&
-      (trimmedSrc.includes("google.com/s2/favicons") ||
-        trimmedSrc.includes("favicon") ||
-        trimmedSrc.endsWith(".ico") ||
-        trimmedSrc.endsWith(".svg"))
+    activeSrc &&
+      (activeSrc.includes("google.com/s2/favicons") ||
+        activeSrc.includes("favicon") ||
+        activeSrc.endsWith(".ico") ||
+        activeSrc.endsWith(".svg"))
   );
+
+  const handleImageError = () => {
+    // If the image failed on direct load, try Cloudflare Edge Proxy once
+    if (!isProxyFallback && trimmedSrc && (trimmedSrc.startsWith("http://") || trimmedSrc.startsWith("https://"))) {
+      setIsProxyFallback(true);
+      setActiveSrc(resolveApiUrl(`/api/proxy/image?url=${encodeURIComponent(trimmedSrc)}`));
+    } else {
+      setHasError(true);
+    }
+  };
 
   return (
     <div
@@ -40,19 +62,18 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
       </div>
 
       {/* Actual Image */}
-      {trimmedSrc && !hasError && (
+      {activeSrc && !hasError && (
         isFavicon ? (
           <div className="relative z-10 flex flex-col items-center justify-center gap-1.5 p-4">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] shadow-xs flex items-center justify-center p-2">
               <img
-                src={trimmedSrc}
+                src={activeSrc}
                 alt={alt || "Favicon"}
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
                 onLoad={() => setIsLoaded(true)}
-                onError={() => setHasError(true)}
+                onError={handleImageError}
                 className={`w-7 h-7 object-contain transition-opacity duration-300 ${
                   isLoaded ? "opacity-100" : "opacity-0"
                 }`}
@@ -61,14 +82,13 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
           </div>
         ) : (
           <img
-            src={trimmedSrc}
+            src={activeSrc}
             alt={alt || "Bookmark thumbnail"}
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
             onLoad={() => setIsLoaded(true)}
-            onError={() => setHasError(true)}
+            onError={handleImageError}
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
               isLoaded ? "opacity-100" : "opacity-0"
             }`}

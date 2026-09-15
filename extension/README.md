@@ -11,7 +11,7 @@ A high-speed, type-safe browser companion for **Markbel** that enables 1-click b
 - **Smart Domain Categorization**: Reuses Markbel's authoritative domain matcher (`src/lib/smartGroups.ts`) to automatically categorize URLs into smart groups (`YT`, `Insta`, `X`, and `Unsorted`) with custom overrides.
 - **Context Menu Integration**: Right-click any page, link, or text selection $\rightarrow$ **Save to Markbel**.
 - **Global Keyboard Shortcuts**:
-  - `Alt + Shift + M`: Open Markbel HUD popup.
+  - `Alt + B` (`Command + B` on macOS): Open Markbel HUD popup.
   - `Alt + Shift + S`: Instantly save current tab in the background (confirmed via extension badge).
 - **Direct Edge Delta Ingestion**: Pushes mutations directly to Markbel's authoritative Cloudflare Workers edge endpoint (`POST /api/sync/push`) with JWT Bearer authentication.
 - **Multi-Backend Support**: Connects to the production Cloudflare Workers edge (`https://mark.obel.workers.dev/api`) by default, with custom URL support in Settings (e.g. `http://localhost:3001/api`).

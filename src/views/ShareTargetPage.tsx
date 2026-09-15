@@ -10,6 +10,7 @@ import { extractSharePayload } from '../lib/shareTarget.js'
 import { useAuth } from '../lib/auth.js'
 import { api } from '../lib/api.js'
 import MarkbelLogo from '../components/MarkbelLogo.js'
+import BookmarkImage from '../components/BookmarkImage'
 
 export default function ShareTargetPage() {
   const [searchParams] = useSearchParams()
@@ -246,24 +247,13 @@ export default function ShareTargetPage() {
 
             {/* Rich Thumbnail Preview */}
             <div className="bg-[#0b101b] border border-[#1e293b] rounded-xl overflow-hidden flex gap-3 p-2.5 items-center">
-              {savedImage ? (
-                <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-[#05080f] border border-[#1e293b]">
-                  <img
-                    src={savedImage}
-                    alt={savedTitle}
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-16 h-16 shrink-0 rounded-lg bg-[#05080f] border border-[#1e293b] flex items-center justify-center text-[#64748b]">
-                  <LinkIcon className="w-5 h-5" />
-                </div>
-              )}
+              <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-[#05080f] border border-[#1e293b]">
+                <BookmarkImage
+                  src={savedImage}
+                  alt={savedTitle || 'Saved Bookmark'}
+                  aspectRatioClass="aspect-square w-full h-full"
+                />
+              </div>
               <div className="flex-1 min-w-0 space-y-1">
                 <h3 className="text-xs font-bold text-[#f1f5f9] truncate">
                   {savedTitle || 'Saved Bookmark'}

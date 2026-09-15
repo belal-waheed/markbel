@@ -1327,6 +1327,93 @@ async function fetchAnimeMetadataFromAniList(
   return null;
 }
 
+app.get("/api/proxy/image", async (c) => {
+  const imageUrl = c.req.query("url")?.trim();
+  if (!imageUrl) {
+    return c.text("Image URL required", 400);
+  }
+
+  try {
+    const parsed = new URL(imageUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return c.text("Invalid protocol", 400);
+    }
+
+    // Attempt cache match using Cloudflare edge cache
+    const cache = (caches as any).default;
+    const cacheKey = new Request(c.req.url, { method: "GET" });
+    if (cache) {
+      try {
+        const cachedRes = await cache.match(cacheKey);
+        if (cachedRes) {
+          return cachedRes;
+        }
+      } catch (cacheMatchErr) {
+        console.warn("[Image Proxy Cache Match Warning]:", cacheMatchErr);
+      }
+    }
+
+    // Determine smart referer (support query param, or fallback to site domain or hostname)
+    const customReferer = c.req.query("referer")?.trim();
+    let referer = customReferer || `${parsed.protocol}//${parsed.hostname}/`;
+    if (parsed.hostname.includes("vid3rb.com") || parsed.hostname.includes("anime3rb.com")) {
+      referer = "https://anime3rb.com/";
+    }
+
+    // Fetch upstream image with desktop browser headers and origin referer to bypass hotlink protection
+    let upstreamRes = await fetch(imageUrl, {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": referer,
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-Fetch-Dest": "image",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "cross-site",
+      },
+    });
+
+    // If initial fetch returned 301/302 that wasn't automatically followed
+    if ((upstreamRes.status === 301 || upstreamRes.status === 302) && upstreamRes.headers.get("location")) {
+      const redirectedUrl = new URL(upstreamRes.headers.get("location")!, imageUrl).href;
+      upstreamRes = await fetch(redirectedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Referer": referer,
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        },
+      });
+    }
+
+    if (!upstreamRes.ok) {
+      return c.text(`Upstream image failed with status ${upstreamRes.status}`, 502);
+    }
+
+    const contentType = upstreamRes.headers.get("content-type") || "image/jpeg";
+    const headers = new Headers();
+    headers.set("Content-Type", contentType);
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Cache-Control", "public, max-age=604800, s-maxage=2592000, immutable");
+
+    const proxyResponse = new Response(upstreamRes.body, {
+      status: 200,
+      headers,
+    });
+
+    if (cache) {
+      try {
+        c.executionCtx.waitUntil(cache.put(cacheKey, proxyResponse.clone()));
+      } catch (cachePutErr) {
+        console.warn("[Image Proxy Cache Put Warning]:", cachePutErr);
+      }
+    }
+
+    return proxyResponse;
+  } catch (err: any) {
+    return c.text(`Proxy error: ${err?.message || err}`, 500);
+  }
+});
+
 app.get("/api/metadata", async (c) => {
   let targetUrl: URL | null = null;
   try {
