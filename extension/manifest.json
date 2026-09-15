@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Markbel — Quick Bookmarks",
+  "name": "Markbel",
   "short_name": "Markbel",
   "version": "1.0.1",
   "description": "Instant 1-click bookmarks, rich media metadata extraction, and smart grouping for Markbel.",
