@@ -46,8 +46,11 @@ function detectPlatform(): PlatformInfo {
   if (/iPhone|iPad|iPod/i.test(ua)) {
     return { type: 'ios', name: 'Web PWA (iOS)', label: 'iOS Device' }
   }
-  if (/Chrome|CriOS/i.test(ua) && !/Edg|OPR/i.test(ua)) {
-    return { type: 'chrome', name: 'Chrome Extension', label: 'Chromium Browser' }
+  if (/Edg\//i.test(ua)) {
+    return { type: 'chrome', name: 'Edge Add-on', label: 'Microsoft Edge' }
+  }
+  if (/Chrome|CriOS/i.test(ua) && !/OPR/i.test(ua)) {
+    return { type: 'chrome', name: 'Browser Extension', label: 'Chromium Browser' }
   }
   return { type: 'desktop', name: 'Web PWA', label: 'Desktop Browser' }
 }
@@ -381,15 +384,24 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
               </ul>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)]">
+            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)] flex flex-col gap-2">
+              <a
+                href="https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full btn-primary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Get on Edge Add-ons (Free)</span>
+              </a>
               <a
                 href="https://github.com/belal-waheed/markbel/releases/latest"
                 target="_blank"
                 rel="noreferrer"
-                className="w-full btn-secondary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all"
+                className="w-full btn-secondary py-2 px-4 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Get Extension (.zip)</span>
+                <Download className="w-3 h-3" />
+                <span>Download .zip for Chrome/Brave</span>
               </a>
             </div>
           </div>
