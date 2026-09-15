@@ -122,7 +122,7 @@ async function generateScreenshot() {
     footer.style.zIndex = '5';
     footer.innerHTML = `
       <div style="font-size:12px;font-weight:500;color:#64748b;background:rgba(15,23,42,0.6);padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
-        Shortcuts: <strong>Alt+Shift+M</strong> (HUD) • <strong>Alt+Shift+S</strong> (Quick Save)
+        Shortcuts: <strong>Alt+B</strong> (HUD) • <strong>Alt+Shift+S</strong> (Quick Save)
       </div>
       <div style="font-size:12px;font-weight:500;color:#64748b;background:rgba(15,23,42,0.6);padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
         Smart Auto-Organize: <strong>YT, Insta, X, Unsorted</strong>
@@ -135,6 +135,140 @@ async function generateScreenshot() {
 
   await page.screenshot({ path: outputPath, type: 'png' });
   console.log('Store screenshot generated successfully at:', outputPath);
+
+  // Generate Small Promotional Tile (440x280)
+  const smallPromoPath = path.resolve(__dirname, '..', 'extension', 'store-assets', 'small-promo-440x280.png');
+  const promoPage = await context.newPage();
+  await promoPage.setViewportSize({ width: 440, height: 280 });
+  await promoPage.setContent(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+          body {
+            width: 440px; height: 280px; overflow: hidden;
+            background: radial-gradient(circle at 50% 20%, #1a263d 0%, #070b12 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; border: 1px solid rgba(0,240,255,0.2);
+          }
+          .badge {
+            background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3);
+            color: #00f0ff; padding: 4px 12px; border-radius: 9999px; font-size: 11px;
+            font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 12px;
+          }
+          .title {
+            font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -0.04em; margin-bottom: 6px;
+          }
+          .title span { color: #00f0ff; }
+          .subtitle {
+            font-size: 13px; color: #94a3b8; text-align: center; max-width: 360px; line-height: 1.4;
+          }
+          .pill-row {
+            display: flex; gap: 8px; margin-top: 18px;
+          }
+          .pill {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="badge">Edge Extension</div>
+        <div class="title">Mark<span>bel</span></div>
+        <div class="subtitle">Smart bookmark manager with instant media extraction & offline vault.</div>
+        <div class="pill-row">
+          <div class="pill">⚡ 1-Click Save (Alt+B)</div>
+          <div class="pill">📁 Smart Groups</div>
+          <div class="pill">☁️ Edge Cloud</div>
+        </div>
+      </body>
+    </html>
+  `);
+  await promoPage.screenshot({ path: smallPromoPath, type: 'png' });
+  console.log('Small promo tile generated successfully at:', smallPromoPath);
+
+  // Generate Large Promotional Tile / Banner (1400x560)
+  const largePromoPath = path.resolve(__dirname, '..', 'extension', 'store-assets', 'large-promo-1400x560.png');
+  const bannerPage = await context.newPage();
+  await bannerPage.setViewportSize({ width: 1400, height: 560 });
+  await bannerPage.setContent(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+          body {
+            width: 1400px; height: 560px; overflow: hidden;
+            background: radial-gradient(circle at 65% 30%, #192742 0%, #060910 100%);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 100px; position: relative; border: 1px solid rgba(0,240,255,0.2);
+          }
+          .left {
+            max-width: 650px; display: flex; flex-direction: column; gap: 16px;
+          }
+          .badge {
+            display: inline-flex; align-items: center; gap: 8px; width: fit-content;
+            background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3);
+            color: #00f0ff; padding: 6px 16px; border-radius: 9999px; font-size: 13px;
+            font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+          }
+          .title {
+            font-size: 56px; font-weight: 900; color: #ffffff; letter-spacing: -0.04em; line-height: 1.05;
+          }
+          .title span { color: #00f0ff; }
+          .subtitle {
+            font-size: 18px; color: #94a3b8; line-height: 1.5;
+          }
+          .pill-row {
+            display: flex; gap: 12px; margin-top: 8px;
+          }
+          .pill {
+            background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f1f5f9; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px;
+          }
+          .card-mockup {
+            width: 420px; background: #0b111e; border: 1px solid rgba(0,240,255,0.3);
+            border-radius: 20px; padding: 24px; box-shadow: 0 30px 70px -15px rgba(0,0,0,0.9), 0 0 40px rgba(0,240,255,0.15);
+            display: flex; flex-direction: column; gap: 14px;
+          }
+          .mockup-header {
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;
+          }
+          .mockup-title { font-size: 14px; font-weight: 800; color: #00f0ff; letter-spacing: 0.08em; }
+          .mockup-tag { background: #3b82f6; color: #ffffff; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px; }
+          .mockup-thumb { width: 100%; height: 160px; background: #151d2f; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #38bdf8; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.06); }
+          .mockup-item { font-size: 14px; font-weight: bold; color: #ffffff; }
+          .mockup-desc { font-size: 12px; color: #64748b; line-height: 1.4; }
+        </style>
+      </head>
+      <body>
+        <div class="left">
+          <div class="badge">Official Edge Extension</div>
+          <div class="title">Save Anything in <span>0ms</span></div>
+          <div class="subtitle">Capture rich media links, YouTube videos, articles, and research quotes with instant offline search and seamless cloud sync.</div>
+          <div class="pill-row">
+            <div class="pill">⌨️ Shortcut: Alt+B</div>
+            <div class="pill">🎯 Auto Smart Groups</div>
+            <div class="pill">⚡ 0ms Offline Sync</div>
+          </div>
+        </div>
+        <div class="card-mockup">
+          <div class="mockup-header">
+            <div class="mockup-title">MARKBEL HUD</div>
+            <div class="mockup-tag">Auto: YT</div>
+          </div>
+          <div class="mockup-thumb">Rich Media & Video Preview</div>
+          <div class="mockup-item">Next-Gen Edge Architecture</div>
+          <div class="mockup-desc">Instant offline-first synchronization powered by Dexie.js and Cloudflare D1.</div>
+        </div>
+      </body>
+    </html>
+  `);
+  await bannerPage.screenshot({ path: largePromoPath, type: 'png' });
+  console.log('Large promo banner generated successfully at:', largePromoPath);
 
   await context.close();
 }
