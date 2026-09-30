@@ -9,6 +9,7 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
         title: 'YouTube Video',
         image: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         siteName: 'YouTube',
+        contentType: 'video'
       });
     });
 
@@ -42,7 +43,7 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
     it('should handle YouTube URL without video ID', () => {
       const result = extractInstantMediaMetadata('https://www.youtube.com/');
       expect(result).toEqual({
-        title: 'YouTube Video',
+        title: 'YouTube',
         siteName: 'YouTube',
       });
     });

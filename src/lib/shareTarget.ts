@@ -53,6 +53,7 @@ export function extractSharePayload(params: {
   description: string;
   image: string;
   siteName: string;
+  contentType: string;
 } {
   const rawUrl = (params.rawUrl || '').trim();
   const rawText = (params.rawText || '').trim();
@@ -98,5 +99,6 @@ export function extractSharePayload(params: {
     description: instant.description || '',
     image: instant.image || '',
     siteName: instant.siteName || '',
+    contentType: instant.contentType || '',
   };
 }

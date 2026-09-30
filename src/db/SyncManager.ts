@@ -6,58 +6,58 @@ import { resolveApiUrl } from '@/lib/api';
 const storage = new WebSyncStorage();
 const env = new WebEnvironment();
 
-function getAuthHeaders(extraHeaders?: any): Record<string, string> {
+async function getAuthHeaders(extraHeaders?: any): Promise<Record<string, string>> {
   const headers: Record<string, string> = { ...extraHeaders };
-  const token = typeof window !== 'undefined' ? localStorage.getItem('markbel_token') : null;
+  let token: string | null = null;
+  
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const data = await chrome.storage.local.get('authToken');
+    token = data.authToken;
+  }
+  if (!token && typeof window !== 'undefined' && window.localStorage) {
+    token = localStorage.getItem('markbel_token');
+  }
+
   if (token && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
 
+import { ofetch } from 'ofetch';
+
+const baseClient = ofetch.create({
+  retry: 3,
+  retryDelay: 1000,
+  async onRequest({ options }) {
+    options.headers = await getAuthHeaders(options.headers);
+    options.credentials = 'include';
+  }
+});
+
 const apiClient: ApiClient = {
   get: async (endpoint: string, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(resolveApiUrl(endpoint), {
-      headers: getAuthHeaders(headers),
-      signal,
-      credentials: 'include'
+    return await baseClient(resolveApiUrl(endpoint), {
+      method: 'GET',
+      headers,
+      signal
     });
-    if (!res.ok) {
-      const err: any = new Error(`Pull request failed: ${res.status}`);
-      err.status = res.status;
-      throw err;
-    }
-    return await res.json();
   },
   post: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(resolveApiUrl(endpoint), {
+    return await baseClient(resolveApiUrl(endpoint), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
-      body: JSON.stringify(data),
-      signal,
-      credentials: 'include'
+      headers,
+      body: data,
+      signal
     });
-    if (!res.ok) {
-      const err: any = new Error(`Push request failed: ${res.status}`);
-      err.status = res.status;
-      throw err;
-    }
-    return await res.json();
   },
   put: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    const res = await fetch(resolveApiUrl(endpoint), {
+    return await baseClient(resolveApiUrl(endpoint), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders(headers) },
-      body: JSON.stringify(data),
-      signal,
-      credentials: 'include'
+      headers,
+      body: data,
+      signal
     });
-    if (!res.ok) {
-      const err: any = new Error(`Put request failed: ${res.status}`);
-      err.status = res.status;
-      throw err;
-    }
-    return await res.json();
   }
 };
 

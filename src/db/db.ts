@@ -12,7 +12,7 @@ export interface LocalBookmark {
   siteName?: string;
   author?: string;
   publishedAt?: string;
-  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website';
+  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website' | 'playlist';
   readingTime?: number;
   wordCount?: number;
   canonicalUrl?: string;

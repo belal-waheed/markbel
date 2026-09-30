@@ -89,10 +89,11 @@ export class SyncManager {
   // -------------------------------------------------------------
   // Outbox Compaction
   // -------------------------------------------------------------
-  private async compactOutbox(pending: SyncOutboxItem[]): Promise<SyncOutboxItem[]> {
+  private compactOutbox(pending: SyncOutboxItem[]): { compacted: SyncOutboxItem[]; toDeleteFromDb: string[] } {
     // Group by entityId
     const byEntity = new Map<string, SyncOutboxItem[]>();
     for (const item of pending) {
+      if ((item.attempts ?? 0) > 5) continue; // Skip poison pills
       if (!byEntity.has(item.entityId)) byEntity.set(item.entityId, []);
       byEntity.get(item.entityId)!.push(item);
     }
@@ -149,12 +150,7 @@ export class SyncManager {
       }
     }
 
-    // Cleanup local DB for redundant items
-    if (toDeleteFromDb.length > 0) {
-      await this.storage.removePendingChanges(toDeleteFromDb);
-    }
-
-    return compacted;
+    return { compacted, toDeleteFromDb };
   }
 
   // -------------------------------------------------------------
@@ -189,9 +185,15 @@ export class SyncManager {
       if (!deviceId) throw new Error("Device ID not found");
       
       const pendingChanges = await this.storage.getPendingChanges(10000);
+      const activeChanges = pendingChanges.filter(item => (item.attempts ?? 0) <= 5);
       
-      const compactedBatch = await this.compactOutbox(pendingChanges);
+      const { compacted: compactedBatch, toDeleteFromDb } = this.compactOutbox(activeChanges);
       const pushBatch = compactedBatch.slice(0, 100);
+
+      // If pending changes collapsed offline without needing server push
+      if (pushBatch.length === 0 && toDeleteFromDb.length > 0) {
+        await this.storage.removePendingChanges(toDeleteFromDb);
+      }
 
       // --- PUSH PHASE ---
       if (pushBatch.length > 0) {
@@ -214,7 +216,12 @@ export class SyncManager {
           }))
         };
 
-        const result = await this.apiClient.post('/api/sync/push', pushPayload, { 'Authorization': `Bearer ${token}` }, this.abortController.signal);
+        const result = await this.apiClient.post('/api/sync/mutations', pushPayload, { 'Authorization': `Bearer ${token}` }, this.abortController.signal);
+
+        // Remove redundant compacted outbox items only AFTER apiClient.post succeeds
+        if (toDeleteFromDb.length > 0) {
+          await this.storage.removePendingChanges(toDeleteFromDb);
+        }
 
         for (const resItem of result.results || []) {
           if (resItem.status === 'applied' || resItem.status === 'duplicate') {

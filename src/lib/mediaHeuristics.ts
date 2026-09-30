@@ -8,6 +8,7 @@ export interface InstantMediaMetadata {
   title?: string;
   description?: string;
   siteName?: string;
+  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website' | 'playlist';
 }
 
 const GITHUB_RESERVED_SEGMENTS = new Set([
@@ -116,11 +117,22 @@ export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {
         image: `https://img.youtube.com/vi/${vParam}/hqdefault.jpg`,
         title: 'YouTube Video',
         siteName: 'YouTube',
+        contentType: 'video'
+      };
+    }
+
+    // Playlist
+    const listParam = parsed.searchParams.get('list');
+    if (listParam) {
+      return {
+        title: 'YouTube Playlist',
+        siteName: 'YouTube',
+        contentType: 'playlist'
       };
     }
 
     return {
-      title: 'YouTube Video',
+      title: 'YouTube',
       siteName: 'YouTube',
     };
   }

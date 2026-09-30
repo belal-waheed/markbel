@@ -3,7 +3,30 @@
  * Connects directly to Cloudflare Workers D1 delta sync (/api/sync/push).
  */
 
+import { ofetch } from 'ofetch';
+import { bookmarkRepository } from '@/db/SyncRepository';
+
 export const DEFAULT_API_BASE = 'https://mark.obel.workers.dev/api';
+
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
+
+export const apiClient = ofetch.create({
+  retry: 3,
+  retryDelay: 1000,
+  onResponseError({ request, response, options }) {
+    if (response.status >= 500) {
+      throw new NetworkError('Server error. Please try again later.');
+    }
+  },
+  onRequestError({ request, error }) {
+    throw new NetworkError('Network disconnected or endpoint blocked.');
+  }
+});
 
 export interface AuthUser {
   id: string;
@@ -26,6 +49,7 @@ export interface SaveBookmarkParams {
   siteName?: string;
   group?: string;
   isPinned?: boolean;
+  contentType?: string;
 }
 
 /**
@@ -34,6 +58,13 @@ export interface SaveBookmarkParams {
 export function normalizeApiUrl(raw?: string | null): string {
   if (!raw || typeof raw !== 'string') return DEFAULT_API_BASE;
   let clean = raw.trim().replace(/\/$/, '');
+  if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+    if (clean.startsWith('localhost') || clean.startsWith('127.0.0.1')) {
+      clean = `http://${clean}`;
+    } else {
+      clean = `https://${clean}`;
+    }
+  }
   if (!clean.endsWith('/api')) {
     clean = `${clean}/api`;
   }
@@ -84,21 +115,24 @@ export async function clearSession(): Promise<void> {
  */
 export async function login(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const base = await getApiBase();
-  const res = await fetch(`${base}/users/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
+  try {
+    const data = await apiClient(`${base}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { email, password }
+    });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error((data as any).error || `Login failed with status ${res.status}`);
+    if (data.token) {
+      await setSession(data.token, data.user);
+    }
+    
+    return data;
+  } catch (err: any) {
+    if (err.response) {
+      throw new Error(err.response._data?.error || `Login failed with status ${err.response.status}`);
+    }
+    throw err;
   }
-
-  if (data.token) {
-    await setSession(data.token, data.user);
-  }
-  return data;
 }
 
 /**
@@ -110,7 +144,7 @@ export async function verifySession(): Promise<AuthUser | null> {
 
   const base = await getApiBase();
   try {
-    const res = await fetch(`${base}/users/me`, {
+    const user = await apiClient<AuthUser>(`${base}/users/me`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -118,17 +152,13 @@ export async function verifySession(): Promise<AuthUser | null> {
       }
     });
 
-    if (!res.ok) {
-      if (res.status === 401) {
-        await clearSession();
-      }
-      return null;
-    }
-
-    const user = (await res.json()) as AuthUser;
     await chrome.storage.local.set({ authUser: user });
     return user;
-  } catch (err) {
+  } catch (err: any) {
+    if (err.response && err.response.status === 401) {
+      await clearSession();
+      return null;
+    }
     console.warn('[Markbel Extension] Offline session check notice:', err);
     return session.user;
   }
@@ -145,20 +175,20 @@ export async function saveBookmark({
   favicon = '',
   siteName = '',
   group = 'Unsorted',
-  isPinned = false
+  isPinned = false,
+  contentType
 }: SaveBookmarkParams): Promise<{ success: boolean; bookmarkId: string }> {
   const session = await getSession();
   if (!session.token) {
     throw new Error('Please sign in to Markbel to save bookmarks.');
   }
 
-  const base = await getApiBase();
   const bookmarkId = crypto.randomUUID();
-  const changeId = crypto.randomUUID();
-  const now = new Date().toISOString();
 
-  const payload = {
+  // 1. Create locally in Dexie database (Outbox pattern)
+  await bookmarkRepository.create({
     id: bookmarkId,
+    userId: session.user?.id || 'local-user',
     url: url.trim(),
     title: (title || url).trim(),
     description: (description || '').trim(),
@@ -166,38 +196,16 @@ export async function saveBookmark({
     favicon: (favicon || '').trim(),
     siteName: (siteName || '').trim(),
     group: group || 'Unsorted',
+    contentType: contentType as any,
     isRead: false,
-    isPinned: Boolean(isPinned),
-    createdAt: now,
-    updatedAt: now
-  };
-
-  const body = {
-    deviceId: 'browser-extension',
-    changes: [
-      {
-        changeId,
-        entityType: 'bookmark',
-        entityId: bookmarkId,
-        operation: 'create',
-        baseVersion: 0,
-        payload
-      }
-    ]
-  };
-
-  const res = await fetch(`${base}/sync/push`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.token}`
-    },
-    body: JSON.stringify(body)
+    isPinned: Boolean(isPinned)
   });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error((data as any).error || `Save failed with status ${res.status}`);
+  // 2. Trigger background worker to flush the outbox
+  try {
+    chrome.runtime.sendMessage({ type: 'SYNC_OUTBOX' });
+  } catch (err) {
+    console.warn('Could not notify background worker to sync outbox immediately', err);
   }
 
   return { success: true, bookmarkId };

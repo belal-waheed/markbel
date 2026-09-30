@@ -4,7 +4,7 @@ import { SyncStorage, SyncOutboxItem, RemoteChange } from '@/sync';
 export class WebSyncStorage implements SyncStorage {
   async getPendingChanges(limit: number): Promise<SyncOutboxItem[]> {
     const pending = await db.syncOutbox
-      .filter(item => item.status === 'pending' || item.status === 'failed')
+      .filter(item => (item.status === 'pending' || item.status === 'failed') && (item.attempts ?? 0) <= 5)
       .toArray();
     return pending.slice(0, limit);
   }
@@ -49,6 +49,12 @@ export class WebSyncStorage implements SyncStorage {
   }
 
   async getAuthToken(): Promise<string | null> {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      try {
+        const data = await chrome.storage.local.get('authToken');
+        if (data && data.authToken) return data.authToken;
+      } catch {}
+    }
     if (typeof window !== 'undefined' && window.localStorage) {
       return window.localStorage.getItem('markbel_token');
     }
@@ -56,12 +62,22 @@ export class WebSyncStorage implements SyncStorage {
   }
 
   async saveAuthToken(token: string): Promise<void> {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      try {
+        await chrome.storage.local.set({ authToken: token });
+      } catch {}
+    }
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('markbel_token', token);
     }
   }
 
   async removeAuthToken(): Promise<void> {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      try {
+        await chrome.storage.local.remove(['authToken', 'authUser']);
+      } catch {}
+    }
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem('markbel_token');
     }

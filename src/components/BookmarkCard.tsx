@@ -13,6 +13,9 @@ interface BookmarkCardProps {
   onArchive: (b: LocalBookmark) => void
   onEdit: (b: LocalBookmark) => void
   onDelete: (b: LocalBookmark) => void
+  isSelected?: boolean
+  selectionMode?: boolean
+  onToggleSelect?: (b: LocalBookmark, multi: boolean) => void
 }
 
 const getDomain = (url: string) => {
@@ -31,7 +34,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onToggleRead,
   onArchive,
   onEdit,
-  onDelete
+  onDelete,
+  isSelected = false,
+  selectionMode = false,
+  onToggleSelect
 }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // COMPACT LIST ROW VIEW
@@ -47,8 +53,41 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         {/* Left: Compact Square Thumbnail */}
         <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-lg overflow-hidden relative border border-[var(--color-border-default)] bg-[var(--color-bg-element)]">
           <BookmarkImage src={b.image || ''} alt={b.title} aspectRatioClass="aspect-square w-full h-full" />
+          
+          {/* Multiselect Checkbox Overlay */}
+          {(selectionMode || isSelected) ? (
+            <div 
+              className={`absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-auto z-10`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onToggleSelect) onToggleSelect(b, e.shiftKey);
+              }}
+            >
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all shadow-sm
+                ${isSelected 
+                  ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white scale-110' 
+                  : 'bg-white/20 border-white/70 backdrop-blur-md text-transparent hover:bg-white/40 hover:scale-110'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          ) : (
+            <div 
+              className="absolute inset-0 bg-transparent flex items-center justify-center pointer-events-auto opacity-0 group-hover:opacity-100 z-10 transition-opacity" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (onToggleSelect) onToggleSelect(b, e.shiftKey); 
+              }}
+            >
+              <div className="w-5 h-5 rounded-full flex items-center justify-center border-2 bg-black/40 border-white/70 text-transparent hover:bg-white/40 hover:scale-110 shadow-sm">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          )}
+
           {b.isPinned && (
-            <div className="absolute top-1 left-1 bg-amber-400 text-amber-950 p-0.5 rounded shadow-xs">
+            <div className="absolute top-1 left-1 bg-amber-400 text-amber-950 p-0.5 rounded shadow-xs z-0">
               <Pin className="w-2.5 h-2.5 fill-amber-950" />
             </div>
           )}
@@ -153,9 +192,43 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         <div className="relative">
           <BookmarkImage src={b.image || ''} alt={b.title} aspectRatioClass="aspect-video" />
 
+          {/* Multiselect Checkbox Overlay */}
+          {(selectionMode || isSelected) ? (
+            <div 
+              className={`absolute inset-0 bg-black/20 flex items-start justify-start p-2 pointer-events-auto z-10`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onToggleSelect) onToggleSelect(b, e.shiftKey);
+              }}
+            >
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all shadow-sm
+                ${isSelected 
+                  ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white scale-110' 
+                  : 'bg-white/20 border-white/70 backdrop-blur-md text-transparent hover:bg-white/40 hover:scale-110'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          ) : (
+            <div 
+              className="absolute inset-0 bg-transparent flex items-start justify-start p-2 pointer-events-auto opacity-0 group-hover:opacity-100 z-10 transition-opacity" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (onToggleSelect) onToggleSelect(b, e.shiftKey); 
+              }}
+            >
+              <div className="w-5 h-5 rounded-full flex items-center justify-center border-2 bg-black/40 border-white/70 text-transparent hover:bg-white/40 hover:scale-110 shadow-sm">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          )}
+
           {/* Top Badges & Pin Button */}
-          <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-            <span className="text-[10px] font-semibold text-white bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs truncate max-w-[120px] pointer-events-auto">
+          <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10">
+            <span className={`text-[10px] font-semibold text-white bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs truncate max-w-[120px] pointer-events-auto transition-all ${
+              selectionMode || isSelected ? 'ml-7' : 'group-hover:ml-7'
+            }`}>
               {b.group || "Unsorted"}
             </span>
             <div className="flex items-center gap-1.5 pointer-events-auto">
@@ -200,7 +273,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                   : "bg-[var(--color-accent)]/10 border-transparent text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
               }`}
             >
-              {b.isRead ? "Read ✓" : "Mark Read"}
+              {b.isRead ? "Read" : "Mark Read"}
             </button>
           </div>
 

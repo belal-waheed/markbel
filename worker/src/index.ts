@@ -604,7 +604,7 @@ function normalizeSyncRecord(record: any, entityType: string): any {
   return record;
 }
 
-app.post("/api/sync/push", authMiddleware, async (c) => {
+app.post("/api/sync/mutations", authMiddleware, async (c) => {
   const userId = c.get("userId");
   const { deviceId, changes } = await c.req.json();
 

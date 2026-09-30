@@ -7,9 +7,29 @@ import { saveBookmark, getSession } from './api';
 import { resolveSmartGroup } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from './content';
+import { syncManager } from '@/db/SyncManager';
+
+// Initialize sync engine for background syncing
+syncManager.sync();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'SYNC_OUTBOX') {
+    syncManager.sync(true);
+    sendResponse({ success: true });
+  }
+  return true;
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'sync-alarm') {
+    syncManager.sync();
+  }
+});
 
 // Setup context menus on installation
 chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create('sync-alarm', { periodInMinutes: 5 });
+  
   chrome.contextMenus.create({
     id: 'markbel-save-page',
     title: 'Save Page to Markbel',
@@ -93,7 +113,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       description = info.selectionText;
     }
 
-    if (tab && tab.id && (!description || !image)) {
+    let contentType: string | undefined = undefined;
+
+    if (info.menuItemId !== 'markbel-save-link' && tab && tab.id && (!description || !image)) {
       const liveMeta = await getTabMetadata(tab.id);
       if (liveMeta) {
         if (info.menuItemId !== 'markbel-save-link') {
@@ -103,21 +125,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         description = description || liveMeta.description || '';
         image = liveMeta.image || '';
         favicon = liveMeta.favicon || favicon;
+        contentType = liveMeta.contentType || contentType;
       }
     }
 
     // Apply instant media heuristics fallback when image is missing or when saving a link
-    if (url && (!image || !title || title === url)) {
+    if (url && (!image || !title || title === url || !contentType)) {
       const instant = extractInstantMediaMetadata(url);
-      if (instant.image && !image) {
-        image = instant.image;
-      }
-      if (instant.title && (!title || title === url)) {
-        title = instant.title;
-      }
-      if (instant.description && !description) {
-        description = instant.description;
-      }
+      if (instant.image && !image) image = instant.image;
+      if (instant.title && (!title || title === url)) title = instant.title;
+      if (instant.description && !description) description = instant.description;
+      if (instant.contentType && !contentType) contentType = instant.contentType;
     }
 
     const group = resolveSmartGroup(url);
@@ -128,7 +146,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       description,
       image,
       favicon,
-      group
+      group,
+      contentType
     });
 
     showBadge('SAVED', '#00ff88');
@@ -162,6 +181,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       let description = '';
       let image = '';
       let favicon = tab.favIconUrl || '';
+      let contentType: string | undefined = undefined;
 
       if (tab.id) {
         const liveMeta = await getTabMetadata(tab.id);
@@ -171,21 +191,17 @@ chrome.commands.onCommand.addListener(async (command) => {
           description = liveMeta.description || '';
           image = liveMeta.image || '';
           favicon = liveMeta.favicon || favicon;
+          contentType = liveMeta.contentType || contentType;
         }
       }
 
       // Apply instant media heuristics fallback when image is missing or title is bare URL
-      if (url && (!image || !title || title === url)) {
+      if (url && (!image || !title || title === url || !contentType)) {
         const instant = extractInstantMediaMetadata(url);
-        if (instant.image && !image) {
-          image = instant.image;
-        }
-        if (instant.title && (!title || title === url)) {
-          title = instant.title;
-        }
-        if (instant.description && !description) {
-          description = instant.description;
-        }
+        if (instant.image && !image) image = instant.image;
+        if (instant.title && (!title || title === url)) title = instant.title;
+        if (instant.description && !description) description = instant.description;
+        if (instant.contentType && !contentType) contentType = instant.contentType;
       }
 
       const group = resolveSmartGroup(url);
@@ -196,7 +212,8 @@ chrome.commands.onCommand.addListener(async (command) => {
         description,
         image,
         favicon,
-        group
+        group,
+        contentType
       });
 
       showBadge('SAVED', '#00ff88');

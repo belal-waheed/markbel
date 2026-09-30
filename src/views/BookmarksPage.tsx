@@ -18,7 +18,7 @@ import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
 import { GroupModal } from "../components/modals/GroupModal";
-import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
+import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff, Trash2, CheckCircle, Archive } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
@@ -93,6 +93,26 @@ export default function BookmarksPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Multiselect State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isSelectionMode = selectedIds.size > 0;
+
+  const handleToggleSelect = useCallback((b: LocalBookmark, _shiftKey: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(b.id)) {
+        next.delete(b.id);
+      } else {
+        next.add(b.id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   // Full-screen mobile swipe gestures
   useSwipeGesture({
@@ -269,6 +289,45 @@ export default function BookmarksPage() {
     await bookmarkRepository.delete(id);
     setDeletingBookmark(null);
     syncManager.sync(true);
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (window.confirm(`Delete ${count} selected bookmarks?`)) {
+      for (const id of selectedIds) {
+        await bookmarkRepository.delete(id);
+      }
+      handleClearSelection();
+      syncManager.sync(true);
+      showToast("Deleted", `Deleted ${count} bookmarks`, "success");
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    const count = selectedIds.size;
+    for (const id of selectedIds) {
+      await bookmarkRepository.update(id, { isArchived: true });
+    }
+    handleClearSelection();
+    syncManager.sync(true);
+    showToast("Archived", `Archived ${count} bookmarks`, "success");
+  };
+
+  const handleBulkToggleRead = async () => {
+    const count = selectedIds.size;
+    const selectedList = filteredBookmarks.filter(b => selectedIds.has(b.id));
+    const allRead = selectedList.every(b => b.isRead);
+    const newStatus = !allRead;
+    const readAtTimestamp = newStatus ? new Date().toISOString() : "";
+    for (const id of selectedIds) {
+      await bookmarkRepository.update(id, {
+        isRead: newStatus,
+        readAt: readAtTimestamp
+      });
+    }
+    handleClearSelection();
+    syncManager.sync(true);
+    showToast("Updated", `Marked ${count} bookmarks as ${newStatus ? 'read' : 'unread'}`, "success");
   };
 
   const handleArchiveBookmark = async (id: string, archiveGroup?: string) => {
@@ -452,6 +511,21 @@ export default function BookmarksPage() {
               searchInputRef={searchInputRef}
             />
 
+            {/* Multiselect Action Bar */}
+            {isSelectionMode && (
+              <div className="mb-6 sticky top-0 z-20 flex items-center justify-between bg-[var(--color-bg-element)] border border-[var(--color-accent)] rounded-lg p-2 px-4 shadow-lg backdrop-blur-md animate-in slide-in-from-top-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-[var(--color-accent)]">{selectedIds.size} Selected</span>
+                  <button onClick={handleClearSelection} className="text-xs text-[var(--color-text-muted)] hover:text-white transition-colors">Clear</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleBulkToggleRead} className="btn-secondary text-xs px-3 py-1.5 rounded flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Toggle Read</button>
+                  <button onClick={handleBulkArchive} className="btn-secondary text-xs px-3 py-1.5 rounded flex items-center gap-1.5"><Archive className="w-3.5 h-3.5" /> Archive</button>
+                  <button onClick={handleBulkDelete} className="text-xs px-3 py-1.5 rounded flex items-center gap-1.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors border border-red-500/20"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                </div>
+              </div>
+            )}
+
             {/* Bookmarks Grid / List / Empty State */}
             {filteredBookmarks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center px-4">
@@ -489,6 +563,9 @@ export default function BookmarksPage() {
                     onArchive={(bookmark) => setArchivingBookmark(bookmark)}
                     onEdit={(bookmark) => setEditingBookmark(bookmark)}
                     onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                    isSelected={selectedIds.has(b.id)}
+                    selectionMode={isSelectionMode}
+                    onToggleSelect={handleToggleSelect}
                   />
                 ))}
               </div>
@@ -505,6 +582,9 @@ export default function BookmarksPage() {
                     onArchive={(bookmark) => setArchivingBookmark(bookmark)}
                     onEdit={(bookmark) => setEditingBookmark(bookmark)}
                     onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                    isSelected={selectedIds.has(b.id)}
+                    selectionMode={isSelectionMode}
+                    onToggleSelect={handleToggleSelect}
                   />
                 ))}
               </div>

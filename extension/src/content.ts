@@ -12,6 +12,7 @@ export interface ExtractedPageMetadata {
   favicon: string;
   siteName: string;
   selectedText: string;
+  contentType?: string;
 }
 
 function getMeta(selectors: string[]): string {
@@ -56,27 +57,35 @@ function extractYouTubeId(url: string): string {
 export function extractPageMetadata(): ExtractedPageMetadata {
   const url = window.location.href;
   const hostname = window.location.hostname.replace(/^www\./, '');
+  const isYouTube = hostname.includes('youtube.com');
 
   // 1. Title
-  const title =
-    getMeta([
-      'meta[property="og:title"]',
-      'meta[name="twitter:title"]',
-      'meta[name="title"]',
-      'h1'
-    ]) ||
-    document.title ||
-    hostname;
+  let title = '';
+  if (isYouTube) {
+    title = document.title.replace(/ - YouTube$/, '');
+  } else {
+    title =
+      getMeta([
+        'meta[property="og:title"]',
+        'meta[name="twitter:title"]',
+        'meta[name="title"]',
+        'h1'
+      ]) ||
+      document.title ||
+      hostname;
+  }
 
   // 2. Selection & Description
   const selection = window.getSelection() ? window.getSelection()!.toString().trim() : '';
-  const description =
-    selection ||
-    getMeta([
+  let description = selection;
+  if (!description) {
+    // SPAs often don't update og:description, but we'll try
+    description = getMeta([
       'meta[property="og:description"]',
       'meta[name="twitter:description"]',
       'meta[name="description"]'
     ]);
+  }
 
   // 3. Image & Thumbnail
   let image = getMeta([
@@ -87,7 +96,8 @@ export function extractPageMetadata(): ExtractedPageMetadata {
   ]);
 
   const ytId = extractYouTubeId(url);
-  if (ytId && (!image || image.includes('default.jpg'))) {
+  if (ytId) {
+    // Always override image for YouTube to ensure it matches the current URL, not stale og:image
     image = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
   }
 
@@ -119,7 +129,30 @@ export function extractPageMetadata(): ExtractedPageMetadata {
 
   // 6. Canonical URL
   const canonical = getMeta(['link[rel="canonical"]']);
-  const finalUrl = canonical ? resolveAbsoluteUrl(canonical) : url;
+  let finalUrl = canonical ? resolveAbsoluteUrl(canonical) : url;
+  
+  // SPAs like YouTube do not update the canonical link when navigating
+  if (isYouTube) {
+    finalUrl = url;
+  }
+
+  let contentType: string | undefined = undefined;
+  if (isYouTube) {
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.searchParams.has('v')) {
+        contentType = 'video';
+      } else if (parsedUrl.searchParams.has('list')) {
+        contentType = 'playlist';
+      } else {
+        contentType = 'video';
+      }
+    } catch {
+      contentType = 'video';
+    }
+  } else if (getMeta(['meta[property="og:type"]']) === 'article') {
+    contentType = 'article';
+  }
 
   return {
     url: finalUrl,
@@ -129,7 +162,8 @@ export function extractPageMetadata(): ExtractedPageMetadata {
     image,
     favicon,
     siteName,
-    selectedText: selection
+    selectedText: selection,
+    contentType
   };
 }
 
