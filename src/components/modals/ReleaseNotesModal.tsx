@@ -9,7 +9,10 @@ import {
   Download,
   ExternalLink,
   CheckCircle2,
-  Tag
+  Tag,
+  Trash2,
+  Archive,
+  CheckSquare
 } from 'lucide-react'
 
 interface ReleaseNotesModalProps {
@@ -18,6 +21,15 @@ interface ReleaseNotesModalProps {
 }
 
 export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, onClose }) => {
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   return (
@@ -76,14 +88,17 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
                 Hover over any bookmark thumbnail to reveal the selection checkbox. Select dozens of bookmarks at once to perform instant bulk actions:
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium">
-                  🗑️ Bulk Delete with confirmation
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <Trash2 className="w-3 h-3 text-rose-400" />
+                  <span>Bulk Delete with confirmation</span>
                 </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium">
-                  📦 Bulk Archive to archive vault
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <Archive className="w-3 h-3 text-amber-400" />
+                  <span>Bulk Archive to archive vault</span>
                 </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium">
-                  ✓ Bulk Mark as Read / Unread
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckSquare className="w-3 h-3 text-emerald-400" />
+                  <span>Bulk Mark as Read / Unread</span>
                 </span>
               </div>
             </div>

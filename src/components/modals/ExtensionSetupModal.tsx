@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   FolderArchive,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Pin
 } from 'lucide-react'
 
 interface ExtensionSetupModalProps {
@@ -24,6 +25,15 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
   const [activeTab, setActiveTab] = useState<'chrome' | 'edge'>('chrome')
   const [activeStep, setActiveStep] = useState<number>(1)
   const [copiedUrl, setCopiedUrl] = useState(false)
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -325,18 +335,19 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
 
                       <div className="mt-4 p-3 rounded-lg bg-[var(--color-bg-element)] border border-[var(--color-border-default)] flex items-center gap-3">
                         <div className="px-3 py-1.5 rounded-md bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5 shadow-xs">
-                          <span>📁</span>
+                          <FolderArchive className="w-4 h-4 text-[var(--color-accent)]" />
                           <span>Load unpacked</span>
                         </div>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          $\rightarrow$ Select your unzipped folder
-                        </span>
+                        <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                          <ArrowRight className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" />
+                          <span>Select your unzipped folder</span>
+                        </div>
                       </div>
 
                       <div className="mt-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs text-[var(--color-text-primary)] flex items-start gap-2.5">
-                        <span className="text-base">📌</span>
+                        <Pin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                         <div className="leading-relaxed">
-                          <strong>Don't forget to Pin!</strong> Click the puzzle icon 🧩 in Chrome's top bar and click the <strong className="text-emerald-400">Pin</strong> icon next to Markbel.
+                          <strong>Don't forget to Pin!</strong> Click the extensions puzzle icon in your browser's top bar and toggle the <strong className="text-emerald-400">Pin</strong> icon next to Markbel.
                         </div>
                       </div>
                     </div>
