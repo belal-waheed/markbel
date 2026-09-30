@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import MarkbelLogo from '../components/MarkbelLogo.js'
 import { useAuth } from '../lib/auth.js'
+import { ExtensionSetupModal } from '../components/modals/ExtensionSetupModal'
+import { ReleaseNotesModal } from '../components/modals/ReleaseNotesModal'
 
 interface LandingPageProps {
   onLaunchApp?: () => void
@@ -93,6 +95,8 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
   const { token } = useAuth()
   const detectedPlatform = useMemo(() => detectPlatform(), [])
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false)
+  const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false)
 
   const handleLaunch = () => {
     if (onLaunchApp) {
@@ -111,15 +115,15 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
     <div className="min-h-screen bg-[var(--color-bg-main)] text-[var(--color-text-primary)] font-sans antialiased selection:bg-[var(--color-accent)] selection:text-white">
       {/* Top Banner / Announcement */}
       <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 text-center text-xs text-[var(--color-text-muted)] font-medium flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-        <span>Markbel v2.3.0 is live with Bulk Multiselect, Zero-UI Mobile Saves, and YouTube Playlists.</span>
-        <a
-          href="https://github.com/belal-waheed/markbel/releases/latest"
-          target="_blank"
-          rel="noreferrer"
-          className="ml-2 inline-flex items-center gap-1 font-semibold text-[var(--color-accent)] hover:underline"
+        <span className="font-semibold text-[var(--color-text-primary)]">Markbel v2.3.0 is live!</span>
+        <span>Bulk Multiselect, Zero-UI Mobile Saves, and YouTube Playlists.</span>
+        <button
+          onClick={() => setIsReleaseModalOpen(true)}
+          className="ml-2 inline-flex items-center gap-1 font-semibold text-[var(--color-accent)] hover:underline cursor-pointer bg-[var(--color-accent)]/10 px-2 py-0.5 rounded-full border border-[var(--color-accent)]/20"
         >
-          View Release <ExternalLink className="w-3 h-3" />
-        </a>
+          <span>What's New in v2.3.0</span>
+          <Sparkles className="w-3 h-3" />
+        </button>
       </div>
 
       {/* Navigation Bar */}
@@ -384,7 +388,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
               </ul>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)] flex flex-col gap-2">
+            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)] flex flex-col gap-2.5">
               <a
                 href="https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc"
                 target="_blank"
@@ -392,16 +396,25 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
                 className="w-full btn-primary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Get on Edge Add-ons (Free)</span>
+                <span>Get on Edge Add-ons (1-Click)</span>
               </a>
+
+              <button
+                onClick={() => setIsExtensionModalOpen(true)}
+                className="w-full btn-secondary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-[var(--color-accent)]/30 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all cursor-pointer shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Chrome & Brave Setup Guide</span>
+              </button>
+
               <a
-                href="https://github.com/belal-waheed/markbel/releases/latest"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.3.0/markbel-extension.zip"
                 target="_blank"
                 rel="noreferrer"
-                className="w-full btn-secondary py-2 px-4 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
+                className="w-full text-center text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors py-1 flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
               >
                 <Download className="w-3 h-3" />
-                <span>Download .zip for Chrome/Brave</span>
+                <span>Download markbel-extension.zip (v1.0.2)</span>
               </a>
             </div>
           </div>
@@ -651,6 +664,13 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
             <a href="https://github.com/belal-waheed/markbel/releases" target="_blank" rel="noreferrer" className="hover:underline">
               Releases
             </a>
+            <button
+              onClick={() => setIsReleaseModalOpen(true)}
+              className="hover:underline cursor-pointer text-[var(--color-accent)] font-semibold flex items-center gap-1"
+            >
+              <span>v2.3.0 Notes</span>
+              <Sparkles className="w-3 h-3" />
+            </button>
             <button onClick={() => navigate('/login?redirect=/app')} className="hover:underline cursor-pointer">
               Sign In
             </button>
@@ -661,6 +681,16 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
           </div>
         </div>
       </footer>
+
+      {/* Interactive End-User Modals */}
+      <ExtensionSetupModal
+        isOpen={isExtensionModalOpen}
+        onClose={() => setIsExtensionModalOpen(false)}
+      />
+      <ReleaseNotesModal
+        isOpen={isReleaseModalOpen}
+        onClose={() => setIsReleaseModalOpen(false)}
+      />
     </div>
   )
 }
