@@ -856,7 +856,12 @@ export class MetadataService {
     let ytTitle = targetUrl.pathname.startsWith('/shorts/') ? 'YouTube Short' : 'YouTube Video';
     let ytAuthor = '';
 
-    const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}`);
+    const listParam = targetUrl.searchParams.get('list');
+    const listQuery = listParam ? `&list=${listParam}` : '';
+    const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}${listQuery}`);
+    
+    const canonicalUrl = `https://www.youtube.com/watch?v=${ytId}${listQuery}`;
+
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -875,7 +880,7 @@ export class MetadataService {
 
     return {
       url: targetUrl.toString(),
-      canonicalUrl: `https://www.youtube.com/watch?v=${ytId}`,
+      canonicalUrl,
       title: cleanText(ytTitle),
       description: ytAuthor ? `By ${ytAuthor} on YouTube` : 'YouTube Video',
       image: thumbnail,

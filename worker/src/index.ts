@@ -1496,7 +1496,12 @@ app.get("/api/metadata", async (c) => {
         let ytTitle = targetUrl.pathname.startsWith("/shorts/") ? "YouTube Short" : "YouTube Video";
         let ytAuthor = "";
 
-        const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}`);
+        const listParam = targetUrl.searchParams.get("list");
+        const listQuery = listParam ? `&list=${listParam}` : "";
+        const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}${listQuery}`);
+        
+        let canonicalUrl = `https://www.youtube.com/watch?v=${ytId}${listQuery}`;
+
         try {
           const oembedRes = await fetchWithTimeout(
             `https://www.youtube.com/oembed?url=${watchUrl}&format=json`,
