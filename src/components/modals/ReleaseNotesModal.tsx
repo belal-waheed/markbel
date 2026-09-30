@@ -49,14 +49,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.3.0
+                  What's New in Markbel v2.3.1
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white">
                   Latest Release
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Bulk Multiselect, Headless Android Saves, YouTube Playlists & Robust Delta Sync
+                YouTube Playlist Preservation, Android Intent Query Reconstruction & Bulk Multiselect
               </p>
             </div>
           </div>
@@ -162,10 +162,10 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.3.0)
+                Direct Download Assets (v2.3.1)
               </span>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/tag/v2.3.0"
+                href="https://github.com/belal-waheed/markbel/releases/latest"
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-semibold text-[var(--color-accent)] hover:underline flex items-center gap-1"
@@ -177,7 +177,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.3.0/Markbel.apk"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/Markbel.apk"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-primary py-2.5 px-3.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs"
@@ -187,7 +187,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.3.0/markbel-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary py-2.5 px-3.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2"

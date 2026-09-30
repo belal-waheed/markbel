@@ -206,7 +206,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
 
                       <div className="mt-4 flex flex-col sm:flex-row gap-3">
                         <a
-                          href="https://github.com/belal-waheed/markbel/releases/download/v2.3.0/markbel-extension.zip"
+                          href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-extension.zip"
                           target="_blank"
                           rel="noreferrer"
                           className="btn-primary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-sm"
