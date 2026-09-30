@@ -41,6 +41,40 @@ export function sanitizeSharedUrl(raw: string): string {
 }
 
 /**
+ * Reconstructs query parameters that were improperly split by Android WebAPK share intents.
+ * When Android shares URLs containing '&' (e.g. YouTube watch URLs with '&list=...'),
+ * it appends them unencoded to the GET share_target URL, causing browser searchParams
+ * to split them into stray top-level query parameters instead of remaining part of the payload URL.
+ */
+export function reconstructUnencodedShareParams(searchParams: URLSearchParams): {
+  rawTitle: string;
+  rawText: string;
+  rawUrl: string;
+} {
+  let rawTitle = searchParams.get('title') || '';
+  let rawText = searchParams.get('text') || '';
+  let rawUrl = searchParams.get('url') || '';
+
+  const standardKeys = new Set(['title', 'text', 'url', 'share']);
+  const extraParams = Array.from(searchParams.entries())
+    .filter(([key]) => !standardKeys.has(key))
+    .map(([key, value]) => `${key}${value ? `=${value}` : ''}`)
+    .join('&');
+
+  if (extraParams.length > 0) {
+    if (rawUrl) {
+      const sep = rawUrl.includes('?') ? '&' : '?';
+      rawUrl += `${sep}${extraParams}`;
+    } else if (rawText) {
+      const sep = rawText.includes('?') ? '&' : '?';
+      rawText += `${sep}${extraParams}`;
+    }
+  }
+
+  return { rawTitle, rawText, rawUrl };
+}
+
+/**
  * Extracts clean target URL, fallback title, image, siteName, and notes from raw share target parameters.
  */
 export function extractSharePayload(params: {

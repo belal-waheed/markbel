@@ -5,7 +5,7 @@ import { App as CapApp } from '@capacitor/app'
 import { bookmarkRepository } from '../db/SyncRepository.js'
 import { syncManager } from '../db/SyncManager.js'
 import { resolveSmartGroup } from '../lib/smartGroups.js'
-import { extractSharePayload } from '../lib/shareTarget.js'
+import { extractSharePayload, reconstructUnencodedShareParams } from '../lib/shareTarget.js'
 import { useAuth } from '../lib/auth.js'
 
 export default function ShareTargetPage() {
@@ -30,25 +30,7 @@ export default function ShareTargetPage() {
     isProcessedRef.current = true
 
     async function processSharedLink() {
-      let rawTitle = searchParams.get('title')
-      let rawText = searchParams.get('text')
-      let rawUrl = searchParams.get('url')
-
-      // Fix for Android WebAPK share intents not URL-encoding the payload.
-      // E.g., YouTube "?v=123&list=456" splits "&list=456" into a separate top-level query parameter.
-      const standardKeys = ['title', 'text', 'url', 'share']
-      const extraParams = Array.from(searchParams.entries())
-        .filter(([key]) => !standardKeys.includes(key))
-        .map(([key, value]) => `${key}${value ? `=${value}` : ''}`)
-        .join('&')
-      
-      if (extraParams.length > 0) {
-        if (rawUrl && rawUrl.includes('?')) {
-          rawUrl += `&${extraParams}`
-        } else if (rawText && rawText.includes('?')) {
-          rawText += `&${extraParams}`
-        }
-      }
+      const { rawTitle, rawText, rawUrl } = reconstructUnencodedShareParams(searchParams)
 
       const { targetUrl: cleanUrl, title: fallbackTitle, image: instantImage, contentType } = extractSharePayload({
         rawUrl,

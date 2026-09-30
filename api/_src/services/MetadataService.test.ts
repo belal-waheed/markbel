@@ -149,6 +149,20 @@ describe('MetadataService Unit Tests (AAA Pattern)', () => {
       expect(meta.canonicalUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     });
 
+    it('should successfully extract metadata from a YouTube video URL with playlist context and preserve list in canonicalUrl', async () => {
+      // Arrange
+      const ytUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4';
+
+      // Act
+      const meta = await MetadataService.extractMetadata(ytUrl);
+
+      // Assert
+      expect(meta.contentType).toBe('video');
+      expect(meta.siteName).toBe('YouTube');
+      expect(meta.image).toContain('dQw4w9WgXcQ');
+      expect(meta.canonicalUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4');
+    });
+
     it('should extract rich article metadata, reading time, and author from live or mock HTML', async () => {
       // Arrange
       const sampleHtml = `

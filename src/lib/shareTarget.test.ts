@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanitizeSharedUrl, extractSharePayload } from './shareTarget'
+import { sanitizeSharedUrl, extractSharePayload, reconstructUnencodedShareParams } from './shareTarget'
 
 describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
   describe('sanitizeSharedUrl', () => {
@@ -109,16 +109,87 @@ describe('PWA Share Target Processing & Sanitization Unit Tests', () => {
       expect(payload.siteName).toBe('GitHub')
     })
 
-    it('should return empty targetUrl when no URL is present in params', () => {
+    it('should preserve list and index parameters for YouTube playlist videos while stripping tracking', () => {
       const payload = extractSharePayload({
-        rawUrl: '',
-        rawText: 'Just random text without any link',
-        rawTitle: 'Title only',
+        rawUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4&index=3&si=tracking123&feature=share',
+        rawText: '',
+        rawTitle: '',
       })
 
-      expect(payload.targetUrl).toBe('')
-      expect(payload.image).toBe('')
-      expect(payload.siteName).toBe('')
+      expect(payload.targetUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4&index=3')
+      expect(payload.image).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+      expect(payload.siteName).toBe('YouTube')
+    })
+
+    it('should preserve playlist parameter from youtu.be shortlinks', () => {
+      const payload = extractSharePayload({
+        rawUrl: 'https://youtu.be/dQw4w9WgXcQ?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4&si=tracking123',
+        rawText: '',
+        rawTitle: '',
+      })
+
+      expect(payload.targetUrl).toBe('https://youtu.be/dQw4w9WgXcQ?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4')
+      expect(payload.image).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+    })
+
+    it('should preserve pure playlist URLs (youtube.com/playlist?list=...)', () => {
+      const payload = extractSharePayload({
+        rawUrl: 'https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4&si=tracking123',
+        rawText: '',
+        rawTitle: '',
+      })
+
+      expect(payload.targetUrl).toBe('https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4')
+      expect(payload.title).toBe('YouTube Playlist')
+      expect(payload.contentType).toBe('playlist')
+    })
+  })
+
+  describe('reconstructUnencodedShareParams', () => {
+    it('should reconstruct YouTube playlist parameters (&list=...&index=...) when unencoded in Android WebAPK GET intent', () => {
+      // Android WebAPK GET creates: /share?share=true&url=https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123&index=2
+      // The browser URLSearchParams sees:
+      // share -> "true"
+      // url -> "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      // list -> "PL123"
+      // index -> "2"
+      const searchParams = new URLSearchParams('share=true&url=https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123&index=2')
+      const { rawUrl, rawTitle, rawText } = reconstructUnencodedShareParams(searchParams)
+
+      expect(rawUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123&index=2')
+      expect(rawTitle).toBe('')
+      expect(rawText).toBe('')
+    })
+
+    it('should reconstruct parameters when rawUrl does not contain an existing question mark', () => {
+      // E.g. /share?url=https://youtu.be/dQw4w9WgXcQ&list=PL123
+      const searchParams = new URLSearchParams('url=https://youtu.be/dQw4w9WgXcQ&list=PL123')
+      const { rawUrl } = reconstructUnencodedShareParams(searchParams)
+
+      expect(rawUrl).toBe('https://youtu.be/dQw4w9WgXcQ?list=PL123')
+    })
+
+    it('should reconstruct parameters when URL is passed inside rawText', () => {
+      // E.g. YouTube app sharing text: /share?text=https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123
+      const searchParams = new URLSearchParams('text=https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123')
+      const { rawText } = reconstructUnencodedShareParams(searchParams)
+
+      expect(rawText).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123')
+    })
+
+    it('should preserve standard parameters without alterations when properly encoded', () => {
+      const searchParams = new URLSearchParams({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123',
+        title: 'Rick Astley - Never Gonna Give You Up',
+        text: 'Shared from browser'
+      })
+      const { rawUrl, rawTitle, rawText } = reconstructUnencodedShareParams(searchParams)
+
+      expect(rawUrl).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123')
+      expect(rawTitle).toBe('Rick Astley - Never Gonna Give You Up')
+      expect(rawText).toBe('Shared from browser')
     })
   })
 })
+
+
