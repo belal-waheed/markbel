@@ -111,7 +111,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
     <div className="min-h-screen bg-[var(--color-bg-main)] text-[var(--color-text-primary)] font-sans antialiased selection:bg-[var(--color-accent)] selection:text-white">
       {/* Top Banner / Announcement */}
       <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 text-center text-xs text-[var(--color-text-muted)] font-medium flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-        <span>Markbel v2.2.0 is live with Bulk Multiselect, Zero-UI Mobile Saves, and YouTube Playlists.</span>
+        <span>Markbel v2.3.0 is live with Bulk Multiselect, Zero-UI Mobile Saves, and YouTube Playlists.</span>
         <a
           href="https://github.com/belal-waheed/markbel/releases/latest"
           target="_blank"

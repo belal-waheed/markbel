@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Markbel",
   "short_name": "Markbel",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Instant 1-click bookmarks, rich media metadata extraction, and smart grouping for Markbel.",
   "icons": {
     "16": "icons/icon-16.png",

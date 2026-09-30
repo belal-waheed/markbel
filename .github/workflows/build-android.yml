@@ -52,10 +52,14 @@ jobs:
           cd android
           ./gradlew assembleDebug --no-daemon
 
+      - name: Build Extension Package
+        run: npm run extension:zip
+
       - name: Prepare Named Release Assets
         run: |
           mkdir -p release-assets
           cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/Markbel.apk
+          cp markbel-extension.zip release-assets/markbel-extension.zip
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
@@ -69,7 +73,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Markbel ${{ github.ref_name }}
-          files: release-assets/Markbel.apk
+          files: |
+            release-assets/Markbel.apk
+            release-assets/markbel-extension.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,7 +87,9 @@ jobs:
           name: Markbel Android App (Latest Build)
           tag_name: latest
           prerelease: false
-          files: release-assets/Markbel.apk
+          files: |
+            release-assets/Markbel.apk
+            release-assets/markbel-extension.zip
           body: |
             ## Markbel Native Android App (Latest Build)
 
