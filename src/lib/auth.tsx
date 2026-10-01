@@ -47,6 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isGuest = !token
 
   const sendTokenToNative = (t: string | null) => {
+    if (typeof window !== 'undefined' && (window as any).MarkbelNative?.setAuthToken) {
+      try {
+        (window as any).MarkbelNative.setAuthToken(t || '')
+      } catch (err) {
+        console.warn('[Auth] Native bridge token sync notice:', err)
+      }
+    }
     if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
       (window as any).ReactNativeWebView.postMessage(
         JSON.stringify({ type: 'TOKEN_SYNC', token: t })
@@ -58,6 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function bootstrap() {
       const savedToken = localStorage.getItem('markbel_token')
       const savedUser = localStorage.getItem('markbel_user')
+
+      if (savedToken) {
+        sendTokenToNative(savedToken)
+      }
 
       if (savedUser) {
         try {

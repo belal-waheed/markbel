@@ -140,10 +140,10 @@ export function extractPageMetadata(): ExtractedPageMetadata {
   if (isYouTube) {
     try {
       const parsedUrl = new URL(url);
-      if (parsedUrl.searchParams.has('v')) {
-        contentType = 'video';
-      } else if (parsedUrl.searchParams.has('list')) {
+      if (parsedUrl.searchParams.has('list') || parsedUrl.pathname.startsWith('/playlist')) {
         contentType = 'playlist';
+      } else if (parsedUrl.searchParams.has('v') || parsedUrl.pathname.startsWith('/shorts/') || parsedUrl.pathname.startsWith('/embed/')) {
+        contentType = 'video';
       } else {
         contentType = 'video';
       }

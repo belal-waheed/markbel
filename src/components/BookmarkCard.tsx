@@ -1,5 +1,5 @@
 import React from 'react'
-import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check } from 'lucide-react'
+import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check, ListVideo } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
@@ -91,6 +91,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
               <Pin className="w-2.5 h-2.5 fill-amber-950" />
             </div>
           )}
+
+          {b.contentType === 'playlist' && (
+            <div className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-xs text-rose-400 p-0.5 rounded shadow-xs z-0" title="Playlist">
+              <ListVideo className="w-2.5 h-2.5" />
+            </div>
+          )}
         </div>
 
         {/* Center: Metadata & Text */}
@@ -102,6 +108,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             <span className="text-[9px] font-semibold text-[var(--color-text-muted)] bg-[var(--color-bg-element)] px-1.5 py-0.2 rounded border border-[var(--color-border-default)] truncate max-w-[100px]">
               {b.group || "Unsorted"}
             </span>
+            {b.contentType === 'playlist' && (
+              <span className="text-[9px] font-semibold text-rose-500 bg-rose-500/10 px-1.5 py-0.2 rounded border border-rose-500/20 flex items-center gap-1 shrink-0">
+                <ListVideo className="w-2.5 h-2.5" />
+                Playlist
+              </span>
+            )}
             {!b.isRead && (
               <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" title="Unread" />
             )}
@@ -226,11 +238,19 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
           {/* Top Badges & Pin Button */}
           <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10">
-            <span className={`text-[10px] font-semibold text-white bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs truncate max-w-[120px] pointer-events-auto transition-all ${
-              selectionMode || isSelected ? 'ml-7' : 'group-hover:ml-7'
-            }`}>
-              {b.group || "Unsorted"}
-            </span>
+            <div className="flex items-center gap-1.5 pointer-events-auto">
+              <span className={`text-[10px] font-semibold text-white bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs truncate max-w-[120px] transition-all ${
+                selectionMode || isSelected ? 'ml-7' : 'group-hover:ml-7'
+              }`}>
+                {b.group || "Unsorted"}
+              </span>
+              {b.contentType === 'playlist' && (
+                <span className="text-[10px] font-semibold text-rose-300 bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs border border-rose-500/30 flex items-center gap-1">
+                  <ListVideo className="w-3 h-3 text-rose-400" />
+                  Playlist
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 pointer-events-auto">
               {!b.isRead && (
                 <span
@@ -259,9 +279,17 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         {/* Content details */}
         <div className="p-2.5 sm:p-3.5 space-y-1.5">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-medium text-[var(--color-text-muted)] truncate">
-              {getDomain(b.url)}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[10px] font-medium text-[var(--color-text-muted)] truncate">
+                {getDomain(b.url)}
+              </span>
+              {b.contentType === 'playlist' && (
+                <span className="text-[9px] font-semibold text-rose-500 bg-rose-500/10 px-1.5 py-0.2 rounded border border-rose-500/20 flex items-center gap-1 shrink-0">
+                  <ListVideo className="w-2.5 h-2.5" />
+                  Playlist
+                </span>
+              )}
+            </div>
             <button
               onClick={(e) => {
                 e.stopPropagation();

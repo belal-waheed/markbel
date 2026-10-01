@@ -1,76 +1,71 @@
 package com.markbel.vault;
 
-import android.content.Intent;
+import android.content.Context;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import com.getcapacitor.BridgeActivity;
-import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
 
-    private String pendingShareText = null;
-    private String pendingShareTitle = null;
+    public class WebAppInterface {
+        private final Context context;
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        handleSendIntent(getIntent());
-    }
+        public WebAppInterface(Context context) {
+            this.context = context;
+        }
 
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        handleSendIntent(intent);
-    }
-
-    private void handleSendIntent(Intent intent) {
-        if (intent == null) return;
-        String action = intent.getAction();
-        String type = intent.getType();
-
-        if (Intent.ACTION_SEND.equals(action) && type != null && ("text/plain".equals(type) || type.startsWith("text/"))) {
-            String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
-            String sharedTitle = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-
-            if (sharedText != null && !sharedText.trim().isEmpty()) {
-                pendingShareText = sharedText.trim();
-                pendingShareTitle = sharedTitle != null ? sharedTitle.trim() : "";
-                dispatchShareEvent();
+        @JavascriptInterface
+        public void setAuthToken(String token) {
+            if (token != null && !token.isEmpty() && !token.equals("null")) {
+                context.getSharedPreferences("MarkbelPrefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("auth_token", token.trim())
+                    .apply();
+            } else {
+                context.getSharedPreferences("MarkbelPrefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .remove("auth_token")
+                    .apply();
             }
         }
     }
 
-    private void dispatchShareEvent() {
-        if (pendingShareText == null || bridge == null || bridge.getWebView() == null) {
-            return;
-        }
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setupTokenBridge();
+    }
 
-        try {
-            JSONObject detail = new JSONObject();
-            detail.put("text", pendingShareText);
-            detail.put("title", pendingShareTitle != null ? pendingShareTitle : "");
+    private void setupTokenBridge() {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().addJavascriptInterface(new WebAppInterface(this), "MarkbelNative");
 
-            String jsonString = detail.toString();
-            // Set window global for cold boots and trigger custom event for live instances
-            String jsCode = String.format(
-                "(function() { " +
-                "  window.__INITIAL_SHARE_PAYLOAD__ = %s; " +
-                "  window.dispatchEvent(new CustomEvent('markbel:shareIntent', { detail: %s })); " +
-                "})();",
-                jsonString, jsonString
-            );
-
+            // Sync token on startup from localStorage
             bridge.getWebView().postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     if (bridge != null && bridge.getWebView() != null) {
-                        bridge.getWebView().evaluateJavascript(jsCode, null);
+                        bridge.getWebView().evaluateJavascript(
+                            "(function() { return localStorage.getItem('markbel_token') || ''; })();",
+                            new ValueCallback<String>() {
+                                @Override
+                                public void onReceiveValue(String value) {
+                                    if (value != null && !value.equals("null") && !value.isEmpty()) {
+                                        String cleanToken = value.replace("\"", "").trim();
+                                        if (!cleanToken.isEmpty() && !cleanToken.equals("null")) {
+                                            getSharedPreferences("MarkbelPrefs", Context.MODE_PRIVATE)
+                                                .edit()
+                                                .putString("auth_token", cleanToken)
+                                                .apply();
+                                        }
+                                    }
+                                }
+                            }
+                        );
                     }
                 }
-            }, 600);
-        } catch (Exception e) {
-            e.printStackTrace();
+            }, 1000);
         }
     }
 }
-

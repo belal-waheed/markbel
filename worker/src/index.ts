@@ -1478,7 +1478,7 @@ app.get("/api/metadata", async (c) => {
     const hostname = targetUrl.hostname.toLowerCase();
     let metadataResult: { title: string; description: string; image: string } | null = null;
 
-    // 1. YouTube Adapter (Videos, Shorts, Embeds)
+    // 1. YouTube Adapter (Videos, Shorts, Embeds, Playlists)
     if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
       let ytId: string | null = null;
       if (targetUrl.pathname.startsWith("/shorts/")) {
@@ -1491,20 +1491,24 @@ app.get("/api/metadata", async (c) => {
         ytId = targetUrl.pathname.slice(1).split("/")[0]?.split("?")[0] || null;
       }
 
-      if (ytId) {
-        const thumbnail = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-        let ytTitle = targetUrl.pathname.startsWith("/shorts/") ? "YouTube Short" : "YouTube Video";
+      const listParam = targetUrl.searchParams.get("list");
+      const isPlaylist = Boolean(listParam || targetUrl.pathname.startsWith("/playlist"));
+
+      if (ytId || isPlaylist) {
+        let thumbnail = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : "";
+        let ytTitle = isPlaylist && !ytId 
+          ? "YouTube Playlist" 
+          : (targetUrl.pathname.startsWith("/shorts/") ? "YouTube Short" : "YouTube Video");
         let ytAuthor = "";
 
-        const listParam = targetUrl.searchParams.get("list");
-        const listQuery = listParam ? `&list=${listParam}` : "";
-        const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}${listQuery}`);
-        
-        let canonicalUrl = `https://www.youtube.com/watch?v=${ytId}${listQuery}`;
+        const queryUrl = ytId
+          ? `https://www.youtube.com/watch?v=${ytId}${listParam ? `&list=${listParam}` : ""}`
+          : `https://www.youtube.com/playlist?list=${listParam || ""}`;
+        const encodedUrl = encodeURIComponent(queryUrl);
 
         try {
           const oembedRes = await fetchWithTimeout(
-            `https://www.youtube.com/oembed?url=${watchUrl}&format=json`,
+            `https://www.youtube.com/oembed?url=${encodedUrl}&format=json`,
             {},
             4000
           );
@@ -1512,9 +1516,10 @@ app.get("/api/metadata", async (c) => {
             const oembedData: any = await oembedRes.json();
             if (oembedData.title) ytTitle = oembedData.title;
             if (oembedData.author_name) ytAuthor = oembedData.author_name;
+            if (oembedData.thumbnail_url && !thumbnail) thumbnail = oembedData.thumbnail_url;
           } else {
             const noembedRes = await fetchWithTimeout(
-              `https://noembed.com/embed?url=${watchUrl}`,
+              `https://noembed.com/embed?url=${encodedUrl}`,
               {},
               4000
             );
@@ -1522,13 +1527,14 @@ app.get("/api/metadata", async (c) => {
               const noembedData: any = await noembedRes.json();
               if (noembedData.title) ytTitle = noembedData.title;
               if (noembedData.author_name) ytAuthor = noembedData.author_name;
+              if (noembedData.thumbnail_url && !thumbnail) thumbnail = noembedData.thumbnail_url;
             }
           }
         } catch {}
 
         metadataResult = {
           title: cleanText(ytTitle),
-          description: ytAuthor ? `By ${ytAuthor} on YouTube` : "YouTube Video",
+          description: ytAuthor ? `By ${ytAuthor} on YouTube` : (isPlaylist ? "YouTube Playlist" : "YouTube Video"),
           image: thumbnail,
         };
       }

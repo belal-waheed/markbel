@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
 import { bookmarkRepository } from '../db/SyncRepository.js'
 import { syncManager } from '../db/SyncManager.js'
-import { resolveSmartGroup } from '../lib/smartGroups.js'
+import { resolveSmartGroup, getCustomSmartGroupRules } from '../lib/smartGroups.js'
 import { extractSharePayload, reconstructUnencodedShareParams } from '../lib/shareTarget.js'
 import { useAuth } from '../lib/auth.js'
 
@@ -47,7 +47,8 @@ export default function ShareTargetPage() {
         return
       }
 
-      const smartGroup = resolveSmartGroup(cleanUrl)
+      const customRules = await getCustomSmartGroupRules().catch(() => [])
+      const smartGroup = resolveSmartGroup(cleanUrl, undefined, customRules)
       const bookmarkId = crypto.randomUUID()
       const userId = user?.id || 'local-user'
 

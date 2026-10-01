@@ -47,6 +47,35 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
         siteName: 'YouTube',
       });
     });
+
+    it('should identify YouTube Playlist from watch URL with list param', () => {
+      const result = extractInstantMediaMetadata('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4');
+      expect(result).toEqual({
+        title: 'YouTube Playlist',
+        image: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        siteName: 'YouTube',
+        contentType: 'playlist'
+      });
+    });
+
+    it('should identify pure YouTube Playlist URL', () => {
+      const result = extractInstantMediaMetadata('https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4');
+      expect(result).toEqual({
+        title: 'YouTube Playlist',
+        siteName: 'YouTube',
+        contentType: 'playlist'
+      });
+    });
+
+    it('should identify YouTube Playlist from youtu.be with list param', () => {
+      const result = extractInstantMediaMetadata('https://youtu.be/dQw4w9WgXcQ?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4');
+      expect(result).toEqual({
+        title: 'YouTube Playlist',
+        image: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        siteName: 'YouTube',
+        contentType: 'playlist'
+      });
+    });
   });
 
   describe('GitHub Heuristics', () => {

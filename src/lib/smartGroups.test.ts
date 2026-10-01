@@ -93,4 +93,35 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       expect(resolveSmartGroup('https://x.com/post/1', activeGroups)).toBe('Unsorted');
     });
   });
+
+  describe('User-Defined Custom Rules', () => {
+    const customRules = [
+      { id: '1', domain: 'github.com', group: 'Code' },
+      { id: '2', domain: 'news.ycombinator.com', group: 'Tech News' },
+      { id: '3', domain: 'youtube.com', group: 'Watch Later' }, // Overrides default YT
+    ];
+
+    it('should match user-defined custom domain rules', () => {
+      expect(resolveSmartGroup('https://github.com/facebook/react', undefined, customRules)).toBe('Code');
+      expect(resolveSmartGroup('https://news.ycombinator.com/item?id=123', undefined, customRules)).toBe('Tech News');
+    });
+
+    it('should match subdomains of custom rules', () => {
+      expect(resolveSmartGroup('https://gist.github.com/test/123', undefined, customRules)).toBe('Code');
+    });
+
+    it('should prioritize custom rules over default smart group rules', () => {
+      // Default maps youtube.com to 'YT', but custom rule maps it to 'Watch Later'
+      expect(resolveSmartGroup('https://www.youtube.com/watch?v=dQw4w9WgXcQ', undefined, customRules)).toBe('Watch Later');
+    });
+
+    it('should respect availableGroups casing when custom rule matches', () => {
+      const available = ['code', 'Reading', 'Unsorted'];
+      expect(resolveSmartGroup('https://github.com/facebook/react', available, customRules)).toBe('code');
+    });
+
+    it('should fallback to default smart groups if no custom rule matches the domain', () => {
+      expect(resolveSmartGroup('https://instagram.com/p/123', undefined, customRules)).toBe('Insta');
+    });
+  });
 });

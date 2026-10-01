@@ -1,16 +1,21 @@
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   Bell,
   Check,
   CheckCircle,
   Clock,
   Copy,
+  Globe,
   KeyRound,
   Loader2,
   LogOut,
+  Plus,
   ShieldCheck,
   Sparkles,
+  Tag,
+  Trash2,
   User as UserIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -19,6 +24,13 @@ import MarkbelLogo from "../components/MarkbelLogo.js";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/auth.js";
 import { enableWebPush } from "../lib/push.js";
+import {
+  getCustomSmartGroupRules,
+  saveCustomSmartGroupRules,
+  CustomGroupRule,
+  extractHostname,
+} from "../lib/smartGroups.js";
+import { db } from "../db/db.js";
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -31,6 +43,86 @@ export default function SettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState("");
+
+  // Auto-Categorization Custom Rules State
+  const [customRules, setCustomRules] = useState<CustomGroupRule[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
+  const [newRuleDomain, setNewRuleDomain] = useState("");
+  const [newRuleGroup, setNewRuleGroup] = useState("");
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [ruleError, setRuleError] = useState("");
+
+  useEffect(() => {
+    getCustomSmartGroupRules().then(setCustomRules).catch(() => {});
+    db.groups
+      .filter((g) => !g.deletedAt)
+      .toArray()
+      .then((groups) => {
+        const names = groups.map((g) => g.name);
+        setAvailableGroups(names);
+        if (names.length > 0) {
+          setNewRuleGroup(names[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleAddRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRuleError("");
+
+    const cleanedDomain = extractHostname(newRuleDomain).trim().toLowerCase();
+    const cleanedGroup = newRuleGroup.trim();
+
+    if (!cleanedDomain) {
+      setRuleError("Please enter a valid domain (e.g. github.com).");
+      return;
+    }
+    if (!cleanedGroup) {
+      setRuleError("Please enter or select a target group.");
+      return;
+    }
+
+    if (customRules.some((r) => r.domain.toLowerCase() === cleanedDomain)) {
+      setRuleError(`A constraint rule for "${cleanedDomain}" already exists.`);
+      return;
+    }
+
+    const newRule: CustomGroupRule = {
+      id: crypto.randomUUID(),
+      domain: cleanedDomain,
+      group: cleanedGroup,
+    };
+
+    const updated = [...customRules, newRule];
+    setRulesLoading(true);
+    try {
+      await saveCustomSmartGroupRules(updated);
+      setCustomRules(updated);
+      setNewRuleDomain("");
+      setNoticeMessage(`Constraint added: ${cleanedDomain} -> ${cleanedGroup}`);
+      setTimeout(() => setNoticeMessage(""), 4000);
+    } catch (err: any) {
+      setRuleError("Failed to save rule: " + (err.message || String(err)));
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    const updated = customRules.filter((r) => r.id !== id);
+    setRulesLoading(true);
+    try {
+      await saveCustomSmartGroupRules(updated);
+      setCustomRules(updated);
+      setNoticeMessage("Auto-categorization rule removed.");
+      setTimeout(() => setNoticeMessage(""), 4000);
+    } catch (err: any) {
+      alert("Failed to delete rule: " + (err.message || String(err)));
+    } finally {
+      setRulesLoading(false);
+    }
+  };
 
   // Password Change State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -320,6 +412,146 @@ export default function SettingsPage() {
                 <ShieldCheck className="w-4 h-4" />
               )}
               <span>Update Password</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* Custom Auto-Categorization Card */}
+      <section className="studio-card p-6 relative space-y-5">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold rounded">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text-primary)] tracking-wide">
+                Custom Auto-Categorization
+              </h3>
+              <p className="text-[11px] text-[var(--color-text-muted)]">
+                Route specific domains to dedicated groups automatically when adding bookmarks
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold text-[var(--color-text-muted)] bg-[var(--color-bg-element)] px-2.5 py-1 rounded border border-[var(--color-border-default)]">
+            {customRules.length} {customRules.length === 1 ? "Rule" : "Rules"}
+          </span>
+        </div>
+
+        {ruleError && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{ruleError}</span>
+          </div>
+        )}
+
+        {/* Existing Rules List */}
+        <div className="space-y-2">
+          {customRules.length === 0 ? (
+            <div className="py-6 text-center border border-dashed border-[var(--color-border-default)] rounded-lg">
+              <Globe className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-2 opacity-40" />
+              <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                No custom auto-categorization constraints configured yet.
+              </p>
+              <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                Default heuristics route YouTube to YT, Instagram to Insta, and X/Twitter to X.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--color-border-default)] border border-[var(--color-border-default)] rounded-lg overflow-hidden bg-[var(--color-bg-element)]/50">
+              {customRules.map((rule) => (
+                <div
+                  key={rule.id}
+                  className="flex items-center justify-between p-3 hover:bg-[var(--color-bg-hover)] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--color-text-primary)]">
+                      <Globe className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" />
+                      <span className="truncate max-w-[180px] sm:max-w-[280px]">
+                        {rule.domain}
+                      </span>
+                    </div>
+                    <ArrowRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 rounded border border-[var(--color-accent)]/20 truncate max-w-[140px]">
+                      <Tag className="w-2.5 h-2.5 shrink-0" />
+                      <span>{rule.group}</span>
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleDeleteRule(rule.id)}
+                    disabled={rulesLoading}
+                    className="p-1.5 text-[var(--color-text-muted)] hover:text-red-600 hover:bg-red-50 rounded transition-colors active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title="Remove rule"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add New Rule Form */}
+        <form onSubmit={handleAddRule} className="pt-2 border-t border-[var(--color-border-default)] space-y-3">
+          <h4 className="text-xs font-bold text-[var(--color-text-primary)] tracking-wide">
+            Add Domain Constraint
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <div className="sm:col-span-3 space-y-1">
+              <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">
+                Domain or Hostname
+              </label>
+              <div className="relative">
+                <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  value={newRuleDomain}
+                  onChange={(e) => setNewRuleDomain(e.target.value)}
+                  placeholder="e.g. github.com or reddit.com"
+                  required
+                  className="w-full pl-9 pr-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 space-y-1">
+              <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">
+                Target Group
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="available-groups-list"
+                  value={newRuleGroup}
+                  onChange={(e) => setNewRuleGroup(e.target.value)}
+                  placeholder="e.g. Code, Reading"
+                  required
+                  className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+                />
+                <datalist id="available-groups-list">
+                  {availableGroups.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                  <option value="Unsorted" />
+                </datalist>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={rulesLoading || !newRuleDomain.trim()}
+              className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {rulesLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              <span>Add Constraint</span>
             </button>
           </div>
         </form>

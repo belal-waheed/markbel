@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { resolveSmartGroup } from '../lib/smartGroups.js';
+import { resolveSmartGroup, getCustomSmartGroupRules } from '../lib/smartGroups.js';
 
 export interface LocalBookmark {
   id: string;
@@ -296,8 +296,10 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
       )
       .toArray();
 
+    const customRules = await getCustomSmartGroupRules().catch(() => []);
+
     for (const b of unsortedBookmarks) {
-      const smartGroup = resolveSmartGroup(b.url, groupNames);
+      const smartGroup = resolveSmartGroup(b.url, groupNames, customRules);
       if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
         const newVersion = (b.version || 0) + 1;
         const updated: LocalBookmark = {

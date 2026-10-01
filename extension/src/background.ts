@@ -10,7 +10,7 @@ import type { ExtractedPageMetadata } from './content';
 import { syncManager } from '@/db/SyncManager';
 
 // Initialize sync engine for background syncing
-syncManager.sync();
+syncManager.sync(true);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SYNC_OUTBOX') {
@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync-alarm') {
-    syncManager.sync();
+    syncManager.sync(true);
   }
 });
 

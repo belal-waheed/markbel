@@ -26,7 +26,8 @@
     "activeTab",
     "storage",
     "contextMenus",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "https://mark.obel.workers.dev/*",

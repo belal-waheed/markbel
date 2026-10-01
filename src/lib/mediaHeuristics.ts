@@ -60,9 +60,18 @@ export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {
   const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
   const pathname = parsed.pathname;
 
-  // 1. YouTube (Watch, Shorts, Embed, youtu.be)
+  // 1. YouTube (Watch, Shorts, Embed, youtu.be, Playlists)
   if (hostname === 'youtu.be') {
     const id = pathname.slice(1).split('/')[0]?.split('?')[0];
+    const listParam = parsed.searchParams.get('list');
+    if (listParam) {
+      return {
+        ...(id && id.length > 0 ? { image: `https://img.youtube.com/vi/${id}/hqdefault.jpg` } : {}),
+        title: 'YouTube Playlist',
+        siteName: 'YouTube',
+        contentType: 'playlist',
+      };
+    }
     if (id && id.length > 0) {
       return {
         image: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
@@ -77,6 +86,20 @@ export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {
   }
 
   if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) {
+    const listParam = parsed.searchParams.get('list');
+    const vParam = parsed.searchParams.get('v');
+
+    // Playlist (with or without video ID) or dedicated /playlist path
+    if (listParam || pathname.startsWith('/playlist')) {
+      const vid = vParam || (pathname.startsWith('/v/') ? pathname.match(/^\/v\/([^/?#]+)/i)?.[1] : undefined);
+      return {
+        ...(vid ? { image: `https://img.youtube.com/vi/${vid}/hqdefault.jpg` } : {}),
+        title: 'YouTube Playlist',
+        siteName: 'YouTube',
+        contentType: 'playlist',
+      };
+    }
+
     // Shorts
     const shortsMatch = pathname.match(/^\/shorts\/([^/?#]+)/i);
     if (shortsMatch && shortsMatch[1]) {
@@ -111,23 +134,12 @@ export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {
     }
 
     // Standard Watch
-    const vParam = parsed.searchParams.get('v');
     if (vParam) {
       return {
         image: `https://img.youtube.com/vi/${vParam}/hqdefault.jpg`,
         title: 'YouTube Video',
         siteName: 'YouTube',
         contentType: 'video'
-      };
-    }
-
-    // Playlist
-    const listParam = parsed.searchParams.get('list');
-    if (listParam) {
-      return {
-        title: 'YouTube Playlist',
-        siteName: 'YouTube',
-        contentType: 'playlist'
       };
     }
 
