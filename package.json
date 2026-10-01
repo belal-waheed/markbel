@@ -1,6 +1,6 @@
 {
   "name": "markbel",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -81,3 +81,4 @@
     "wrangler": "^4.127.1"
   }
 }
+

@@ -115,13 +115,13 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
     <div className="min-h-screen bg-[var(--color-bg-main)] text-[var(--color-text-primary)] font-sans antialiased selection:bg-[var(--color-accent)] selection:text-white">
       {/* Top Banner / Announcement */}
       <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 text-center text-xs text-[var(--color-text-muted)] font-medium flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-        <span className="font-semibold text-[var(--color-text-primary)]">Markbel v2.4.0 is live!</span>
+        <span className="font-semibold text-[var(--color-text-primary)]">Markbel v2.4.1 is live!</span>
         <span>Bulk Multiselect, Zero-UI Mobile Saves, and YouTube Playlists.</span>
         <button
           onClick={() => setIsReleaseModalOpen(true)}
           className="ml-2 inline-flex items-center gap-1 font-semibold text-[var(--color-accent)] hover:underline cursor-pointer bg-[var(--color-accent)]/10 px-2 py-0.5 rounded-full border border-[var(--color-accent)]/20"
         >
-          <span>What's New in v2.4.0</span>
+          <span>What's New in v2.4.1</span>
           <Sparkles className="w-3 h-3" />
         </button>
       </div>
@@ -668,7 +668,7 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
               onClick={() => setIsReleaseModalOpen(true)}
               className="hover:underline cursor-pointer text-[var(--color-accent)] font-semibold flex items-center gap-1"
             >
-              <span>v2.4.0 Notes</span>
+              <span>v2.4.1 Notes</span>
               <Sparkles className="w-3 h-3" />
             </button>
             <button onClick={() => navigate('/login?redirect=/app')} className="hover:underline cursor-pointer">
@@ -694,4 +694,5 @@ export default function LandingPage({ onLaunchApp, forceShow }: LandingPageProps
     </div>
   )
 }
+
 
