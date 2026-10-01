@@ -41,12 +41,12 @@ async function asyncResolveApiUrl(path: string): Promise<string> {
     if (data.apiUrl) {
        let clean = data.apiUrl.trim().replace(/\/$/, '');
        if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-          clean = clean.startsWith('localhost') || clean.startsWith('127.0.0.1') ? "http://${clean}" : "https://${clean}";
+          clean = clean.startsWith('localhost') || clean.startsWith('127.0.0.1') ? `"http://`$clean`" : `"https://`$clean`";
        }
        if (!clean.endsWith('/api')) clean += '/api';
        const cleanPath = path.startsWith('/api/') ? path.slice(4) : path;
        const normalizedPath = cleanPath.startsWith('/') ? cleanPath : "/";
-       return "${clean}${normalizedPath}";
+       return `"`$clean`$normalizedPath`";
     }
   }
   return resolveApiUrl(path);
@@ -86,4 +86,5 @@ export const syncManager = new SyncManager({
 });
 
 export { SyncState };
+
 
