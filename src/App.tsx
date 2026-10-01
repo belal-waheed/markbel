@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
@@ -8,14 +8,16 @@ import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import { PwaUpdateToast } from './components/PwaUpdateToast.js'
 import { DatabaseErrorBoundary } from './components/DatabaseErrorBoundary.js'
-import LoginPage from './views/LoginPage.js'
-import BookmarksPage from './views/BookmarksPage.js'
 import LandingPage from './views/LandingPage.js'
-import SettingsPage from './views/SettingsPage.js'
-import ArchivePage from './views/ArchivePage.js'
-import SyncDebugPage from './views/SyncDebugPage.js'
-import ShareTargetPage from './views/ShareTargetPage.js'
 import { Loader2 } from 'lucide-react'
+
+// Code-split major views with React.lazy
+const LoginPage = lazy(() => import('./views/LoginPage.js'))
+const BookmarksPage = lazy(() => import('./views/BookmarksPage.js'))
+const SettingsPage = lazy(() => import('./views/SettingsPage.js'))
+const ArchivePage = lazy(() => import('./views/ArchivePage.js'))
+const SyncDebugPage = lazy(() => import('./views/SyncDebugPage.js'))
+const ShareTargetPage = lazy(() => import('./views/ShareTargetPage.js'))
 
 function NativeBridge() {
   const navigate = useNavigate()
@@ -96,16 +98,20 @@ function NativeBridge() {
   return null
 }
 
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-default)] gap-3 font-sans">
+      <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
+      <span className="text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">Loading...</span>
+    </div>
+  )
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAuth()
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-default)] gap-3 font-sans">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
-        <span className="text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">Loading Markbel...</span>
-      </div>
-    )
+    return <PageFallback />
   }
 
   if (!token) {
@@ -122,37 +128,39 @@ export default function App() {
         <PwaUpdateToast />
         <DatabaseErrorBoundary>
           <Router>
-          <NativeBridge />
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/landing" element={<Navigate to="/" replace />} />
-            <Route path="/app" element={<BookmarksPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/share" element={<ShareTargetPage />} />
-            <Route path="/archive" element={<ArchivePage />} />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sync-debug"
-              element={
-                <ProtectedRoute>
-                  <SyncDebugPage />
-                </ProtectedRoute>
-              }
-            />
-            {/* Silently redirect bad /app/* sub-routes to /app */}
-            <Route path="/app/*" element={<Navigate to="/app" replace />} />
-            {/* Catch-all unknown routes redirect to landing page */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-          </DatabaseErrorBoundary>
+            <NativeBridge />
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/landing" element={<Navigate to="/" replace />} />
+                <Route path="/app" element={<BookmarksPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/share" element={<ShareTargetPage />} />
+                <Route path="/archive" element={<ArchivePage />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <SettingsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sync-debug"
+                  element={
+                    <ProtectedRoute>
+                      <SyncDebugPage />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Silently redirect bad /app/* sub-routes to /app */}
+                <Route path="/app/*" element={<Navigate to="/app" replace />} />
+                {/* Catch-all unknown routes redirect to landing page */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </Router>
+        </DatabaseErrorBoundary>
       </ToastProvider>
     </AuthProvider>
   )
