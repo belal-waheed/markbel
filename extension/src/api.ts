@@ -3,7 +3,6 @@
  * Connects directly to Cloudflare Workers D1 delta sync (/api/sync/push).
  */
 
-import { ofetch } from 'ofetch';
 import { bookmarkRepository } from '@/db/SyncRepository';
 
 export const DEFAULT_API_BASE = 'https://mark.obel.workers.dev/api';
@@ -14,19 +13,6 @@ export class NetworkError extends Error {
     this.name = 'NetworkError';
   }
 }
-
-export const apiClient = ofetch.create({
-  retry: 3,
-  retryDelay: 1000,
-  onResponseError({ request, response, options }) {
-    if (response.status >= 500) {
-      throw new NetworkError('Server error. Please try again later.');
-    }
-  },
-  onRequestError({ request, error }) {
-    throw new NetworkError('Network disconnected or endpoint blocked.');
-  }
-});
 
 export interface AuthUser {
   id: string;
@@ -75,22 +61,34 @@ export function normalizeApiUrl(raw?: string | null): string {
  * Retrieves configured API base URL from chrome.storage.local
  */
 export async function getApiBase(): Promise<string> {
-  const result = await chrome.storage.local.get(['apiUrl']);
-  return normalizeApiUrl(result.apiUrl as string);
+  try {
+    const result = await chrome.storage.local.get(['apiUrl']);
+    return normalizeApiUrl(result.apiUrl as string);
+  } catch {
+    return DEFAULT_API_BASE;
+  }
 }
 
 /**
  * Retrieves stored user session
  */
 export async function getSession(): Promise<ExtensionSession> {
-  const result = await chrome.storage.local.get(['authToken', 'authUser']);
-  const token = (result.authToken as string) || null;
-  const user = (result.authUser as AuthUser) || null;
-  return {
-    token,
-    user,
-    isAuthenticated: Boolean(token)
-  };
+  try {
+    const result = await chrome.storage.local.get(['authToken', 'authUser']);
+    const token = (result.authToken as string) || null;
+    const user = (result.authUser as AuthUser) || null;
+    return {
+      token,
+      user,
+      isAuthenticated: Boolean(token)
+    };
+  } catch {
+    return {
+      token: null,
+      user: null,
+      isAuthenticated: false
+    };
+  }
 }
 
 /**
@@ -111,16 +109,26 @@ export async function clearSession(): Promise<void> {
 }
 
 /**
- * Authenticates against Markbel backend
+ * Authenticates against Markbel backend using browser-native fetch
  */
 export async function login(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const base = await getApiBase();
+  const targetUrl = `${base}/users/login`;
+
   try {
-    const data = await apiClient(`${base}/users/login`, {
+    const res = await fetch(targetUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: { email, password }
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
     });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || `HTTP ${res.status}: ${res.statusText || 'Authentication failed'}`);
+    }
 
     if (data.token) {
       await setSession(data.token, data.user);
@@ -128,23 +136,23 @@ export async function login(email: string, password: string): Promise<{ token: s
     
     return data;
   } catch (err: any) {
-    if (err.response) {
-      throw new Error(err.response._data?.error || `Login failed with status ${err.response.status}`);
-    }
+    console.error('[Markbel Extension Login Error]:', err);
     throw err;
   }
 }
 
 /**
- * Verifies current token validity
+ * Verifies current token validity using browser-native fetch
  */
 export async function verifySession(): Promise<AuthUser | null> {
   const session = await getSession();
   if (!session.token) return null;
 
   const base = await getApiBase();
+  const targetUrl = `${base}/users/me`;
+
   try {
-    const user = await apiClient<AuthUser>(`${base}/users/me`, {
+    const res = await fetch(targetUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -152,13 +160,19 @@ export async function verifySession(): Promise<AuthUser | null> {
       }
     });
 
-    await chrome.storage.local.set({ authUser: user });
-    return user;
-  } catch (err: any) {
-    if (err.response && err.response.status === 401) {
+    if (res.status === 401) {
       await clearSession();
       return null;
     }
+
+    const user = await res.json().catch(() => null);
+    if (!res.ok || !user) {
+      throw new Error('Failed to verify session');
+    }
+
+    await chrome.storage.local.set({ authUser: user });
+    return user;
+  } catch (err: any) {
     console.warn('[Markbel Extension] Offline session check notice:', err);
     return session.user;
   }

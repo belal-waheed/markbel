@@ -36,18 +36,26 @@ const baseClient = ofetch.create({
 });
 
 async function asyncResolveApiUrl(path: string): Promise<string> {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    const data = await chrome.storage.local.get('apiUrl');
-    if (data.apiUrl) {
-       let clean = data.apiUrl.trim().replace(/\/$/, '');
-       if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-          clean = clean.startsWith('localhost') || clean.startsWith('127.0.0.1') ? 'http://' + clean : 'https://' + clean;
-       }
-       if (!clean.endsWith('/api')) clean += '/api';
-       const cleanPath = path.startsWith('/api/') ? path.slice(4) : path;
-       const normalizedPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
-       return clean + normalizedPath;
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+    let base = 'https://mark.obel.workers.dev/api';
+    if (chrome.storage && chrome.storage.local) {
+      try {
+        const data = await chrome.storage.local.get('apiUrl');
+        if (data?.apiUrl && typeof data.apiUrl === 'string') {
+          let clean = data.apiUrl.trim().replace(/\/$/, '');
+          if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+            clean = clean.startsWith('localhost') || clean.startsWith('127.0.0.1') ? 'http://' + clean : 'https://' + clean;
+          }
+          if (!clean.endsWith('/api')) clean += '/api';
+          base = clean;
+        }
+      } catch (err) {
+        console.warn('[SyncManager] Failed to read apiUrl from chrome.storage:', err);
+      }
     }
+    const cleanPath = path.startsWith('/api/') ? path.slice(4) : path;
+    const normalizedPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
+    return base + normalizedPath;
   }
   return resolveApiUrl(path);
 }
