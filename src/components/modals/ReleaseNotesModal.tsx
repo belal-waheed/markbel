@@ -49,7 +49,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.3.1
+                  What's New in Markbel v2.4.0
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white">
                   Latest Release
@@ -162,7 +162,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.3.1)
+                Direct Download Assets (v2.4.0)
               </span>
               <a
                 href="https://github.com/belal-waheed/markbel/releases/latest"
@@ -212,3 +212,4 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
     </div>
   )
 }
+
