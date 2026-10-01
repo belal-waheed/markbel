@@ -7,6 +7,7 @@ import { SplashScreen } from '@capacitor/splash-screen'
 import { AuthProvider, useAuth } from './lib/auth.js'
 import { ToastProvider } from './components/Toast.js'
 import { PwaUpdateToast } from './components/PwaUpdateToast.js'
+import { DatabaseErrorBoundary } from './components/DatabaseErrorBoundary.js'
 import LoginPage from './views/LoginPage.js'
 import BookmarksPage from './views/BookmarksPage.js'
 import LandingPage from './views/LandingPage.js'
@@ -119,7 +120,8 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
         <PwaUpdateToast />
-        <Router>
+        <DatabaseErrorBoundary>
+          <Router>
           <NativeBridge />
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -150,10 +152,12 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
+          </DatabaseErrorBoundary>
       </ToastProvider>
     </AuthProvider>
   )
 }
+
 
 
 
