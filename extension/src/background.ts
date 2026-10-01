@@ -4,7 +4,7 @@
  */
 
 import { saveBookmark, getSession } from './api';
-import { resolveSmartGroup } from '@/lib/smartGroups';
+import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from './content';
 import { syncManager } from '@/db/SyncManager';
@@ -138,7 +138,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       if (instant.contentType && !contentType) contentType = instant.contentType;
     }
 
-    const group = resolveSmartGroup(url);
+    const customRules = await getCustomSmartGroupRules();
+    const group = resolveSmartGroup(url, [], customRules);
 
     await saveBookmark({
       url,
@@ -204,7 +205,8 @@ chrome.commands.onCommand.addListener(async (command) => {
         if (instant.contentType && !contentType) contentType = instant.contentType;
       }
 
-      const group = resolveSmartGroup(url);
+      const customRules = await getCustomSmartGroupRules();
+    const group = resolveSmartGroup(url, [], customRules);
 
       await saveBookmark({
         url,
@@ -223,3 +225,4 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
   }
 });
+
