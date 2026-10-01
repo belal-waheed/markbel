@@ -1,6 +1,6 @@
 {
   "name": "markbel",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev:backend": "tsx watch api/index.ts",
     "build": "vite build && tsc --project tsconfig.api.json",
     "test": "vitest run",
+    "test:run": "vitest run",
     "preview": "vite preview",
     "worker:dev": "wrangler dev worker/src/index.ts",
     "worker:deploy": "wrangler deploy",

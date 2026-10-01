@@ -3,16 +3,11 @@ import {
   X,
   Sparkles,
   Layers,
-  Smartphone,
-  Youtube,
-  RefreshCw,
+  FlaskConical,
+  Tag,
   Download,
   ExternalLink,
-  CheckCircle2,
-  Tag,
-  Trash2,
-  Archive,
-  CheckSquare
+  CheckCircle2
 } from 'lucide-react'
 
 interface ReleaseNotesModalProps {
@@ -49,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.4.1
+                  What's New in Markbel v2.4.2
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white">
                   Latest Release
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                YouTube Playlist Preservation, Android Intent Query Reconstruction & Bulk Multiselect
+                Multi-Constraint Auto-Categorization, 1-Click Presets & Live Rule Tester Sandbox
               </p>
             </div>
           </div>
@@ -70,7 +65,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-6 overflow-y-auto space-y-6">
-          {/* Feature 1: Bulk Multiselect */}
+          {/* Feature 1: Multi-Constraint Compound Rules */}
           <div className="p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Layers className="w-5 h-5" />
@@ -78,83 +73,115 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Bulk Multiselect & Floating Action Bar
+                  Multi-Constraint Compound Rules
                 </h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  Web & Desktop
+                  Core Engine
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Hover over any bookmark thumbnail to reveal the selection checkbox. Select dozens of bookmarks at once to perform instant bulk actions:
+                Define powerful auto-categorization rules combining multiple conditions (Domain, Substring, Path Prefix, and Query Parameters). Built-in specificity ordering ensures exact path and query rules take deterministic precedence over broad domain wildcards.
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <Trash2 className="w-3 h-3 text-rose-400" />
-                  <span>Bulk Delete with confirmation</span>
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Domain + Substring + Path + Query Params</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <Archive className="w-3 h-3 text-amber-400" />
-                  <span>Bulk Archive to archive vault</span>
-                </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckSquare className="w-3 h-3 text-emerald-400" />
-                  <span>Bulk Mark as Read / Unread</span>
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Deterministic Specificity Ordering</span>
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Feature 2: Headless Android Share */}
+          {/* Feature 2: Curated 1-Click Presets Gallery */}
           <div className="p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Smartphone className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Zero-UI Instant Android Share Sheet
+                  Curated 1-Click Presets Gallery
                 </h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  Android APK
+                  Presets & Templates
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                When sharing links from Chrome, Twitter, Reddit, or YouTube into Markbel on Android, the capture now runs completely headless in under 50ms without UI flicker, returning you instantly back to your browsing app.
+                Instantly activate pre-configured rules for top platforms in one click without writing manual patterns. Ready-to-use templates include YouTube Playlists, GitHub/GitLab Code Repositories, Reddit Discussions, Substack Newsletters, ArXiv Academic Papers, and Instagram.
               </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                  <span>YouTube Playlists (list= query)</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                  <span>Code Repos, Reddit, Substack, ArXiv, Instagram</span>
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Feature 3: YouTube Playlists */}
+          {/* Feature 3: Live Interactive Rule Sandbox */}
           <div className="p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Youtube className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <FlaskConical className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  YouTube Playlists & Deterministic Media Heuristics
+                  Live Interactive Rule Sandbox
                 </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Settings Sandbox
+                </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Links containing YouTube playlists are now automatically recognized with dedicated <code className="px-1 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-mono text-[11px]">playlist</code> content tagging, sorted into the <code className="px-1 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-mono text-[11px]">YT</code> smart group, and paired with high-resolution thumbnail caching.
+                Test candidate URLs in real time directly inside Settings before committing rules. The live sandbox instantly previews matched rules, individual constraint evaluations, and target group resolution as you type.
               </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Real-Time URL Simulation</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Constraint Evaluation Inspection</span>
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Feature 4: Outbox Compaction */}
+          {/* Feature 4: Smart Group Auto-Provisioning */}
           <div className="p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-4">
             <div className="w-9 h-9 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
-              <RefreshCw className="w-5 h-5" />
+              <Tag className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Offline Outbox Compaction & Edge Delta Sync
+                  Smart Group Auto-Provisioning
                 </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Vault Automation
+                </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Prevented data loss during network drops by moving IndexedDB mutation cleanup strictly behind verified server HTTP confirmation. Poison pills (&gt;5 retries) are isolated to keep sync flowing smoothly.
+                When incoming bookmarks match custom or preset rules, Markbel automatically provisions target smart groups with cohesive color palettes in local IndexedDB storage, eliminating manual group setup.
               </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <span>Automatic Group Creation in IndexedDB</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <span>Dynamic Color Palette Assignment</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -162,7 +189,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.4.1)
+                Direct Download Assets (v2.4.2)
               </span>
               <a
                 href="https://github.com/belal-waheed/markbel/releases/latest"
