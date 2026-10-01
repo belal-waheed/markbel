@@ -27,11 +27,10 @@ async function getAuthHeaders(extraHeaders?: any): Promise<Record<string, string
 import { ofetch } from 'ofetch';
 
 const baseClient = ofetch.create({
-  retry: 3,
-  retryDelay: 1000,
+  retry: 1,
+  retryDelay: 500,
   async onRequest({ options }) {
     options.headers = await getAuthHeaders(options.headers);
-    options.credentials = 'include';
   }
 });
 

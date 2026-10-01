@@ -35,9 +35,9 @@ app.use(
   "/api/*",
   cors({
     origin: (origin) => origin || "*",
-    credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
   })
 );
 

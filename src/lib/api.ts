@@ -57,8 +57,7 @@ export const api = {
   async get<T>(path: string): Promise<T> {
     const res = await fetch(resolveApiUrl(path), {
       method: 'GET',
-      headers: getHeaders(),
-      credentials: 'include'
+      headers: getHeaders()
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -71,7 +70,6 @@ export const api = {
     const res = await fetch(resolveApiUrl(path), {
       method: 'POST',
       headers: getHeaders(),
-      credentials: 'include',
       body: JSON.stringify(body)
     })
     const data = await res.json().catch(() => ({}))
@@ -85,7 +83,6 @@ export const api = {
     const res = await fetch(resolveApiUrl(path), {
       method: 'PUT',
       headers: getHeaders(),
-      credentials: 'include',
       body: JSON.stringify(body)
     })
     const data = await res.json().catch(() => ({}))
@@ -99,7 +96,6 @@ export const api = {
     const res = await fetch(resolveApiUrl(path), {
       method: 'PATCH',
       headers: getHeaders(),
-      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined
     })
     const data = await res.json().catch(() => ({}))
@@ -112,8 +108,7 @@ export const api = {
   async delete<T>(path: string, body?: any): Promise<T> {
     const opts: RequestInit = {
       method: 'DELETE',
-      headers: getHeaders(),
-      credentials: 'include'
+      headers: getHeaders()
     }
     if (body) {
       opts.body = JSON.stringify(body)
