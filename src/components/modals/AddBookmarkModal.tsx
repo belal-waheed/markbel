@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Loader2, Globe, Sparkles, Plus, Calendar, Pin } from "lucide-react";
 import { api } from "../../lib/api";
 import { useDebounce } from "../../lib/useDebounce";
-import { resolveSmartGroup, getCustomSmartGroupRules, CustomGroupRule } from "../../lib/smartGroups";
+import { resolveSmartGroup, getCustomSmartGroupRules, CompoundSmartGroupRule } from "../../lib/smartGroups";
 
 interface AddBookmarkModalProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
   const [isPinned, setIsPinned] = useState(false);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [customRules, setCustomRules] = useState<CustomGroupRule[]>([]);
+  const [customRules, setCustomRules] = useState<CompoundSmartGroupRule[]>([]);
 
   const debouncedUrl = useDebounce(url, 500);
   const urlInputRef = useRef<HTMLInputElement>(null);

@@ -9,7 +9,7 @@ import {
   saveBookmark,
   getApiBase
 } from '../api';
-import { resolveSmartGroup } from '@/lib/smartGroups';
+import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from '../content';
 
@@ -158,8 +158,9 @@ async function loadActiveTabData(): Promise<void> {
       previewCard.classList.add('hidden');
     }
 
-    // Auto-resolve Smart Group via Markbel's domain rules
-    const autoGroup = resolveSmartGroup(currentMeta.url);
+    // Auto-resolve Smart Group via Markbel's domain and compound rules
+    const customRules = await getCustomSmartGroupRules().catch(() => []);
+    const autoGroup = resolveSmartGroup(currentMeta.url, [], customRules);
     selectGroup(autoGroup);
 
   } catch (err) {
