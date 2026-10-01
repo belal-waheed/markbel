@@ -35,16 +35,33 @@ const baseClient = ofetch.create({
   }
 });
 
+async function asyncResolveApiUrl(path: string): Promise<string> {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const data = await chrome.storage.local.get('apiUrl');
+    if (data.apiUrl) {
+       let clean = data.apiUrl.trim().replace(/\/$/, '');
+       if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+          clean = clean.startsWith('localhost') || clean.startsWith('127.0.0.1') ? "http://${clean}" : "https://${clean}";
+       }
+       if (!clean.endsWith('/api')) clean += '/api';
+       const cleanPath = path.startsWith('/api/') ? path.slice(4) : path;
+       const normalizedPath = cleanPath.startsWith('/') ? cleanPath : "/";
+       return "${clean}${normalizedPath}";
+    }
+  }
+  return resolveApiUrl(path);
+}
+
 const apiClient: ApiClient = {
   get: async (endpoint: string, headers?: any, signal?: AbortSignal) => {
-    return await baseClient(resolveApiUrl(endpoint), {
+    return await baseClient(await asyncResolveApiUrl(endpoint), {
       method: 'GET',
       headers,
       signal
     });
   },
   post: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    return await baseClient(resolveApiUrl(endpoint), {
+    return await baseClient(await asyncResolveApiUrl(endpoint), {
       method: 'POST',
       headers,
       body: data,
@@ -52,7 +69,7 @@ const apiClient: ApiClient = {
     });
   },
   put: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
-    return await baseClient(resolveApiUrl(endpoint), {
+    return await baseClient(await asyncResolveApiUrl(endpoint), {
       method: 'PUT',
       headers,
       body: data,
@@ -69,3 +86,4 @@ export const syncManager = new SyncManager({
 });
 
 export { SyncState };
+
