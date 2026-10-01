@@ -37,3 +37,4 @@ android/app/*.iml
 android/local.properties
 android/captures/
 android/.cxx/
+.wrangler/
