@@ -21,6 +21,9 @@ export const getApiBase = (): string => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/$/, '')
   }
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+    return 'https://mark.obel.workers.dev/api'
+  }
   if (Capacitor.isNativePlatform()) {
     return 'https://mark.obel.workers.dev/api'
   }
@@ -123,4 +126,5 @@ export const api = {
     return data as T
   }
 }
+
 
