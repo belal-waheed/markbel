@@ -374,6 +374,7 @@ export async function saveCustomSmartGroupRules(
     key: CUSTOM_RULES_CONFIG_KEY,
     value: normalized,
   });
+  clearSmartGroupCache();
 }
 
 /**
@@ -449,17 +450,57 @@ export function inspectSmartGroupMatch(
   return { group: 'Unsorted', isDefault: false };
 }
 
+const SMART_GROUP_CACHE_MAX = 1000;
+const smartGroupCache = new Map<string, string>();
+
+/**
+ * Clears the in-memory smart group cache (e.g. for testing or rule mutations).
+ */
+export function clearSmartGroupCache(): void {
+  smartGroupCache.clear();
+}
+
+/**
+ * Returns current count of entries in the smart group LRU cache.
+ */
+export function getSmartGroupCacheSize(): number {
+  return smartGroupCache.size;
+}
+
 /**
  * Resolves the matching smart group name for a given URL.
  * Evaluates custom user-defined compound rules before falling back to default groups.
+ * Memoized with an in-memory LRU cache (max 1000 items) keyed by `${url}|${rules.length}`.
  */
 export function resolveSmartGroup(
   url: string,
   availableGroups?: string[],
   customRules?: (CompoundSmartGroupRule | CustomGroupRule)[]
 ): string {
+  const rulesLength = customRules ? customRules.length : 0;
+  const groupsKey = availableGroups && availableGroups.length > 0 ? `|${availableGroups.join(',')}` : '';
+  const cacheKey = `${url}|${rulesLength}${groupsKey}`;
+
+  if (smartGroupCache.has(cacheKey)) {
+    const cached = smartGroupCache.get(cacheKey)!;
+    // Re-insert to refresh LRU recency
+    smartGroupCache.delete(cacheKey);
+    smartGroupCache.set(cacheKey, cached);
+    return cached;
+  }
+
   const match = inspectSmartGroupMatch(url, availableGroups, customRules);
-  return match.group;
+  const result = match.group;
+
+  if (smartGroupCache.size >= SMART_GROUP_CACHE_MAX) {
+    const oldestKey = smartGroupCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      smartGroupCache.delete(oldestKey);
+    }
+  }
+
+  smartGroupCache.set(cacheKey, result);
+  return result;
 }
 
 /**

@@ -1183,6 +1183,17 @@ app.get("/api/sync/pull", authMiddleware, async (c) => {
     changes && changes.length > 0 ? (changes[changes.length - 1] as any).sequence : cursor;
   const hasMore = changes ? changes.length === limit : false;
 
+  const clientEtag = c.req.header("if-none-match");
+  if ((!changes || changes.length === 0) && clientEtag === `W/"cursor-${cursor}"`) {
+    return c.body(null, 304, {
+      "ETag": `W/"cursor-${cursor}"`,
+      "Cache-Control": "private, no-cache",
+    });
+  }
+
+  c.header("ETag", `W/"cursor-${nextCursor}"`);
+  c.header("Cache-Control", "private, no-cache");
+
   return c.json({
     changes: formattedChanges,
     nextCursor,
@@ -1635,12 +1646,18 @@ app.get("/api/metadata", async (c) => {
     const rawReqUrl = c.req.url;
     let rawUrl = (c.req.query("url") || "").trim();
 
-    const forceRefresh = c.req.query("refresh") === "1" || c.req.query("nocache") === "1" || rawReqUrl.includes("refresh=1") || rawReqUrl.includes("nocache=1");
+    const forceRefresh =
+      c.req.query("refresh") === "1" ||
+      c.req.query("nocache") === "1" ||
+      c.req.query("forceRefresh") === "true" ||
+      rawReqUrl.includes("refresh=1") ||
+      rawReqUrl.includes("nocache=1") ||
+      rawReqUrl.includes("forceRefresh=true");
 
     const urlParamIdx = rawReqUrl.indexOf("url=");
     if (urlParamIdx !== -1) {
       let extracted = rawReqUrl.slice(urlParamIdx + 4);
-      extracted = extracted.replace(/&(refresh|nocache)=[^&]*/g, "");
+      extracted = extracted.replace(/&(refresh|nocache|forceRefresh)=[^&]*/g, "");
       try {
         rawUrl = decodeURIComponent(extracted);
       } catch {
@@ -1659,6 +1676,23 @@ app.get("/api/metadata", async (c) => {
       targetUrl = new URL(formatted);
     } catch {
       return c.json({ error: "Invalid URL format" }, 400);
+    }
+
+    // 0. Cloudflare Worker L1 Edge Metadata Cache
+    const cache = (caches as any).default;
+    const edgeCacheKey = new Request(c.req.url, { method: "GET" });
+
+    if (!forceRefresh && cache) {
+      try {
+        const edgeCached = await cache.match(edgeCacheKey);
+        if (edgeCached) {
+          const edgeResponse = new Response(edgeCached.body, edgeCached);
+          edgeResponse.headers.set("X-Cache", "HIT-L1-EDGE");
+          return edgeResponse;
+        }
+      } catch (cacheMatchErr) {
+        console.warn("[Metadata L1 Edge Cache Match Warning]:", cacheMatchErr);
+      }
     }
 
     const urlHash = await computeHash(targetUrl.toString());
@@ -1684,7 +1718,19 @@ app.get("/api/metadata", async (c) => {
         (cached.image || cached.description)
       ) {
         c.header("X-Cache", "HIT");
-        return c.json(cached);
+        c.header(
+          "Cache-Control",
+          "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+        );
+        const redisHitResponse = c.json(cached);
+        if (cache) {
+          try {
+            c.executionCtx.waitUntil(cache.put(edgeCacheKey, redisHitResponse.clone()));
+          } catch (cachePutErr) {
+            console.warn("[Metadata L1 Edge Cache Put Warning from Redis]:", cachePutErr);
+          }
+        }
+        return redisHitResponse;
       }
     }
 
@@ -2249,7 +2295,7 @@ app.get("/api/metadata", async (c) => {
       metadataResult.image = `https://www.google.com/s2/favicons?domain=${targetUrl.hostname}&sz=128`;
     }
 
-    // Only cache high-quality results in Redis (NEVER cache empty/failed fallback results)
+    // Only cache high-quality results in Redis & L1 Edge (NEVER cache empty/failed fallback results)
     const isHighQualityResult =
       metadataResult.title &&
       metadataResult.title !== targetUrl.hostname.replace(/^www\./, "") &&
@@ -2257,9 +2303,23 @@ app.get("/api/metadata", async (c) => {
 
     if (isHighQualityResult) {
       setRedisCache(c.env, cacheKey, metadataResult, 604800).catch(() => {});
+      c.header(
+        "Cache-Control",
+        "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+      );
     }
 
-    return c.json(metadataResult);
+    const response = c.json(metadataResult);
+
+    if (isHighQualityResult && cache) {
+      try {
+        c.executionCtx.waitUntil(cache.put(edgeCacheKey, response.clone()));
+      } catch (cachePutErr) {
+        console.warn("[Metadata L1 Edge Cache Put Warning]:", cachePutErr);
+      }
+    }
+
+    return response;
   } catch (err: any) {
     console.error("[Metadata Endpoint Exception]:", err);
     if (targetUrl) {

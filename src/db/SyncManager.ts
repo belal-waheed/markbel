@@ -60,11 +60,37 @@ async function asyncResolveApiUrl(path: string): Promise<string> {
 }
 const apiClient: ApiClient = {
   get: async (endpoint: string, headers?: any, signal?: AbortSignal) => {
-    return await baseClient(await asyncResolveApiUrl(endpoint), {
-      method: 'GET',
-      headers,
-      signal
-    });
+    let cursor = 0;
+    try {
+      const match = endpoint.match(/[?&]cursor=(\d+)/);
+      if (match) {
+        cursor = parseInt(match[1], 10);
+      } else if (headers && typeof headers['If-None-Match'] === 'string') {
+        const hMatch = headers['If-None-Match'].match(/cursor-(\d+)/);
+        if (hMatch) cursor = parseInt(hMatch[1], 10);
+      }
+    } catch {}
+
+    try {
+      const res = await baseClient(await asyncResolveApiUrl(endpoint), {
+        method: 'GET',
+        headers,
+        signal
+      });
+      if (res === null || res === undefined) {
+        return { changes: [], nextCursor: cursor, hasMore: false, notModified: true };
+      }
+      return res;
+    } catch (err: any) {
+      if (
+        err?.status === 304 ||
+        err?.statusCode === 304 ||
+        err?.response?.status === 304
+      ) {
+        return { changes: [], nextCursor: cursor, hasMore: false, notModified: true };
+      }
+      throw err;
+    }
   },
   post: async (endpoint: string, data: any, headers?: any, signal?: AbortSignal) => {
     return await baseClient(await asyncResolveApiUrl(endpoint), {

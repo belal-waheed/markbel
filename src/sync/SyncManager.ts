@@ -252,7 +252,19 @@ export class SyncManager {
       while (hasMore) {
         const cursor = await this.storage.getCursor();
         
-        const pullData = await this.apiClient.get(`/api/sync/pull?cursor=${cursor}&limit=100`, { 'Authorization': `Bearer ${token}` }, this.abortController.signal);
+        const pullData = await this.apiClient.get(
+          `/api/sync/pull?cursor=${cursor}&limit=100`,
+          {
+            'Authorization': `Bearer ${token}`,
+            'If-None-Match': `W/"cursor-${cursor}"`,
+          },
+          this.abortController.signal
+        );
+
+        if (pullData?.notModified) {
+          hasMore = false;
+          break;
+        }
         
         await this.storage.applyRemoteChanges(pullData.changes || []);
         await this.storage.saveCursor(pullData.nextCursor);

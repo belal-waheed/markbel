@@ -11,6 +11,8 @@ import {
   PRESET_SMART_RULES,
   CompoundSmartGroupRule,
   CustomGroupRule,
+  clearSmartGroupCache,
+  getSmartGroupCacheSize,
 } from './smartGroups';
 
 describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
@@ -331,6 +333,66 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
     it('falls back to Unsorted if target default smart group is deleted from availableGroups', () => {
       const activeGroups = ['Work', 'Unsorted'];
       expect(resolveSmartGroup('https://youtube.com/watch?v=1', activeGroups)).toBe('Unsorted');
+    });
+  });
+
+  describe('LRU Cache for resolveSmartGroup', () => {
+    it('returns cached results and increases cache size', () => {
+      // Arrange
+      clearSmartGroupCache();
+      expect(getSmartGroupCacheSize()).toBe(0);
+
+      // Act
+      const first = resolveSmartGroup('https://youtube.com/watch?v=cache1');
+      expect(first).toBe('YT');
+      expect(getSmartGroupCacheSize()).toBe(1);
+
+      // Act again with same URL
+      const second = resolveSmartGroup('https://youtube.com/watch?v=cache1');
+
+      // Assert
+      expect(second).toBe('YT');
+      expect(getSmartGroupCacheSize()).toBe(1);
+    });
+
+    it('differentiates cache entries by rules length', () => {
+      // Arrange
+      clearSmartGroupCache();
+      const url = 'https://custom-site.com/item';
+      const customRules: CompoundSmartGroupRule[] = [
+        {
+          id: 'rule-custom',
+          name: 'Custom',
+          group: 'CustomGroup',
+          constraints: [{ id: 'c1', operator: 'domain_equals', value: 'custom-site.com' }],
+        },
+      ];
+
+      // Act
+      const defaultResult = resolveSmartGroup(url);
+      const ruleResult = resolveSmartGroup(url, undefined, customRules);
+
+      // Assert
+      expect(defaultResult).toBe('Unsorted');
+      expect(ruleResult).toBe('CustomGroup');
+      expect(getSmartGroupCacheSize()).toBe(2);
+    });
+
+    it('evicts oldest entries when cache exceeds 1000 items', () => {
+      // Arrange
+      clearSmartGroupCache();
+
+      // Populate 1000 entries
+      for (let i = 0; i < 1000; i++) {
+        resolveSmartGroup(`https://example${i}.com/page`);
+      }
+      expect(getSmartGroupCacheSize()).toBe(1000);
+
+      // Add 1001st entry
+      resolveSmartGroup('https://example1000.com/page');
+
+      // Assert bounded max capacity
+      expect(getSmartGroupCacheSize()).toBe(1000);
     });
   });
 });

@@ -46,8 +46,34 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
-            urlPattern: /^\/api\/.*$/,
-            handler: 'NetworkOnly'
+            urlPattern: /^\/api\/proxy\/image/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'image-proxy-cache',
+              expiration: {
+                maxEntries: 300,
+                maxAgeSeconds: 14 * 24 * 60 * 60,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/(?:i\.ytimg\.com|www\.google\.com\/s2\/favicons|pbs\.twimg\.com|avatars\.githubusercontent\.com)\/.*$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'external-thumbnail-cache',
+              expiration: {
+                maxEntries: 300,
+                maxAgeSeconds: 14 * 24 * 60 * 60,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
           },
           {
             urlPattern: ({ request }) => request.mode === 'navigate',
@@ -55,8 +81,12 @@ export default defineConfig({
             options: {
               cacheName: 'pages-cache',
               networkTimeoutSeconds: 3,
-            }
-          }
+            },
+          },
+          {
+            urlPattern: /^\/api\/.*$/,
+            handler: 'NetworkOnly',
+          },
         ]
       }
     })
