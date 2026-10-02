@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react'
-import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User, Sparkles, Smartphone } from 'lucide-react'
+import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User, Sparkles, Smartphone, Pin } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import MarkbelLogo from './MarkbelLogo'
@@ -16,6 +16,8 @@ interface GroupSidebarProps {
   deleteGroup: (name: string, e: React.MouseEvent) => void
   openNewGroup: () => void
   onAutoOrganize?: () => void
+  pinnedCategoryNames?: string[]
+  onTogglePin?: (name: string) => void
 }
 
 export const GroupSidebar: React.FC<GroupSidebarProps> = ({
@@ -30,6 +32,8 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   deleteGroup,
   openNewGroup,
   onAutoOrganize,
+  pinnedCategoryNames = [],
+  onTogglePin,
 }) => {
   const navigate = useNavigate()
   const { user, isGuest } = useAuth()
@@ -60,6 +64,8 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [bookmarks, dbGroups])
+
+  const pinnedSet = useMemo(() => new Set(pinnedCategoryNames), [pinnedCategoryNames])
 
   return (
     <>
@@ -181,53 +187,77 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                 No groups yet
               </div>
             ) : (
-              mergedGroups.map((group) => (
-                <button
-                  key={group.name}
-                  onClick={() => {
-                    setActiveGroup(group.name);
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors group ${
-                    activeGroup === group.name
-                      ? "bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-medium"
-                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Folder className="w-3.5 h-3.5 opacity-70 shrink-0" />
-                    <span className="truncate">{group.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="flex md:hidden md:group-hover:flex items-center gap-1 bg-[var(--color-bg-default)] rounded px-1 shadow-sm border border-[var(--color-border-default)]">
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditGroup(group.name);
-                          setIsSidebarOpen(false);
-                        }}
-                        className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
-                        title="Edit Group"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
+              mergedGroups.map((group) => {
+                const isPinned = pinnedSet.has(group.name);
+                return (
+                  <button
+                    key={group.name}
+                    onClick={() => {
+                      setActiveGroup(group.name);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors group ${
+                      activeGroup === group.name
+                        ? "bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-medium"
+                        : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Folder className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                      <span className="truncate">{group.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 bg-[var(--color-bg-default)] rounded px-1 shadow-xs border border-[var(--color-border-default)]">
+                        {onTogglePin && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTogglePin(group.name);
+                            }}
+                            className={`p-1.5 active:scale-90 cursor-pointer transition-colors ${
+                              isPinned
+                                ? "text-[var(--color-accent)]"
+                                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                            }`}
+                            title={isPinned ? "Unpin from homepage" : "Pin to homepage"}
+                          >
+                            <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-current" : ""}`} />
+                          </div>
+                        )}
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditGroup(group.name);
+                            setIsSidebarOpen(false);
+                          }}
+                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
+                          title="Edit Group"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </div>
+                        <div
+                          onClick={(e) => {
+                            setIsSidebarOpen(false);
+                            deleteGroup(group.name, e);
+                          }}
+                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] active:scale-90 cursor-pointer"
+                          title="Delete Group"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </div>
                       </div>
-                      <div
-                        onClick={(e) => {
-                          setIsSidebarOpen(false);
-                          deleteGroup(group.name, e);
-                        }}
-                        className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] active:scale-90 cursor-pointer"
-                        title="Delete Group"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-1 md:group-hover:hidden">
+                        {isPinned && (
+                          <Pin className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" />
+                        )}
+                        <span className="text-xs opacity-60">
+                          {group.count}
+                        </span>
                       </div>
                     </div>
-                    <span className="text-xs opacity-60 md:group-hover:hidden">
-                      {group.count}
-                    </span>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

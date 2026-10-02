@@ -13,6 +13,8 @@ import { useModalBackNavigation } from "../lib/useModalBackNavigation";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
+import { CategoryPillBar } from "../components/CategoryPillBar";
+import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories";
 import { AddBookmarkModal } from "../components/modals/AddBookmarkModal";
 import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
@@ -93,6 +95,14 @@ export default function BookmarksPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [pinnedCategoryNames, setPinnedCategoryNames] = useState<string[]>(() =>
+    getPinnedCategories()
+  );
+
+  const handleToggleCategoryPin = useCallback((name: string) => {
+    const updated = togglePinnedCategory(name);
+    setPinnedCategoryNames(updated);
+  }, []);
 
   // Multiselect State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -173,6 +183,21 @@ export default function BookmarksPage() {
     });
     return Array.from(set);
   }, [dbGroups, bookmarks]);
+
+  // Merged category groups with counts (excluding Unsorted)
+  const mergedGroups = useMemo(() => {
+    const map = new Map<string, number>();
+    dbGroups.forEach((g) => {
+      if (g.name !== "Unsorted") map.set(g.name, 0);
+    });
+    bookmarks.forEach((b) => {
+      const g = b.group || "Unsorted";
+      if (g !== "Unsorted") map.set(g, (map.get(g) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [bookmarks, dbGroups]);
 
   // Tab Stats Counts (Computed locally in O(N))
   const counts = useMemo(() => {
@@ -410,6 +435,8 @@ export default function BookmarksPage() {
         deleteGroup={handleDeleteGroup}
         openNewGroup={handleOpenNewGroup}
         onAutoOrganize={handleAutoOrganize}
+        pinnedCategoryNames={pinnedCategoryNames}
+        onTogglePin={handleToggleCategoryPin}
       />
 
       {/* Main Content Area */}
@@ -509,6 +536,17 @@ export default function BookmarksPage() {
               onViewModeChange={handleViewModeChange}
               counts={counts}
               searchInputRef={searchInputRef}
+            />
+
+            {/* Category Pill Bar */}
+            <CategoryPillBar
+              groups={mergedGroups}
+              activeGroup={activeGroup}
+              onSelectGroup={setActiveGroup}
+              pinnedCategoryNames={pinnedCategoryNames}
+              onTogglePin={handleToggleCategoryPin}
+              totalCount={bookmarks.length}
+              onOpenNewGroup={handleOpenNewGroup}
             />
 
             {/* Multiselect Action Bar */}
