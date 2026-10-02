@@ -15,6 +15,10 @@ import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
 import { CategoryPillBar } from "../components/CategoryPillBar";
 import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories";
+import {
+  getNavigationPreferences,
+  NavigationPreferences,
+} from "../lib/navigationPreferences";
 import { AddBookmarkModal } from "../components/modals/AddBookmarkModal";
 import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
@@ -73,9 +77,41 @@ export default function BookmarksPage() {
       []
     ) || [];
 
-  // Filter & UI States
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState<FilterTab>("all");
+  // Navigation & Workspace Preferences
+  const [navPrefs, setNavPrefs] = useState<NavigationPreferences>(() =>
+    getNavigationPreferences()
+  );
+
+  useEffect(() => {
+    const handlePrefsChanged = (e: any) => {
+      if (e.detail) {
+        setNavPrefs(e.detail);
+        if (Array.isArray(e.detail.pinnedGroupNames)) {
+          setPinnedCategoryNames(e.detail.pinnedGroupNames);
+        }
+      }
+    };
+    window.addEventListener("markbel_nav_preferences_changed", handlePrefsChanged);
+    return () => {
+      window.removeEventListener("markbel_nav_preferences_changed", handlePrefsChanged);
+    };
+  }, []);
+
+  // Filter & UI States (respect defaultView on cold boot)
+  const [activeGroup, setActiveGroup] = useState<string | null>(() => {
+    const prefs = getNavigationPreferences();
+    if (prefs.defaultView.startsWith("group:")) {
+      return prefs.defaultView.slice(6);
+    }
+    return null;
+  });
+  const [currentTab, setCurrentTab] = useState<FilterTab>(() => {
+    const prefs = getNavigationPreferences();
+    if (["unread", "pinned", "due"].includes(prefs.defaultView)) {
+      return prefs.defaultView as FilterTab;
+    }
+    return "all";
+  });
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("markbel_view_mode") as ViewMode) || "grid";
@@ -538,16 +574,20 @@ export default function BookmarksPage() {
               searchInputRef={searchInputRef}
             />
 
-            {/* Category Pill Bar */}
-            <CategoryPillBar
-              groups={mergedGroups}
-              activeGroup={activeGroup}
-              onSelectGroup={setActiveGroup}
-              pinnedCategoryNames={pinnedCategoryNames}
-              onTogglePin={handleToggleCategoryPin}
-              totalCount={bookmarks.length}
-              onOpenNewGroup={handleOpenNewGroup}
-            />
+            {/* Mobile Category Pill Bar (Hidden on md: desktop) */}
+            {navPrefs.showMobileCategoryScroller && (
+              <div className="md:hidden">
+                <CategoryPillBar
+                  groups={mergedGroups}
+                  activeGroup={activeGroup}
+                  onSelectGroup={setActiveGroup}
+                  pinnedCategoryNames={pinnedCategoryNames}
+                  onTogglePin={handleToggleCategoryPin}
+                  totalCount={bookmarks.length}
+                  onOpenNewGroup={handleOpenNewGroup}
+                />
+              </div>
+            )}
 
             {/* Multiselect Action Bar */}
             {isSelectionMode && (

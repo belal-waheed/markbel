@@ -1,8 +1,36 @@
-import React, { useMemo, useEffect } from 'react'
-import { Folder, FolderOpen, Archive, Settings, Plus, Pencil, Trash2, X, LogOut, LogIn, ShieldAlert, User, Sparkles, Smartphone, Pin } from 'lucide-react'
+import React, { useMemo, useEffect, useState } from 'react'
+import {
+  Folder,
+  FolderOpen,
+  Archive,
+  Settings,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  LogOut,
+  LogIn,
+  ShieldAlert,
+  User,
+  Sparkles,
+  Smartphone,
+  Pin,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronRight,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import MarkbelLogo from './MarkbelLogo'
+import {
+  getNavigationPreferences,
+  toggleGroupVisibility,
+  toggleGroupPin,
+  filterAndSortGroups,
+  NavigationPreferences,
+} from '../lib/navigationPreferences'
 
 interface GroupSidebarProps {
   isSidebarOpen: boolean
@@ -38,6 +66,25 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   const navigate = useNavigate()
   const { user, isGuest } = useAuth()
 
+  const [navPrefs, setNavPrefs] = useState<NavigationPreferences>(() =>
+    getNavigationPreferences()
+  )
+  const [isHiddenTrayOpen, setIsHiddenTrayOpen] = useState(false)
+
+  useEffect(() => {
+    const handlePrefsChanged = (e: any) => {
+      if (e.detail) {
+        setNavPrefs(e.detail)
+      } else {
+        setNavPrefs(getNavigationPreferences())
+      }
+    }
+    window.addEventListener('markbel_nav_preferences_changed', handlePrefsChanged)
+    return () => {
+      window.removeEventListener('markbel_nav_preferences_changed', handlePrefsChanged)
+    }
+  }, [])
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       if (isSidebarOpen) {
@@ -65,7 +112,22 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [bookmarks, dbGroups])
 
-  const pinnedSet = useMemo(() => new Set(pinnedCategoryNames), [pinnedCategoryNames])
+  const { visibleGroups, hiddenGroups } = useMemo(() => {
+    return filterAndSortGroups(mergedGroups, navPrefs)
+  }, [mergedGroups, navPrefs])
+
+  const handleTogglePinLocal = (name: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const next = toggleGroupPin(name)
+    setNavPrefs(next)
+    if (onTogglePin) onTogglePin(name)
+  }
+
+  const handleToggleHideLocal = (name: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const next = toggleGroupVisibility(name)
+    setNavPrefs(next)
+  }
 
   return (
     <>
@@ -163,6 +225,16 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
               Groups
             </span>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                  navigate("/settings#navigation");
+                }}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors p-1"
+                title="Customize Navigation & Groups"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+              </button>
               {onAutoOrganize && (
                 <button
                   onClick={onAutoOrganize}
@@ -181,14 +253,17 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Visible Groups List */}
           <div className="space-y-0.5">
-            {mergedGroups.length === 0 ? (
+            {visibleGroups.length === 0 ? (
               <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">
-                No groups yet
+                {hiddenGroups.length > 0
+                  ? "All groups hidden"
+                  : "No groups yet"}
               </div>
             ) : (
-              mergedGroups.map((group) => {
-                const isPinned = pinnedSet.has(group.name);
+              visibleGroups.map((group) => {
                 return (
                   <button
                     key={group.name}
@@ -206,24 +281,34 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                       <Folder className="w-3.5 h-3.5 opacity-70 shrink-0" />
                       <span className="truncate">{group.name}</span>
                     </div>
+
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Action Toolbar on Hover */}
                       <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 bg-[var(--color-bg-default)] rounded px-1 shadow-xs border border-[var(--color-border-default)]">
-                        {onTogglePin && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onTogglePin(group.name);
-                            }}
-                            className={`p-1.5 active:scale-90 cursor-pointer transition-colors ${
-                              isPinned
-                                ? "text-[var(--color-accent)]"
-                                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                        <div
+                          onClick={(e) => handleTogglePinLocal(group.name, e)}
+                          className={`p-1.5 active:scale-90 cursor-pointer transition-colors ${
+                            group.isPinned
+                              ? "text-[var(--color-accent)]"
+                              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                          title={group.isPinned ? "Unpin from top" : "Pin to top of sidebar"}
+                        >
+                          <Pin
+                            className={`w-3.5 h-3.5 ${
+                              group.isPinned ? "fill-current" : ""
                             }`}
-                            title={isPinned ? "Unpin from homepage" : "Pin to homepage"}
-                          >
-                            <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-current" : ""}`} />
-                          </div>
-                        )}
+                          />
+                        </div>
+
+                        <div
+                          onClick={(e) => handleToggleHideLocal(group.name, e)}
+                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
+                          title="Hide group from sidebar"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </div>
+
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
@@ -235,6 +320,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </div>
+
                         <div
                           onClick={(e) => {
                             setIsSidebarOpen(false);
@@ -246,13 +332,13 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                           <Trash2 className="w-3.5 h-3.5" />
                         </div>
                       </div>
+
+                      {/* Default State: Pin Indicator & Count */}
                       <div className="flex items-center gap-1 md:group-hover:hidden">
-                        {isPinned && (
+                        {group.isPinned && (
                           <Pin className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" />
                         )}
-                        <span className="text-xs opacity-60">
-                          {group.count}
-                        </span>
+                        <span className="text-xs opacity-60">{group.count}</span>
                       </div>
                     </div>
                   </button>
@@ -260,6 +346,72 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
               })
             )}
           </div>
+
+          {/* Collapsible Hidden Groups Tray */}
+          {hiddenGroups.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-[var(--color-border-default)]/60">
+              <button
+                type="button"
+                onClick={() => setIsHiddenTrayOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-md transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 font-medium">
+                  {isHiddenTrayOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>
+                    {hiddenGroups.length} Hidden Group{hiddenGroups.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono opacity-70">
+                  {hiddenGroups.reduce((acc, g) => acc + g.count, 0)} links
+                </span>
+              </button>
+
+              {isHiddenTrayOpen && (
+                <div className="mt-1 space-y-0.5 pl-2 animate-in fade-in duration-150">
+                  {hiddenGroups.map((group) => {
+                    return (
+                      <div
+                        key={group.name}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md transition-colors group ${
+                          activeGroup === group.name
+                            ? "bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-medium"
+                            : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveGroup(group.name);
+                            setIsSidebarOpen(false);
+                          }}
+                          className="flex items-center gap-2 truncate flex-1 text-left cursor-pointer"
+                        >
+                          <Folder className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                          <span className="truncate">{group.name}</span>
+                          <span className="text-[10px] opacity-60">
+                            ({group.count})
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleHideLocal(group.name, e)}
+                          className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-element)] rounded transition-colors active:scale-90 cursor-pointer shrink-0"
+                          title="Unhide group to sidebar"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
