@@ -137,14 +137,7 @@ export default function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/share" element={<ShareTargetPage />} />
                 <Route path="/archive" element={<ArchivePage />} />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <SettingsPage />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route
                   path="/sync-debug"
                   element={

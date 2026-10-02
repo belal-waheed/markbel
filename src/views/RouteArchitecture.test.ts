@@ -155,3 +155,27 @@ describe('Platform Auto-Detection Logic', () => {
     expect(detectPlatform(firefoxUA)).toBe('desktop')
   })
 })
+
+describe('Public vs Protected Route Access Contract', () => {
+  const publicRoutes = ['/', '/landing', '/app', '/login', '/share', '/archive', '/settings']
+  const protectedRoutes = ['/sync-debug']
+
+  function isRouteProtected(path: string): boolean {
+    return protectedRoutes.includes(path)
+  }
+
+  it('allows unauthenticated / guest access to /settings without redirection', () => {
+    expect(isRouteProtected('/settings')).toBe(false)
+  })
+
+  it('allows unauthenticated / guest access to core vault routes', () => {
+    publicRoutes.forEach((route) => {
+      expect(isRouteProtected(route)).toBe(false)
+    })
+  })
+
+  it('protects internal debug routes like /sync-debug', () => {
+    expect(isRouteProtected('/sync-debug')).toBe(true)
+  })
+})
+

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
+import { Loader2 } from 'lucide-react'
 import { bookmarkRepository } from '../db/SyncRepository.js'
 import { syncManager } from '../db/SyncManager.js'
 import { resolveSmartGroup, getCustomSmartGroupRules } from '../lib/smartGroups.js'
@@ -15,15 +16,21 @@ export default function ShareTargetPage() {
   const isProcessedRef = useRef(false)
 
   useEffect(() => {
-    // Force complete transparency immediately
-    document.body.style.backgroundColor = 'transparent'
-    document.documentElement.style.backgroundColor = 'transparent'
-    document.documentElement.style.display = 'none' // totally hide
+    const isNative = Capacitor.isNativePlatform()
+
+    // Force transparency only on native mobile wrappers (e.g. Android Quick-Share sheet)
+    if (isNative) {
+      document.body.style.backgroundColor = 'transparent'
+      document.documentElement.style.backgroundColor = 'transparent'
+      document.documentElement.style.display = 'none'
+    }
 
     const cleanup = () => {
-      document.body.style.backgroundColor = ''
-      document.documentElement.style.backgroundColor = ''
-      document.documentElement.style.display = ''
+      if (isNative) {
+        document.body.style.backgroundColor = ''
+        document.documentElement.style.backgroundColor = ''
+        document.documentElement.style.display = ''
+      }
     }
 
     if (isProcessedRef.current) return cleanup
@@ -89,6 +96,18 @@ export default function ShareTargetPage() {
     return cleanup
   }, [searchParams, navigate, user])
 
-  // Headless component - return nothing so there is zero UI overlay
-  return null
+  // Headless on native mobile to keep share intent instant
+  if (Capacitor.isNativePlatform()) {
+    return null
+  }
+
+  // Visual feedback HUD on Web and PWA browsers
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-default)] text-[var(--color-text-primary)] gap-3 font-sans">
+      <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
+      <span className="text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">
+        Saving bookmark to vault...
+      </span>
+    </div>
+  )
 }

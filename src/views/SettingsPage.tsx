@@ -110,6 +110,11 @@ const OPERATOR_CONFIG: Record<
   },
 };
 
+const OPERATOR_OPTIONS = (Object.keys(OPERATOR_CONFIG) as ConstraintOperator[]).map((key) => ({
+  value: key,
+  label: OPERATOR_CONFIG[key].label,
+}));
+
 function getPresetIcon(presetId: string) {
   switch (presetId) {
     case "preset-yt-playlists":
@@ -134,7 +139,8 @@ function getPresetIcon(presetId: string) {
 }
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, token, isGuest, logout } = useAuth();
+  const isGuestMode = isGuest || !token || !user;
   const navigate = useNavigate();
   const isNative =
     navigator.userAgent.includes("Electron") || !!(window as any).ReactNativeWebView;
@@ -414,8 +420,7 @@ export default function SettingsPage() {
     setPushSupported(isSupported);
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
+      navigator.serviceWorker.ready
         .then((reg) => {
           if (reg.pushManager) {
             reg.pushManager.getSubscription().then((sub) => {
@@ -469,6 +474,19 @@ export default function SettingsPage() {
   const handleTestPush = async () => {
     setPushLoading(true);
     try {
+      if (isGuestMode) {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Markbel Push Test", {
+            body: "Local notification test successful! Notifications are active on this device.",
+            icon: "/pwa-192x192.png",
+          });
+          setNoticeMessage("Local notification dispatched!");
+        } else {
+          setNoticeMessage("Push notifications require an account for cloud dispatch or permission grant.");
+        }
+        setTimeout(() => setNoticeMessage(""), 4000);
+        return;
+      }
       await api.post("/notifications/test", {});
       setNoticeMessage("Test push notification dispatched!");
       setTimeout(() => setNoticeMessage(""), 4000);
@@ -509,63 +527,103 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <button
-          onClick={logout}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--color-status-error)] hover:bg-red-50 active:scale-95 transition-all"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
-        </button>
+        {!isGuestMode ? (
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--color-status-error)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate("/login?redirect=/settings")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+          >
+            <UserIcon className="w-4 h-4" />
+            <span>Sign In</span>
+          </button>
+        )}
       </div>
 
       {noticeMessage && (
-        <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
-          <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
+        <div className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+          <CheckCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
           <span>{noticeMessage}</span>
         </div>
       )}
 
       {/* Account Details Card */}
       <section className="studio-card p-6 relative space-y-4">
-        <div className="flex items-center gap-2.5 border-b border-[var(--color-border-default)] pb-4">
-          <div className="w-7 h-7 bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
-            <UserIcon className="w-4 h-4" />
+        <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
+              <UserIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                Account Profile
+              </h3>
+              <p className="text-[11px] text-[var(--color-text-muted)]">
+                {isGuestMode ? "Local offline vault status" : "Authenticated session information"}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-              Account Profile
-            </h3>
-            <p className="text-[11px] text-[var(--color-text-muted)]">
-              Authenticated session information
-            </p>
-          </div>
+          {isGuestMode && (
+            <span className="text-[10px] font-bold text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-2.5 py-1 rounded uppercase tracking-wider">
+              Guest Mode
+            </span>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div className="p-3 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)]">
-            <span className="text-[var(--color-text-muted)] text-[10px] block uppercase font-bold mb-1">
-              Full Name
-            </span>
-            <span className="text-[var(--color-text-primary)] font-semibold">
-              {user?.name || "Markbel User"}
-            </span>
+        {isGuestMode ? (
+          <div className="p-4 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-[var(--color-text-primary)]">
+                  Local Vault (Guest Mode)
+                </h4>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1 max-w-xl leading-relaxed">
+                  Bookmarks, presets, and auto-categorization rules are saved locally on this device in IndexedDB. Sign in or sign up to synchronize your bookmarks across all devices via Cloudflare D1.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/login?redirect=/settings")}
+                className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-center"
+              >
+                <span>Sign In or Sign Up</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)]">
+              <span className="text-[var(--color-text-muted)] text-[10px] block uppercase font-bold mb-1">
+                Full Name
+              </span>
+              <span className="text-[var(--color-text-primary)] font-semibold">
+                {user?.name || "Markbel User"}
+              </span>
+            </div>
 
-          <div className="p-3 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)]">
-            <span className="text-[var(--color-text-muted)] text-[10px] block uppercase font-bold mb-1">
-              Email Address
-            </span>
-            <span className="text-[var(--color-text-primary)] font-semibold">
-              {user?.email}
-            </span>
+            <div className="p-3 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)]">
+              <span className="text-[var(--color-text-muted)] text-[10px] block uppercase font-bold mb-1">
+                Email Address
+              </span>
+              <span className="text-[var(--color-text-primary)] font-semibold">
+                {user?.email}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       {/* Security & Password Card */}
       <section className="studio-card p-6 relative space-y-4">
         <div className="flex items-center gap-2.5 border-b border-[var(--color-border-default)] pb-4">
-          <div className="w-7 h-7 bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center font-bold rounded">
+          <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-border-default)] text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
             <KeyRound className="w-4 h-4" />
           </div>
           <div>
@@ -578,87 +636,98 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {passwordSuccess && (
-          <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
-            <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
-            <span>{passwordSuccess}</span>
+        {isGuestMode ? (
+          <div className="p-4 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-muted)] flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-[var(--color-text-muted)] shrink-0" />
+            <p>
+              Password management is only applicable for Cloudflare D1 synchronized accounts. Local vault data on this device does not require a cloud password.
+            </p>
           </div>
+        ) : (
+          <>
+            {passwordSuccess && (
+              <div className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-status-success)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+                <CheckCircle className="w-4 h-4 text-[var(--color-status-success)] shrink-0" />
+                <span>{passwordSuccess}</span>
+              </div>
+            )}
+
+            {passwordError && (
+              <div className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-status-error)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 text-[var(--color-status-error)] shrink-0" />
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordChange} className="space-y-3.5 max-w-md">
+              <div>
+                <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+                  New Password (min 8 characters)
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  minLength={8}
+                  required
+                  className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  minLength={8}
+                  required
+                  className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {passwordLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  <span>Update Password</span>
+                </button>
+              </div>
+            </form>
+          </>
         )}
-
-        {passwordError && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span>{passwordError}</span>
-          </div>
-        )}
-
-        <form onSubmit={handlePasswordChange} className="space-y-3.5 max-w-md">
-          <div>
-            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
-              Current Password
-            </label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
-              New Password (min 8 characters)
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              minLength={8}
-              required
-              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase block mb-1">
-              Confirm New Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              minLength={8}
-              required
-              className="w-full px-3 py-2 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
-            />
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {passwordLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="w-4 h-4" />
-              )}
-              <span>Update Password</span>
-            </button>
-          </div>
-        </form>
       </section>
 
       {/* Multi-Constraint Auto-Categorization & Preset Library */}
       <section className="studio-card p-6 relative space-y-6">
         <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold rounded">
+            <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -676,8 +745,8 @@ export default function SettingsPage() {
         </div>
 
         {ruleError && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <div className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-status-error)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 text-[var(--color-status-error)] shrink-0" />
             <span>{ruleError}</span>
           </div>
         )}
@@ -1190,7 +1259,7 @@ export default function SettingsPage() {
         <section className="studio-card p-6 relative space-y-5">
           <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-amber-100 border border-amber-200 text-amber-600 flex items-center justify-center font-bold rounded">
+              <div className="w-7 h-7 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold rounded">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
@@ -1205,12 +1274,12 @@ export default function SettingsPage() {
 
             <div>
               {pushSubscribed ? (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--color-status-success)] bg-green-50 border border-green-200 px-2.5 py-1 rounded uppercase">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--color-status-success)] bg-[var(--color-bg-element)] border border-[var(--color-status-success)]/30 px-2.5 py-1 rounded uppercase">
                   <CheckCircle className="w-3.5 h-3.5" />
                   <span>Active Device</span>
                 </span>
               ) : (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded uppercase">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-[var(--color-bg-element)] border border-amber-500/30 px-2.5 py-1 rounded uppercase">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Inactive</span>
                 </span>

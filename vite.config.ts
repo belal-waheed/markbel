@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Markbel',
@@ -39,11 +39,23 @@ export default defineConfig({
         }
       },
       workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
+        cleanupOutdatedCaches: true,
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
             urlPattern: /^\/api\/.*$/,
             handler: 'NetworkOnly'
+          },
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+            }
           }
         ]
       }
