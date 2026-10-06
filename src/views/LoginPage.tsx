@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import {
   Mail,
   Lock,
@@ -21,7 +21,7 @@ import { OtpInput } from '../components/OtpInput.js'
 
 type AuthMode = 'login' | 'signup' | 'forgot_request' | 'forgot_otp' | 'forgot_new_password'
 
-const slideVariants = {
+const slideVariants: Variants = {
   enter: (direction: number) => ({
     x: direction > 0 ? 40 : -40,
     opacity: 0,
@@ -29,7 +29,7 @@ const slideVariants = {
   center: {
     x: 0,
     opacity: 1,
-    transition: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
+    transition: { duration: 0.25, ease: [0.25, 1, 0.5, 1] as const },
   },
   exit: (direction: number) => ({
     x: direction < 0 ? 40 : -40,

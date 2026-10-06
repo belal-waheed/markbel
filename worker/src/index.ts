@@ -588,11 +588,14 @@ function normalizeSyncRecord(record: any, entityType: string): any {
   }
 
   if (entityType === "group") {
+    const userId = record.user_id || record.userId || "";
     const createdAt = record.createdAt || record.created_at || "";
     const updatedAt = record.updatedAt || record.updated_at || "";
     const deletedAt = record.deletedAt || record.deleted_at || null;
     return {
       ...record,
+      userId,
+      user_id: userId,
       createdAt,
       updatedAt,
       deletedAt,
@@ -1553,10 +1556,91 @@ async function fetchAnimeMetadataFromAniList(
   return null;
 }
 
+/**
+ * Validates whether a target URL is safe to fetch (blocks SSRF, loopbacks, link-local metadata, and private CIDR ranges).
+ */
+export function isSafePublicUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol !== "http:" && protocol !== "https:") {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+    // Block localhost, loopback, and zero addresses
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname === "0:0:0:0:0:0:0:0" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal")
+    ) {
+      return false;
+    }
+
+    // Block cloud metadata services (AWS, GCP, Azure, DigitalOcean)
+    if (hostname === "169.254.169.254" || hostname === "metadata.google.internal") {
+      return false;
+    }
+
+    // Check IPv4 private and link-local ranges
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const ipMatch = hostname.match(ipv4Regex);
+    if (ipMatch) {
+      const octets = [
+        parseInt(ipMatch[1], 10),
+        parseInt(ipMatch[2], 10),
+        parseInt(ipMatch[3], 10),
+        parseInt(ipMatch[4], 10),
+      ];
+
+      // 10.0.0.0/8
+      if (octets[0] === 10) return false;
+      // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
+      if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return false;
+      // 192.168.0.0/16
+      if (octets[0] === 192 && octets[1] === 168) return false;
+      // 127.0.0.0/8 (Loopback)
+      if (octets[0] === 127) return false;
+      // 169.254.0.0/16 (Link-local)
+      if (octets[0] === 169 && octets[1] === 254) return false;
+      // 0.0.0.0/8
+      if (octets[0] === 0) return false;
+    }
+
+    // Block IPv6 private ranges (fc00::/7, fe80::/10)
+    if (hostname.startsWith("fc") || hostname.startsWith("fd") || hostname.startsWith("fe80:")) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ALLOWED_IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+  "image/x-icon",
+]);
+
 app.get("/api/proxy/image", async (c) => {
   const imageUrl = c.req.query("url")?.trim();
   if (!imageUrl) {
     return c.text("Image URL required", 400);
+  }
+
+  if (!isSafePublicUrl(imageUrl)) {
+    return c.text("Blocked or unsafe URL", 400);
   }
 
   try {
@@ -1592,7 +1676,7 @@ app.get("/api/proxy/image", async (c) => {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Referer": referer,
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         "Sec-Fetch-Dest": "image",
         "Sec-Fetch-Mode": "no-cors",
         "Sec-Fetch-Site": "cross-site",
@@ -1602,11 +1686,14 @@ app.get("/api/proxy/image", async (c) => {
     // If initial fetch returned 301/302 that wasn't automatically followed
     if ((upstreamRes.status === 301 || upstreamRes.status === 302) && upstreamRes.headers.get("location")) {
       const redirectedUrl = new URL(upstreamRes.headers.get("location")!, imageUrl).href;
+      if (!isSafePublicUrl(redirectedUrl)) {
+        return c.text("Blocked or unsafe redirect URL", 400);
+      }
       upstreamRes = await fetch(redirectedUrl, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           "Referer": referer,
-          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         },
       });
     }
@@ -1615,7 +1702,12 @@ app.get("/api/proxy/image", async (c) => {
       return c.text(`Upstream image failed with status ${upstreamRes.status}`, 502);
     }
 
-    const contentType = upstreamRes.headers.get("content-type") || "image/jpeg";
+    const rawContentType = (upstreamRes.headers.get("content-type") || "").toLowerCase().split(";")[0].trim();
+    if (!ALLOWED_IMAGE_MIMES.has(rawContentType)) {
+      return c.text("Unsupported image media type", 415);
+    }
+
+    const contentType = rawContentType || "image/jpeg";
     const headers = new Headers();
     headers.set("Content-Type", contentType);
     headers.set("Access-Control-Allow-Origin", "*");
@@ -1674,6 +1766,9 @@ app.get("/api/metadata", async (c) => {
         ? rawUrl
         : `https://${rawUrl}`;
       targetUrl = new URL(formatted);
+      if (!isSafePublicUrl(targetUrl.href)) {
+        return c.json({ error: "Blocked or unsafe URL" }, 400);
+      }
     } catch {
       return c.json({ error: "Invalid URL format" }, 400);
     }

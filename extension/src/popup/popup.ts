@@ -9,6 +9,7 @@ import {
   saveBookmark,
   getApiBase
 } from '../api';
+import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from '../content';
@@ -34,6 +35,7 @@ const chipsContainer = document.getElementById('group-chips-container') as HTMLE
 const btnSaveSubmit = document.getElementById('btn-save-submit') as HTMLButtonElement;
 const btnSaveText = document.getElementById('btn-save-text') as HTMLElement;
 const saveStatusMsg = document.getElementById('save-status-msg') as HTMLElement;
+const badgeInVault = document.getElementById('badge-in-vault') as HTMLElement;
 
 const previewCard = document.getElementById('preview-image-container') as HTMLElement;
 const previewImage = document.getElementById('preview-image') as HTMLImageElement;
@@ -145,10 +147,29 @@ async function loadActiveTabData(): Promise<void> {
       }
     }
 
+    // Query local database for existing bookmark
+    let existingBookmark: any = null;
+    try {
+      existingBookmark = await db.bookmarks.where('url').equals(tab.url).first();
+    } catch (e) {
+      console.warn('[Markbel Popup] Could not query local bookmark:', e);
+    }
+
+    if (existingBookmark && !existingBookmark.deletedAt) {
+      if (badgeInVault) badgeInVault.classList.remove('hidden');
+      btnSaveText.textContent = 'Update Bookmark';
+    } else {
+      if (badgeInVault) badgeInVault.classList.add('hidden');
+      btnSaveText.textContent = 'Save Bookmark';
+    }
+
     // Populate Fields
-    inputTitle.value = currentMeta.title;
+    inputTitle.value = existingBookmark?.title || currentMeta.title;
     inputUrl.value = currentMeta.url;
-    inputDesc.value = currentMeta.selectedText || currentMeta.description || '';
+    inputDesc.value = existingBookmark?.description || existingBookmark?.notes || currentMeta.selectedText || currentMeta.description || '';
+    if (existingBookmark) {
+      togglePin.checked = !!existingBookmark.isPinned;
+    }
 
     // Render Preview Image if available
     if (currentMeta.image) {
@@ -161,11 +182,37 @@ async function loadActiveTabData(): Promise<void> {
     // Auto-resolve Smart Group via Markbel's domain and compound rules
     const customRules = await getCustomSmartGroupRules().catch(() => []);
     const autoGroup = resolveSmartGroup(currentMeta.url, [], customRules);
-    selectGroup(autoGroup);
+    const targetGroup = existingBookmark?.group || autoGroup || 'Unsorted';
+
+    await loadDynamicGroupChips(targetGroup);
+    selectGroup(targetGroup);
 
   } catch (err) {
     console.error('[Markbel Popup] Error loading active tab:', err);
     showError('Unable to inspect active tab.');
+  }
+}
+
+/**
+ * Dynamically load smart group chips from IndexedDB
+ */
+async function loadDynamicGroupChips(targetGroup: string): Promise<void> {
+  try {
+    const groups = await db.groups.filter((g) => !g.deletedAt).toArray();
+    const groupNames = Array.from(new Set(groups.map((g) => (g.name || '').trim()).filter(Boolean)));
+    const defaultChips = ['YT', 'Insta', 'X', 'Unsorted'];
+    const combined = Array.from(new Set([...groupNames, ...defaultChips]));
+
+    chipsContainer.innerHTML = combined
+      .map(
+        (name) =>
+          `<button type="button" class="chip ${
+            name.toLowerCase() === targetGroup.toLowerCase() ? 'active' : ''
+          }" data-group="${name}">${name}</button>`
+      )
+      .join('');
+  } catch (e) {
+    console.warn('[Markbel Popup] Failed to load dynamic groups:', e);
   }
 }
 

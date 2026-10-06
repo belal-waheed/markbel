@@ -9,12 +9,13 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5173',
+    channel: 'msedge',
     trace: 'on-first-retry',
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'msedge',
+      use: { ...devices['Desktop Edge'], channel: 'msedge' },
     }
   ],
   webServer: [
@@ -23,12 +24,6 @@ export default defineConfig({
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       cwd: './',
-    },
-    {
-      command: 'npm run dev',
-      url: 'http://localhost:3001/api/health',
-      reuseExistingServer: !process.env.CI,
-      cwd: '../../backend',
     }
   ],
 });

@@ -285,6 +285,24 @@ export class GroupRepository implements SyncRepository<LocalGroup> {
       const existing = await db.groups.get(record.id!);
       
       if (operation === 'create' || operation === 'update') {
+        if (!existing && record.name) {
+          const nameNormalized = record.name.trim().toLowerCase();
+          const existingSameName = await db.groups
+            .filter((g) => !g.deletedAt && g.name.trim().toLowerCase() === nameNormalized)
+            .first();
+
+          if (existingSameName) {
+            await db.groups.update(existingSameName.id, {
+              ...existingSameName,
+              ...record,
+              id: existingSameName.id,
+              version,
+              updatedAt: record.updatedAt || new Date().toISOString()
+            } as LocalGroup);
+            return;
+          }
+        }
+
         await db.groups.put({
           ...(existing || {}),
           ...record,

@@ -8,6 +8,7 @@
     "dev:frontend": "vite",
     "dev:backend": "tsx watch api/index.ts",
     "build": "vite build && tsc --project tsconfig.api.json",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.api.json --noEmit",
     "test": "vitest run",
     "test:run": "vitest run",
     "preview": "vite preview",

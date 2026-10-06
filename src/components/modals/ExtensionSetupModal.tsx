@@ -62,7 +62,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
                   Install Markbel Extension
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                   v1.0.2
                 </span>
               </div>
@@ -103,7 +103,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
             }`}
           >
             <span>Microsoft Edge</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
               1-Click Store
             </span>
           </button>
@@ -115,7 +115,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
             /* Microsoft Edge 1-Click Guide */
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-700 dark:text-emerald-400 shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
@@ -218,7 +218,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                     </div>
 
                     <div className="p-3.5 rounded-xl bg-[var(--color-bg-element)] border border-[var(--color-border-default)] flex items-start gap-3">
-                      <FolderArchive className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <FolderArchive className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <div className="text-xs text-[var(--color-text-muted)] leading-relaxed">
                         <strong className="text-[var(--color-text-primary)]">Pro Tip:</strong> Right-click the downloaded <code className="font-mono text-[11px]">.zip</code> and choose <span className="text-[var(--color-text-primary)] font-medium">"Extract All"</span> to a permanent folder like <code className="font-mono text-[11px]">Documents/markbel-extension</code>. Do not delete this folder after installing!
                       </div>
@@ -268,8 +268,8 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                         >
                           {copiedUrl ? (
                             <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-emerald-400">Copied!</span>
+                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Copied!</span>
                             </>
                           ) : (
                             <>
@@ -288,9 +288,9 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                             Developer mode (Top Right Corner)
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
                           <span>TOGGLE ON</span>
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         </div>
                       </div>
                     </div>
@@ -324,7 +324,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                     <div className="p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)]">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold text-[var(--color-accent)]">Step 3 of 3</span>
-                        <span className="text-[11px] font-bold text-emerald-400">Final Step</span>
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Final Step</span>
                       </div>
                       <h4 className="text-sm font-bold text-[var(--color-text-primary)]">
                         Click "Load unpacked" & Select Folder
@@ -345,9 +345,9 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({ isOpen
                       </div>
 
                       <div className="mt-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs text-[var(--color-text-primary)] flex items-start gap-2.5">
-                        <Pin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <Pin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <div className="leading-relaxed">
-                          <strong>Don't forget to Pin!</strong> Click the extensions puzzle icon in your browser's top bar and toggle the <strong className="text-emerald-400">Pin</strong> icon next to Markbel.
+                          <strong>Don't forget to Pin!</strong> Click the extensions puzzle icon in your browser's top bar and toggle the <strong className="text-emerald-700 dark:text-emerald-400">Pin</strong> icon next to Markbel.
                         </div>
                       </div>
                     </div>

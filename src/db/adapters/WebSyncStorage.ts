@@ -51,8 +51,8 @@ export class WebSyncStorage implements SyncStorage {
   async getAuthToken(): Promise<string | null> {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       try {
-        const data = await chrome.storage.local.get('authToken');
-        if (data && data.authToken) return data.authToken;
+        const data = (await chrome.storage.local.get('authToken')) as { authToken?: string };
+        if (data && typeof data.authToken === 'string') return data.authToken;
       } catch {}
     }
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -210,6 +210,24 @@ export class WebSyncStorage implements SyncStorage {
               updatedAt: data.updatedAt || new Date().toISOString()
             } as any);
           } else {
+            // Check if active group with same name already exists locally under a different ID
+            if (change.entityType === 'group' && (data as any).name) {
+              const incomingName = String((data as any).name).trim().toLowerCase();
+              const existingSameName = await db.groups
+                .filter((g) => !g.deletedAt && g.name.trim().toLowerCase() === incomingName)
+                .first();
+
+              if (existingSameName) {
+                await db.groups.update(existingSameName.id, {
+                  ...data,
+                  id: existingSameName.id,
+                  version: change.version,
+                  updatedAt: data.updatedAt || new Date().toISOString()
+                } as any);
+                continue;
+              }
+            }
+
             // Create
             await table.put({
               ...data,

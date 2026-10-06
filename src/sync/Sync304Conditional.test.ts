@@ -115,7 +115,7 @@ describe("Sync 304 Conditional Cursor Validation", () => {
     expect(shouldReturn304WithData).toBe(false);
 
     // If client ETag does not match cursor, must return 200
-    const staleEtag = 'W/"cursor-50"';
+    const staleEtag: string = 'W/"cursor-50"';
     const shouldReturn304Stale =
       (!changes || changes.length === 0) && staleEtag === `W/"cursor-${cursor}"`;
     expect(shouldReturn304Stale).toBe(false);

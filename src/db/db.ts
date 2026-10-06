@@ -156,6 +156,11 @@ export async function migrateGuestData(userId: string): Promise<number> {
       .toArray();
 
     for (const g of guestGroups) {
+      // Do not re-enqueue mutations for groups that already have an authenticated userId
+      if (g.userId && g.userId !== 'local-user' && g.userId !== '') {
+        continue;
+      }
+
       const updated: LocalGroup = {
         ...g,
         userId,
@@ -214,17 +219,81 @@ export async function clearAllLocalData(): Promise<void> {
 }
 
 /**
+ * Automated self-healing migration that consolidates duplicate groups with the same name.
+ * Keeps the oldest/primary group, re-points any referencing bookmarks, and removes duplicate group records.
+ */
+export async function deduplicateLocalGroups(): Promise<void> {
+  const allGroups = await db.groups.filter((g) => !g.deletedAt).toArray();
+  const groupedByName = new Map<string, LocalGroup[]>();
+
+  for (const g of allGroups) {
+    const key = (g.name || '').toLowerCase().trim();
+    if (!key) continue;
+    if (!groupedByName.has(key)) {
+      groupedByName.set(key, []);
+    }
+    groupedByName.get(key)!.push(g);
+  }
+
+  const duplicatesToResolve: { primary: LocalGroup; duplicates: LocalGroup[] }[] = [];
+  for (const [, groupList] of groupedByName) {
+    if (groupList.length > 1) {
+      groupList.sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (aTime && bTime && aTime !== bTime) return aTime - bTime;
+        return (a.id || '').localeCompare(b.id || '');
+      });
+      duplicatesToResolve.push({
+        primary: groupList[0],
+        duplicates: groupList.slice(1),
+      });
+    }
+  }
+
+  if (duplicatesToResolve.length === 0) return;
+
+  const now = new Date().toISOString();
+  await db.transaction('rw', [db.groups, db.bookmarks, db.syncOutbox], async () => {
+    for (const { primary, duplicates } of duplicatesToResolve) {
+      const dupIds = new Set(duplicates.map((d) => d.id));
+      const dupNames = new Set(duplicates.map((d) => d.name.toLowerCase().trim()));
+
+      const bookmarksToUpdate = await db.bookmarks
+        .filter((b) => {
+          if (b.deletedAt) return false;
+          if (!b.group) return false;
+          const bg = b.group.toLowerCase().trim();
+          return dupNames.has(bg) || dupIds.has(b.group);
+        })
+        .toArray();
+
+      for (const b of bookmarksToUpdate) {
+        await db.bookmarks.update(b.id, {
+          group: primary.name,
+          updatedAt: now,
+          version: (b.version || 0) + 1,
+        });
+      }
+
+      for (const dup of duplicates) {
+        await db.groups.delete(dup.id);
+      }
+    }
+  });
+}
+
+/**
  * Initializes default smart groups (YT, Insta, X) for a given user if not already present.
  */
 export async function initializeDefaultSmartGroups(userId: string = 'local-user'): Promise<void> {
   const targetUserId = userId || 'local-user';
   const now = new Date().toISOString();
 
+  // Check if groups with default names exist by name.toLowerCase(), regardless of userId
   const existingGroups = await db.groups
-    .filter((g) => (g.userId === targetUserId || !g.userId) && !g.deletedAt)
+    .filter((g) => !g.deletedAt)
     .toArray();
-
-  const existingNames = new Set(existingGroups.map((g) => g.name.toLowerCase()));
 
   const DEFAULT_SEEDS = [
     { name: 'YT', color: 'red' },
@@ -234,7 +303,21 @@ export async function initializeDefaultSmartGroups(userId: string = 'local-user'
 
   await db.transaction('rw', [db.groups, db.syncOutbox], async () => {
     for (const seed of DEFAULT_SEEDS) {
-      if (!existingNames.has(seed.name.toLowerCase())) {
+      const match = existingGroups.find(
+        (g) => g.name.toLowerCase().trim() === seed.name.toLowerCase().trim()
+      );
+
+      if (match) {
+        if (targetUserId !== 'local-user' && match.userId !== targetUserId) {
+          const updated: LocalGroup = {
+            ...match,
+            userId: targetUserId,
+            updatedAt: now,
+          };
+          await db.groups.put(updated);
+          match.userId = targetUserId;
+        }
+      } else {
         const id = crypto.randomUUID();
         const newGroup: LocalGroup = {
           id,

@@ -7,7 +7,7 @@ export function PwaUpdateToast() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
+    onRegistered(r?: ServiceWorkerRegistration) {
       if (r) {
         // Automatically check for SW updates every hour
         setInterval(() => {
@@ -15,7 +15,7 @@ export function PwaUpdateToast() {
         }, 60 * 60 * 1000)
       }
     },
-    onRegisterError(error) {
+    onRegisterError(error: unknown) {
       console.warn('SW registration error', error)
     },
   })

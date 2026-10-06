@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks } from "../db/db";
+import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks, deduplicateLocalGroups } from "../db/db";
 import { syncManager } from "../db/SyncManager";
 import { bookmarkRepository, groupRepository } from "../db/SyncRepository";
 import { useAuth } from "../lib/auth";
@@ -52,9 +52,11 @@ export default function BookmarksPage() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
 
-    // Initial mount sync pull & smart groups initialization
-    initializeDefaultSmartGroups(user?.id || "local-user");
-    syncManager.sync(true);
+    // Initial mount: self-heal duplicate groups, init default smart groups, sync pull
+    deduplicateLocalGroups().finally(() => {
+      initializeDefaultSmartGroups(user?.id || "local-user");
+      syncManager.sync(true);
+    });
 
     return () => {
       window.removeEventListener("online", handleOnline);

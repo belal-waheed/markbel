@@ -36,10 +36,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import MarkbelLogo from "../components/MarkbelLogo.js";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/auth.js";
 import { enableWebPush } from "../lib/push.js";
+import { syncManager } from "../db/SyncManager.js";
+import { useModalBackNavigation } from "../lib/useModalBackNavigation.js";
 import {
   getNavigationPreferences,
   setNavigationPreferences,
@@ -59,7 +62,7 @@ import {
   ConstraintOperator,
   PRESET_SMART_RULES,
 } from "../lib/smartGroups.js";
-import { db } from "../db/db.js";
+import { db, deduplicateLocalGroups } from "../db/db.js";
 
 const COLOR_OPTIONS = [
   { name: "blue", label: "Blue", bg: "bg-blue-500" },
@@ -155,13 +158,17 @@ export default function SettingsPage() {
   const { user, token, isGuest, logout } = useAuth();
   const isGuestMode = isGuest || !token || !user;
   const navigate = useNavigate();
-  const isNative =
-    navigator.userAgent.includes("Electron") || !!(window as any).ReactNativeWebView;
+  const isNative = Capacitor.isNativePlatform();
 
   const [pushSupported, setPushSupported] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [noticeMessage, setNoticeMessage] = useState("");
+
+  // Logout Confirmation Modal State
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [unsyncedLogoutCount, setUnsyncedLogoutCount] = useState(0);
+  const [isSyncingAndLoggingOut, setIsSyncingAndLoggingOut] = useState(false);
 
   // Navigation & Workspace Preferences State
   const [navPrefs, setNavPrefs] = useState<NavigationPreferences>(() =>
@@ -221,6 +228,45 @@ export default function SettingsPage() {
     { id: crypto.randomUUID(), operator: "domain_equals", value: "" },
   ]);
 
+  useModalBackNavigation([
+    { isOpen: showLogoutModal, close: () => setShowLogoutModal(false) },
+    { isOpen: isCreatingNewGroup, close: () => setIsCreatingNewGroup(false) },
+  ]);
+
+  const handleInitiateLogout = async () => {
+    try {
+      const count = await db.syncOutbox.count();
+      if (count > 0) {
+        setUnsyncedLogoutCount(count);
+        setShowLogoutModal(true);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to check sync outbox count:", e);
+    }
+    await logout();
+    navigate("/login");
+  };
+
+  const handleSyncAndLogout = async () => {
+    setIsSyncingAndLoggingOut(true);
+    try {
+      await syncManager.sync(true);
+    } catch (err) {
+      console.warn("Sync before logout failed:", err);
+    }
+    await logout();
+    setIsSyncingAndLoggingOut(false);
+    setShowLogoutModal(false);
+    navigate("/login");
+  };
+
+  const handleDiscardAndLogout = async () => {
+    await logout();
+    setShowLogoutModal(false);
+    navigate("/login");
+  };
+
   const refreshGroupsAndRules = async () => {
     try {
       const [rules, groups, bookmarks] = await Promise.all([
@@ -229,9 +275,20 @@ export default function SettingsPage() {
         db.bookmarks.filter((b) => !b.deletedAt && !b.isArchived).toArray(),
       ]);
       setCustomRules(rules);
-      const names = groups.map((g) => g.name);
-      const colorMap: Record<string, string> = {};
+
+      // Deduplicate groups by lowercase trimmed name
+      const uniqueGroupsMap = new Map<string, (typeof groups)[0]>();
       groups.forEach((g) => {
+        const key = (g.name || "").trim().toLowerCase();
+        if (key && !uniqueGroupsMap.has(key)) {
+          uniqueGroupsMap.set(key, g);
+        }
+      });
+      const uniqueGroups = Array.from(uniqueGroupsMap.values());
+
+      const names = uniqueGroups.map((g) => g.name);
+      const colorMap: Record<string, string> = {};
+      uniqueGroups.forEach((g) => {
         colorMap[g.name.toLowerCase()] = g.color;
       });
       const counts: Record<string, number> = {};
@@ -251,7 +308,9 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    refreshGroupsAndRules();
+    deduplicateLocalGroups().finally(() => {
+      refreshGroupsAndRules();
+    });
     if (typeof window !== "undefined" && window.location.hash === "#navigation") {
       const el = document.getElementById("navigation");
       if (el) {
@@ -569,22 +628,22 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-5">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-5 gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
           <button
             onClick={() => navigate("/app")}
-            className="p-2 rounded-md hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors active:scale-95"
+            className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors active:scale-95 shrink-0 cursor-pointer"
             title="Back to Bookmarks"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <MarkbelLogo size={28} />
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--color-text-primary)] truncate">
                 Settings & Integrations
               </h1>
-              <p className="text-xs text-[var(--color-text-muted)]">
+              <p className="text-xs text-[var(--color-text-muted)] truncate">
                 Manage your account, auto-categorization engine, and device alerts
               </p>
             </div>
@@ -593,8 +652,8 @@ export default function SettingsPage() {
 
         {!isGuestMode ? (
           <button
-            onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--color-status-error)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+            onClick={handleInitiateLogout}
+            className="min-h-[44px] px-3.5 py-2 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-status-error)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer shrink-0"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
@@ -602,7 +661,7 @@ export default function SettingsPage() {
         ) : (
           <button
             onClick={() => navigate("/login?redirect=/settings")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+            className="min-h-[44px] px-3.5 py-2 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer shrink-0"
           >
             <UserIcon className="w-4 h-4" />
             <span>Sign In</span>
@@ -618,7 +677,7 @@ export default function SettingsPage() {
       )}
 
       {/* Account Details Card */}
-      <section className="studio-card p-6 relative space-y-4">
+      <section className="studio-card p-4 sm:p-6 relative space-y-4">
         <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
@@ -685,7 +744,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Security & Password Card */}
-      <section className="studio-card p-6 relative space-y-4">
+      <section className="studio-card p-4 sm:p-6 relative space-y-4">
         <div className="flex items-center gap-2.5 border-b border-[var(--color-border-default)] pb-4">
           <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-border-default)] text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
             <KeyRound className="w-4 h-4" />
@@ -788,7 +847,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Navigation & Sidebar Preferences Card */}
-      <section id="navigation" className="studio-card p-6 relative space-y-6">
+      <section id="navigation" className="studio-card p-4 sm:p-6 relative space-y-6">
         <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-border-default)] text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
@@ -980,7 +1039,7 @@ export default function SettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleVisibility(groupName)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                          className={`min-h-[44px] min-w-[44px] sm:min-w-0 px-3 py-2 flex items-center justify-center sm:justify-start gap-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                             isHidden
                               ? "bg-[var(--color-bg-element)] text-[var(--color-text-muted)] border-[var(--color-border-default)] hover:text-[var(--color-text-primary)]"
                               : "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] border-[var(--color-border-default)] hover:border-[var(--color-accent)]"
@@ -1004,7 +1063,7 @@ export default function SettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleTogglePin(groupName)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                          className={`min-h-[44px] min-w-[44px] sm:min-w-0 px-3 py-2 flex items-center justify-center sm:justify-start gap-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                             isPinned
                               ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)] border-[var(--color-accent)]/30 font-semibold"
                               : "bg-[var(--color-bg-surface)] text-[var(--color-text-muted)] border-[var(--color-border-default)] hover:text-[var(--color-text-primary)]"
@@ -1027,7 +1086,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Multi-Constraint Auto-Categorization & Preset Library */}
-      <section className="studio-card p-6 relative space-y-6">
+      <section className="studio-card p-4 sm:p-6 relative space-y-6">
         <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
@@ -1082,7 +1141,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setSandboxUrl("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] p-0.5"
+                className="absolute right-0 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                 title="Clear input"
               >
                 <CloseIcon className="w-3.5 h-3.5" />
@@ -1131,12 +1190,12 @@ export default function SettingsPage() {
                   {sandboxResult.matchedRule.constraints.map((c, idx) => (
                     <span
                       key={c.id || idx}
-                      className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--color-bg-element)] text-[var(--color-text-primary)] px-2 py-0.5 rounded border border-[var(--color-border-default)]"
+                      className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--color-bg-element)] text-[var(--color-text-primary)] px-2 py-0.5 rounded border border-[var(--color-border-default)] truncate max-w-[180px]"
                     >
-                      <span className="text-[var(--color-text-muted)]">
+                      <span className="text-[var(--color-text-muted)] shrink-0">
                         {OPERATOR_CONFIG[c.operator]?.prefix || c.operator}:
                       </span>
-                      <span>{c.value}</span>
+                      <span className="truncate">{c.value}</span>
                     </span>
                   ))}
                 </div>
@@ -1163,7 +1222,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
             {PRESET_SMART_RULES.map((preset) => {
               const isInstalled = customRules.some(
                 (r) =>
@@ -1174,7 +1233,7 @@ export default function SettingsPage() {
               return (
                 <div
                   key={preset.id}
-                  className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-xl flex flex-col justify-between space-y-3 hover:border-[var(--color-accent)]/50 transition-colors"
+                  className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded-xl flex flex-col justify-between space-y-3 hover:border-[var(--color-accent)]/50 transition-colors snap-start shrink-0 w-[240px] sm:w-auto"
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-1.5">
@@ -1315,7 +1374,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsCreatingNewGroup(false)}
-                  className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] px-2 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1339,19 +1398,23 @@ export default function SettingsPage() {
                   <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">
                     Group Color Tag
                   </label>
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-1 pt-1 flex-wrap">
                     {COLOR_OPTIONS.map((col) => (
                       <button
                         key={col.name}
                         type="button"
                         onClick={() => setNewGroupColor(col.name)}
-                        className={`w-6 h-6 rounded-full ${col.bg} transition-all ${
-                          newGroupColor === col.name
-                            ? "ring-2 ring-offset-2 ring-[var(--color-accent)] scale-110"
-                            : "opacity-75 hover:opacity-100"
-                        }`}
+                        className="w-11 h-11 flex items-center justify-center cursor-pointer"
                         title={col.label}
-                      />
+                      >
+                        <span
+                          className={`w-6 h-6 rounded-full ${col.bg} transition-all block ${
+                            newGroupColor === col.name
+                              ? "ring-2 ring-offset-2 ring-[var(--color-accent)] scale-110"
+                              : "opacity-75 hover:opacity-100"
+                          }`}
+                        />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1427,10 +1490,10 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveConstraintRow(constraint.id)}
-                        className="p-1.5 text-[var(--color-text-muted)] hover:text-red-500 rounded hover:bg-red-500/10 transition-colors self-end sm:self-center cursor-pointer"
+                        className="h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-500 rounded-lg hover:bg-red-500/10 transition-colors self-end sm:self-center cursor-pointer shrink-0"
                         title="Remove condition"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
@@ -1528,11 +1591,11 @@ export default function SettingsPage() {
                                   AND
                                 </span>
                               )}
-                              <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--color-bg-canvas)] text-[var(--color-text-primary)] px-2 py-0.5 rounded border border-[var(--color-border-default)]">
-                                <span className="text-[var(--color-text-muted)]">
+                              <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--color-bg-canvas)] text-[var(--color-text-primary)] px-2 py-0.5 rounded border border-[var(--color-border-default)] truncate max-w-[180px]">
+                                <span className="text-[var(--color-text-muted)] shrink-0">
                                   {OPERATOR_CONFIG[c.operator]?.prefix || c.operator}:
                                 </span>
-                                <span>{c.value}</span>
+                                <span className="truncate">{c.value}</span>
                               </span>
                             </span>
                           ))}
@@ -1543,7 +1606,7 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => handleDeleteRule(rule.id)}
                         disabled={rulesLoading}
-                        className="p-1.5 text-[var(--color-text-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-md transition-colors active:scale-95 disabled:opacity-50 self-end sm:self-center cursor-pointer shrink-0"
+                        className="h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors active:scale-95 disabled:opacity-50 self-end sm:self-center cursor-pointer shrink-0"
                         title="Remove rule"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1559,7 +1622,7 @@ export default function SettingsPage() {
 
       {/* Web Push Notifications Card */}
       {!isNative && (
-        <section className="studio-card p-6 relative space-y-5">
+        <section className="studio-card p-4 sm:p-6 relative space-y-5">
           <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold rounded">
@@ -1636,6 +1699,69 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSyncingAndLoggingOut) {
+              setShowLogoutModal(false);
+            }
+          }}
+        >
+          <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl w-full max-w-md shadow-2xl p-6 relative overflow-hidden space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <LogOut className="w-5 h-5" />
+                <h3 className="text-base font-bold text-[var(--color-text-primary)]">
+                  Unsynced Changes Warning
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isSyncingAndLoggingOut}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1.5 rounded-lg hover:bg-[var(--color-bg-hover)] cursor-pointer"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
+              You have <strong className="text-[var(--color-text-primary)] font-semibold">{unsyncedLogoutCount}</strong> unsynced change{unsyncedLogoutCount === 1 ? "" : "s"} in your offline outbox. If you sign out now without syncing, these offline changes will be purged from this device.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[var(--color-border-default)]">
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isSyncingAndLoggingOut}
+                className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-semibold text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] cursor-pointer order-3 sm:order-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndLogout}
+                disabled={isSyncingAndLoggingOut}
+                className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-semibold text-[var(--color-status-error)] hover:bg-red-500/10 cursor-pointer order-2"
+              >
+                Discard and Sign Out
+              </button>
+              <button
+                type="button"
+                onClick={handleSyncAndLogout}
+                disabled={isSyncingAndLoggingOut}
+                className="btn-primary min-h-[44px] px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer order-1 sm:order-3"
+              >
+                {isSyncingAndLoggingOut && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Sync Now and Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

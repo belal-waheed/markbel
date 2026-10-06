@@ -60,11 +60,11 @@ describe("Sync LWW (Last-Write-Wins) Resolution Logic", () => {
       deletedAt: "2026-08-31T10:00:00.000Z",
     };
 
-    const localItem = null; // Entity never seen before on this device
+    const localItem: Record<string, any> | null = null; // Entity never seen before on this device
     const deleteTimestamp = remoteDeleteChange.deletedAt || new Date().toISOString();
 
     const tombstoneRecord = localItem
-      ? { ...localItem, deletedAt: deleteTimestamp, version: remoteDeleteChange.version }
+      ? { ...(localItem as Record<string, any>), deletedAt: deleteTimestamp, version: remoteDeleteChange.version }
       : {
           id: remoteDeleteChange.entityId,
           userId: "remote-synced",

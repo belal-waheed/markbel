@@ -45,6 +45,10 @@ function NativeBridge() {
 
     // Hardware back button navigation
     const backHandlerPromise = CapApp.addListener('backButton', () => {
+      if (window.history.state?.markbelOverlay) {
+        window.history.back()
+        return
+      }
       if (location.pathname === '/app' || location.pathname === '/login') {
         CapApp.exitApp()
       } else {

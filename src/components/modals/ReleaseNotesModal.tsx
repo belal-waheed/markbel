@@ -98,7 +98,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
           {/* Feature 2: Curated 1-Click Presets Gallery */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
@@ -115,11 +115,11 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                  <CheckCircle2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                   <span>YouTube Playlists (list= query)</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                  <CheckCircle2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                   <span>Code Repos, Reddit, Substack, ArXiv, Instagram</span>
                 </span>
               </div>
@@ -128,7 +128,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
           {/* Feature 3: Live Interactive Rule Sandbox */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
               <FlaskConical className="w-5 h-5" />
             </div>
             <div>
@@ -145,11 +145,11 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span>Real-Time URL Simulation</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span>Constraint Evaluation Inspection</span>
                 </span>
               </div>
@@ -158,7 +158,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
           {/* Feature 4: Smart Group Auto-Provisioning */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
               <Tag className="w-5 h-5" />
             </div>
             <div>
@@ -175,11 +175,11 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                   <span>Automatic Group Creation in IndexedDB</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                   <span>Dynamic Color Palette Assignment</span>
                 </span>
               </div>

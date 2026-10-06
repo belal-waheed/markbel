@@ -11,8 +11,8 @@ async function getAuthHeaders(extraHeaders?: any): Promise<Record<string, string
   let token: string | null = null;
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    const data = await chrome.storage.local.get('authToken');
-    token = data.authToken;
+    const data = (await chrome.storage.local.get('authToken')) as { authToken?: string };
+    token = typeof data?.authToken === 'string' ? data.authToken : null;
   }
   if (!token && typeof window !== 'undefined' && window.localStorage) {
     token = localStorage.getItem('markbel_token');
@@ -30,7 +30,8 @@ const baseClient = ofetch.create({
   retry: 1,
   retryDelay: 500,
   async onRequest({ options }) {
-    options.headers = await getAuthHeaders(options.headers);
+    const authHeaders = await getAuthHeaders(options.headers);
+    options.headers = new Headers(authHeaders);
   }
 });
 

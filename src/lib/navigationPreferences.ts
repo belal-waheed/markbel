@@ -62,7 +62,7 @@ export function getNavigationPreferences(): NavigationPreferences {
         : DEFAULT_NAVIGATION_PREFERENCES.showMobileCategoryScroller;
 
     const hiddenGroupNames = Array.isArray(parsed.hiddenGroupNames)
-      ? Array.from(
+      ? Array.from<string>(
           new Set(
             parsed.hiddenGroupNames
               .filter((item: unknown): item is string => typeof item === "string")
@@ -73,7 +73,7 @@ export function getNavigationPreferences(): NavigationPreferences {
       : [];
 
     let pinnedGroupNames = Array.isArray(parsed.pinnedGroupNames)
-      ? Array.from(
+      ? Array.from<string>(
           new Set(
             parsed.pinnedGroupNames
               .filter((item: unknown): item is string => typeof item === "string")

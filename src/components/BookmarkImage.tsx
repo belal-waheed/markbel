@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link as LinkIcon, ImageOff } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
 
@@ -15,6 +15,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   className = "",
   aspectRatioClass = "aspect-video",
 }) => {
+  const imgRef = useRef<HTMLImageElement>(null);
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isProxyFallback, setIsProxyFallback] = useState(false);
@@ -26,8 +27,13 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   useEffect(() => {
     setActiveSrc(trimmedSrc);
     setHasError(false);
-    setIsLoaded(false);
     setIsProxyFallback(false);
+
+    if (imgRef.current?.complete && imgRef.current?.naturalWidth > 0) {
+      setIsLoaded(true);
+    } else {
+      setIsLoaded(false);
+    }
   }, [trimmedSrc]);
 
   const isFavicon = Boolean(
@@ -67,6 +73,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
           <div className="relative z-10 flex flex-col items-center justify-center gap-1.5 p-4">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] shadow-xs flex items-center justify-center p-2">
               <img
+                ref={imgRef}
                 src={activeSrc}
                 alt={alt || "Favicon"}
                 loading="lazy"
@@ -82,6 +89,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
           </div>
         ) : (
           <img
+            ref={imgRef}
             src={activeSrc}
             alt={alt || "Bookmark thumbnail"}
             loading="lazy"
