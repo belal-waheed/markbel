@@ -89,7 +89,7 @@ export default function UserGuideModal({ onClose }: UserGuideModalProps) {
         {/* Header pattern */}
         <div className="h-24 bg-gradient-to-br from-amber-50 to-blue-50 border-b border-[var(--color-border-default)] flex items-center justify-center relative overflow-hidden">
            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
-           <MarkbelLogo size={48} className="text-amber-500 relative z-10" />
+           <MarkbelLogo size={48} className="shadow-xs relative z-10" />
         </div>
 
         {/* Content */}

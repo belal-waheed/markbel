@@ -212,8 +212,8 @@ export default function LoginPage() {
         className="w-full max-w-md relative z-10"
       >
         {/* Logo Header */}
-        <div className="flex flex-col items-center justify-center gap-2 mb-8 text-center">
-          <MarkbelLogo size={56} className="text-[var(--color-accent)] drop-shadow-sm" />
+        <div className="flex flex-col items-center justify-center gap-2 mb-8 text-center select-none">
+          <MarkbelLogo size={56} className="drop-shadow-sm" />
           <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] mt-1.5 uppercase">
             Markbel
           </h1>

@@ -637,8 +637,8 @@ export default function SettingsPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <MarkbelLogo size={28} />
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 select-none">
+            <MarkbelLogo size={28} className="shadow-xs" />
             <div className="min-w-0 flex-1">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--color-text-primary)] truncate">
                 Settings & Integrations

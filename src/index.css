@@ -42,6 +42,22 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Prevent image selection overlays and native dragging artifacts */
+img, svg {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+img::selection {
+  background: transparent;
+}
+
+::selection {
+  background-color: rgba(0, 95, 184, 0.18);
+  color: inherit;
+}
+
 /* Safe Area Inset Utilities for Mobile/Capacitor */
 @utility safe-top {
   padding-top: env(safe-area-inset-top, 0px);

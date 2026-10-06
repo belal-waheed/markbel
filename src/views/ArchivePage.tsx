@@ -114,8 +114,8 @@ export default function ArchivePage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <MarkbelLogo size={32} />
-          <div>
+          <MarkbelLogo size={32} className="shadow-xs" />
+          <div className="select-none">
             <h1 className="text-lg font-bold tracking-tight text-[var(--color-text-primary)] flex items-center gap-2">
               <Archive className="w-4 h-4 text-amber-500" />
               <span>Bookmarks Archive</span>

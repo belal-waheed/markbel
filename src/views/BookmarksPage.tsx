@@ -526,11 +526,11 @@ export default function BookmarksPage() {
             </button>
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 md:hidden hover:opacity-85 transition-opacity cursor-pointer text-left"
+              className="flex items-center gap-2 md:hidden hover:opacity-85 transition-opacity cursor-pointer text-left select-none"
               title="About Markbel"
             >
-              <MarkbelLogo size={24} />
-              <h1 className="text-base font-bold tracking-tight text-[var(--color-text-primary)]">
+              <MarkbelLogo size={24} className="shadow-xs" />
+              <h1 className="text-base font-bold tracking-tight text-[var(--color-text-primary)] select-none">
                 Markbel
               </h1>
             </button>

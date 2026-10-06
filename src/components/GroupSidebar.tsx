@@ -151,12 +151,12 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
             setIsSidebarOpen(false);
             navigate("/");
           }}
-          className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer"
+          className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer select-none"
           title="Markbel - About & Downloads"
         >
-          <MarkbelLogo size={28} />
+          <MarkbelLogo size={28} className="shadow-xs" />
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
+            <h1 className="text-lg font-bold tracking-tight text-[var(--color-text-primary)] select-none">
               Markbel
             </h1>
           </div>
