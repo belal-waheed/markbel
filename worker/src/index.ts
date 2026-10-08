@@ -1051,11 +1051,36 @@ app.post("/api/sync/mutations", authMiddleware, async (c) => {
 
           // Cascade group rename to bookmarks in D1
           if (payload.name && oldName && oldName !== payload.name) {
-            statements.push(
-              c.env.DB.prepare(
-                "UPDATE bookmarks SET group_name = ?, updated_at = ? WHERE user_id = ? AND group_name = ?"
-              ).bind(payload.name, now, userId, oldName)
-            );
+            const { results: affectedBookmarks } = await c.env.DB.prepare(
+              "SELECT * FROM bookmarks WHERE user_id = ? AND group_name = ? AND deleted_at IS NULL"
+            ).bind(userId, oldName).all();
+
+            for (const bm of (affectedBookmarks || []) as any[]) {
+              const bmNewVersion = (bm.version || 0) + 1;
+              const bmUpdatedAt = now;
+              statements.push(
+                c.env.DB.prepare(
+                  "UPDATE bookmarks SET group_name = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+                ).bind(payload.name, bmNewVersion, bmUpdatedAt, bm.id, userId)
+              );
+
+              const updatedBmRecord = {
+                ...bm,
+                group_name: payload.name,
+                version: bmNewVersion,
+                updated_at: bmUpdatedAt,
+              };
+              currentBookmarkMap.set(bm.id, updatedBmRecord);
+              const bmRecordJson = JSON.stringify(normalizeSyncRecord(updatedBmRecord, "bookmark"));
+              const bmClientChangeId = `cascade-rename-${entityId}-${bm.id}-${now}`;
+
+              statements.push(
+                c.env.DB.prepare(
+                  `INSERT INTO sync_changes (user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+                ).bind(userId, "bookmark", bm.id, "update", bmNewVersion, bmClientChangeId, bmRecordJson, now)
+              );
+            }
           }
 
           const updatedGroup = {
@@ -1075,6 +1100,40 @@ app.post("/api/sync/mutations", authMiddleware, async (c) => {
               "UPDATE groups SET deleted_at = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
             ).bind(now, newVersion, now, entityId, userId)
           );
+
+          const existingGroupName = currentRecord?.name;
+          if (existingGroupName) {
+            const { results: affectedBookmarks } = await c.env.DB.prepare(
+              "SELECT * FROM bookmarks WHERE user_id = ? AND group_name = ? AND deleted_at IS NULL"
+            ).bind(userId, existingGroupName).all();
+
+            for (const bm of (affectedBookmarks || []) as any[]) {
+              const bmNewVersion = (bm.version || 0) + 1;
+              const bmUpdatedAt = now;
+              statements.push(
+                c.env.DB.prepare(
+                  "UPDATE bookmarks SET group_name = 'Unsorted', version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+                ).bind(bmNewVersion, bmUpdatedAt, bm.id, userId)
+              );
+
+              const updatedBmRecord = {
+                ...bm,
+                group_name: "Unsorted",
+                version: bmNewVersion,
+                updated_at: bmUpdatedAt,
+              };
+              currentBookmarkMap.set(bm.id, updatedBmRecord);
+              const bmRecordJson = JSON.stringify(normalizeSyncRecord(updatedBmRecord, "bookmark"));
+              const bmClientChangeId = `cascade-delete-${entityId}-${bm.id}-${now}`;
+
+              statements.push(
+                c.env.DB.prepare(
+                  `INSERT INTO sync_changes (user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+                ).bind(userId, "bookmark", bm.id, "update", bmNewVersion, bmClientChangeId, bmRecordJson, now)
+              );
+            }
+          }
 
           const deletedGroup = {
             ...(currentRecord || {}),
@@ -2564,19 +2623,43 @@ app.post("/api/notifications/dispatch", async (c) => {
 
   const now = new Date().toISOString();
 
-  // 1. Query due unread bookmarks from Cloudflare D1
-  const { results: dueBookmarks } = await c.env.DB.prepare(
-    `SELECT id, user_id, title, url, remind_at 
-     FROM bookmarks 
-     WHERE remind_at IS NOT NULL 
-       AND remind_at != '' 
-       AND remind_at <= ? 
-       AND is_read = 0 
-       AND is_archived = 0 
-       AND deleted_at IS NULL`
-  )
-    .bind(now)
-    .all();
+  // Ensure notified_at column exists in D1 SQLite
+  try {
+    await c.env.DB.prepare("ALTER TABLE bookmarks ADD COLUMN notified_at TEXT DEFAULT NULL").run();
+  } catch {}
+
+  // 1. Query due unread bookmarks from Cloudflare D1 with deduplication
+  let dueBookmarks: any[] = [];
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, user_id, title, url, remind_at, notified_at 
+       FROM bookmarks 
+       WHERE remind_at IS NOT NULL 
+         AND remind_at != '' 
+         AND remind_at <= ? 
+         AND is_read = 0 
+         AND is_archived = 0 
+         AND deleted_at IS NULL
+         AND (notified_at IS NULL OR notified_at < remind_at)`
+    )
+      .bind(now)
+      .all();
+    dueBookmarks = results || [];
+  } catch {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, user_id, title, url, remind_at 
+       FROM bookmarks 
+       WHERE remind_at IS NOT NULL 
+         AND remind_at != '' 
+         AND remind_at <= ? 
+         AND is_read = 0 
+         AND is_archived = 0 
+         AND deleted_at IS NULL`
+    )
+      .bind(now)
+      .all();
+    dueBookmarks = results || [];
+  }
 
   if (!dueBookmarks || dueBookmarks.length === 0) {
     return c.json({
@@ -2662,6 +2745,17 @@ app.post("/api/notifications/dispatch", async (c) => {
         }
       } catch (devErr) {
         console.warn(`[Push Dispatch Error] Device ${dev.id}:`, devErr);
+      }
+    }
+
+    // Mark bookmarks as notified to prevent infinite notification loop
+    for (const b of bookmarks) {
+      try {
+        await c.env.DB.prepare("UPDATE bookmarks SET notified_at = ? WHERE id = ?")
+          .bind(now, b.id)
+          .run();
+      } catch (markErr) {
+        console.warn(`[Push Dispatch] Failed to update notified_at for bookmark ${b.id}:`, markErr);
       }
     }
   }

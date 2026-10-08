@@ -16,6 +16,8 @@ interface BookmarkCardProps {
   isSelected?: boolean
   selectionMode?: boolean
   onToggleSelect?: (b: LocalBookmark, multi: boolean) => void
+  onDismissReminder?: (b: LocalBookmark) => void
+  onSnoozeReminder?: (b: LocalBookmark) => void
 }
 
 const getDomain = (url: string) => {
@@ -37,7 +39,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onDelete,
   isSelected = false,
   selectionMode = false,
-  onToggleSelect
+  onToggleSelect,
+  onDismissReminder,
+  onSnoozeReminder
 }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // COMPACT LIST ROW VIEW
@@ -123,16 +127,35 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             {b.title}
           </h4>
 
-          {b.description ? (
+          {b.description && (
             <p className="text-[11px] text-[var(--color-text-muted)] line-clamp-1">
               {b.description}
             </p>
-          ) : b.remindAt ? (
-            <div className="flex items-center gap-1 text-[10px] text-amber-600 font-medium">
-              <Clock className="w-3 h-3" />
+          )}
+          {b.remindAt && (
+            <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-medium">
+              <Clock className="w-3 h-3 shrink-0" />
               <span>Remind: {new Date(b.remindAt).toLocaleDateString()}</span>
+              <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => onSnoozeReminder?.(b)}
+                  className="px-1.5 py-0.2 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-semibold transition-colors"
+                  title="Snooze 1 day"
+                >
+                  +1d
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDismissReminder?.(b)}
+                  className="px-1.5 py-0.2 rounded bg-[var(--color-bg-element)] hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] font-semibold transition-colors"
+                  title="Dismiss reminder"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
 
         {/* Right: Quick Action Controls */}
@@ -153,7 +176,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             onClick={() => onTogglePin(b)}
             className={`p-1.5 rounded transition-colors ${
               b.isPinned
-                ? "text-amber-500 hover:bg-amber-50"
+                ? "text-amber-500 hover:bg-amber-500/10"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
             }`}
             title={b.isPinned ? "Unpin" : "Pin to top"}
@@ -171,7 +194,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
           <button
             onClick={() => onEdit(b)}
-            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-blue-50 rounded transition-colors"
+            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-blue-500/10 rounded transition-colors"
             title="Edit"
           >
             <Edit className="w-3.5 h-3.5" />
@@ -179,7 +202,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
           <button
             onClick={() => onDelete(b)}
-            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] hover:bg-red-50 rounded transition-colors"
+            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] hover:bg-red-500/10 rounded transition-colors"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -316,11 +339,31 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
           {/* Reminder Badge */}
           {b.remindAt && (
-            <div className="pt-1 flex items-center gap-1.5 text-xs text-amber-600 font-medium">
-              <Clock className="w-3.5 h-3.5" />
-              <span>
-                Remind: {new Date(b.remindAt).toLocaleDateString()}
-              </span>
+            <div className="pt-1 flex items-center justify-between gap-1.5 text-xs text-amber-600 font-medium">
+              <div className="flex items-center gap-1.5 truncate">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  Remind: {new Date(b.remindAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => onSnoozeReminder?.(b)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-semibold transition-colors"
+                  title="Snooze 1 day"
+                >
+                  +1d
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDismissReminder?.(b)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] font-semibold transition-colors"
+                  title="Dismiss reminder"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -347,7 +390,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
               e.stopPropagation();
               onEdit(b);
             }}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-blue-50 rounded p-1.5 transition-colors active:scale-95"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-blue-500/10 rounded p-1.5 transition-colors active:scale-95"
             title="Edit"
           >
             <Edit className="w-3.5 h-3.5" />
@@ -357,7 +400,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
               e.stopPropagation();
               onDelete(b);
             }}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] hover:bg-red-50 rounded p-1.5 transition-colors active:scale-95"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] hover:bg-red-500/10 rounded p-1.5 transition-colors active:scale-95"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />

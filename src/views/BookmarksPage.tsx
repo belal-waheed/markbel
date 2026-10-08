@@ -384,9 +384,7 @@ export default function BookmarksPage() {
   const handleBulkDelete = async () => {
     const count = selectedIds.size;
     if (window.confirm(`Delete ${count} selected bookmarks?`)) {
-      for (const id of selectedIds) {
-        await bookmarkRepository.delete(id);
-      }
+      await bookmarkRepository.bulkDelete(Array.from(selectedIds));
       handleClearSelection();
       syncManager.sync(true);
       showToast("Deleted", `Deleted ${count} bookmarks`, "success");
@@ -395,9 +393,7 @@ export default function BookmarksPage() {
 
   const handleBulkArchive = async () => {
     const count = selectedIds.size;
-    for (const id of selectedIds) {
-      await bookmarkRepository.update(id, { isArchived: true });
-    }
+    await bookmarkRepository.bulkUpdate(Array.from(selectedIds), { isArchived: true });
     handleClearSelection();
     syncManager.sync(true);
     showToast("Archived", `Archived ${count} bookmarks`, "success");
@@ -409,15 +405,28 @@ export default function BookmarksPage() {
     const allRead = selectedList.every(b => b.isRead);
     const newStatus = !allRead;
     const readAtTimestamp = newStatus ? new Date().toISOString() : "";
-    for (const id of selectedIds) {
-      await bookmarkRepository.update(id, {
-        isRead: newStatus,
-        readAt: readAtTimestamp
-      });
-    }
+    await bookmarkRepository.bulkUpdate(Array.from(selectedIds), {
+      isRead: newStatus,
+      readAt: readAtTimestamp
+    });
     handleClearSelection();
     syncManager.sync(true);
     showToast("Updated", `Marked ${count} bookmarks as ${newStatus ? 'read' : 'unread'}`, "success");
+  };
+
+  const handleDismissReminder = async (b: LocalBookmark) => {
+    await bookmarkRepository.update(b.id, { remindAt: "" });
+    syncManager.sync(true);
+    showToast("Reminder Dismissed", `Cleared reminder for "${b.title}"`, "info");
+  };
+
+  const handleSnoozeReminder = async (b: LocalBookmark) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const newRemindAt = tomorrow.toISOString();
+    await bookmarkRepository.update(b.id, { remindAt: newRemindAt });
+    syncManager.sync(true);
+    showToast("Reminder Snoozed", `Snoozed 1 day for "${b.title}"`, "info");
   };
 
   const handleArchiveBookmark = async (id: string, archiveGroup?: string) => {
@@ -673,6 +682,8 @@ export default function BookmarksPage() {
                     isSelected={selectedIds.has(b.id)}
                     selectionMode={isSelectionMode}
                     onToggleSelect={handleToggleSelect}
+                    onDismissReminder={handleDismissReminder}
+                    onSnoozeReminder={handleSnoozeReminder}
                   />
                 ))}
               </div>
@@ -692,6 +703,8 @@ export default function BookmarksPage() {
                     isSelected={selectedIds.has(b.id)}
                     selectionMode={isSelectionMode}
                     onToggleSelect={handleToggleSelect}
+                    onDismissReminder={handleDismissReminder}
+                    onSnoozeReminder={handleSnoozeReminder}
                   />
                 ))}
               </div>

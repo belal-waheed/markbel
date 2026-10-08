@@ -74,8 +74,11 @@ export default function ShareTargetPage() {
           isPinned: false,
         })
 
-        // Queue sync and exit immediately (<50ms total footprint)
-        syncManager.sync(true)
+        // Await sync before process termination with 1200ms timeout
+        await Promise.race([
+          syncManager.sync(true),
+          new Promise((res) => setTimeout(res, 1200))
+        ]).catch(() => {});
         
         if (Capacitor.isNativePlatform()) {
           CapApp.exitApp()

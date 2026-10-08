@@ -3,8 +3,10 @@ import { WebNotificationRepository } from './WebNotificationRepository';
 import { WebNotificationAdapter } from './WebNotificationAdapter';
 import { db } from '../db/db';
 import { syncManager, SyncState } from '../db/SyncManager';
+import { bookmarkRepository } from '../db/SyncRepository';
 
 export const notificationEventBus = new NotificationEventBus();
+bookmarkRepository.setEventBus(notificationEventBus);
 export const webNotificationRepository = new WebNotificationRepository();
 export const webNotificationAdapter = new WebNotificationAdapter();
 

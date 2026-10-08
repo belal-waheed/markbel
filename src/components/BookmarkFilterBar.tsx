@@ -34,7 +34,7 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
     { id: "all" as FilterTab, label: "All", count: counts.all, icon: Layers },
     { id: "unread" as FilterTab, label: "Unread", count: counts.unread, icon: BookOpen },
     { id: "pinned" as FilterTab, label: "Pinned", count: counts.pinned, icon: Pin },
-    { id: "due" as FilterTab, label: "Due Today", count: counts.due, icon: Clock },
+    { id: "due" as FilterTab, label: "Due & Overdue", count: counts.due, icon: Clock },
   ];
 
   return (

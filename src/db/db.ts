@@ -22,6 +22,7 @@ export interface LocalBookmark {
   readAt?: string;
   isPinned?: boolean;
   remindAt?: string;
+  notifiedAt?: string;
   isArchived?: boolean;
   archiveGroup?: string;
   version: number;

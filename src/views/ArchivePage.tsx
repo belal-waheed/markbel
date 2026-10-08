@@ -9,38 +9,27 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLiveQuery } from "dexie-react-hooks";
 import MarkbelLogo from "../components/MarkbelLogo.js";
 import BookmarkImage from "../components/BookmarkImage.js";
 import { db } from "../db/db.js";
 import { bookmarkRepository } from "../db/SyncRepository.js";
+import { syncManager } from "../db/SyncManager.js";
 
 export default function ArchivePage() {
   const navigate = useNavigate();
-  const [archivedBookmarks, setArchivedBookmarks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const liveBookmarks = useLiveQuery(
+    () => db.bookmarks.filter((b) => !!b.isArchived && !b.deletedAt).toArray(),
+    []
+  );
+  const loading = liveBookmarks === undefined;
+  const archivedBookmarks = liveBookmarks || [];
   const [activeArchiveGroup, setActiveArchiveGroup] = useState<string | null>(
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
-
-  const loadArchivedBookmarks = async () => {
-    try {
-      const data = await db.bookmarks
-        .filter((b) => !!b.isArchived && !b.deletedAt)
-        .toArray();
-      setArchivedBookmarks(data);
-    } catch (err) {
-      console.error("Failed to load archived bookmarks:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadArchivedBookmarks();
-  }, []);
 
   const archiveGroups = useMemo(() => {
     const map = new Map<string, number>();
@@ -75,9 +64,9 @@ export default function ArchivePage() {
     try {
       await bookmarkRepository.update(id, {
         isArchived: false,
-        archiveGroup: undefined,
+        archiveGroup: "",
       });
-      setArchivedBookmarks(archivedBookmarks.filter((b) => b.id !== id));
+      syncManager.sync(true);
     } catch (err) {
       console.error(err);
     }
@@ -87,7 +76,7 @@ export default function ArchivePage() {
     if (!confirm("Permanently delete this archived bookmark?")) return;
     try {
       await bookmarkRepository.delete(id);
-      setArchivedBookmarks(archivedBookmarks.filter((b) => b.id !== id));
+      syncManager.sync(true);
     } catch (err) {
       console.error(err);
     }

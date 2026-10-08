@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     read_at TEXT DEFAULT '',
     is_pinned INTEGER DEFAULT 0,
     remind_at TEXT DEFAULT '',
+    notified_at TEXT DEFAULT NULL,
     is_archived INTEGER DEFAULT 0,
     archive_group TEXT DEFAULT '',
     version INTEGER NOT NULL DEFAULT 0,

@@ -1,5 +1,6 @@
 import { db, LocalBookmark, LocalGroup, SyncOutboxItem } from './db';
 import { SyncOutboxItem as SharedSyncOutboxItem } from '@/sync';
+import { NotificationEventBus } from '@/notifications';
 
 export interface SyncRepository<T> {
   create(entity: Omit<T, 'version' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<T>;
@@ -11,6 +12,22 @@ export interface SyncRepository<T> {
 }
 
 export class BookmarkRepository implements SyncRepository<LocalBookmark> {
+  private eventBus: NotificationEventBus | null = null;
+
+  constructor(eventBus?: NotificationEventBus) {
+    if (eventBus) {
+      this.eventBus = eventBus;
+    }
+  }
+
+  setEventBus(bus: NotificationEventBus | null) {
+    this.eventBus = bus;
+  }
+
+  getEventBus(): NotificationEventBus | null {
+    return this.eventBus;
+  }
+
   async create(data: Omit<LocalBookmark, 'version' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<LocalBookmark> {
     const now = new Date().toISOString();
     
@@ -38,6 +55,18 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
       };
       await db.syncOutbox.add(outboxItem);
     });
+
+    if (this.eventBus) {
+      this.eventBus.publish({
+        type: 'BookmarkCreated',
+        payload: {
+          id: bookmark.id,
+          title: bookmark.title,
+          remindAt: bookmark.remindAt,
+          version: bookmark.version
+        }
+      });
+    }
 
     return bookmark;
   }
@@ -74,11 +103,72 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
       await db.syncOutbox.add(outboxItem);
     });
 
+    if (updatedBookmark && this.eventBus) {
+      this.eventBus.publish({
+        type: 'BookmarkUpdated',
+        payload: {
+          id: updatedBookmark.id,
+          title: updatedBookmark.title,
+          remindAt: updatedBookmark.remindAt,
+          version: updatedBookmark.version
+        }
+      });
+    }
+
     return updatedBookmark;
+  }
+
+  async bulkUpdate(ids: string[], updates: Partial<LocalBookmark>): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const updatedBookmarks: LocalBookmark[] = [];
+
+    await db.transaction('rw', db.bookmarks, db.syncOutbox, async () => {
+      for (const id of ids) {
+        const existing = await db.bookmarks.get(id);
+        if (!existing || existing.deletedAt) continue;
+
+        const updatedBookmark: LocalBookmark = {
+          ...existing,
+          ...updates,
+          updatedAt: now
+        };
+        await db.bookmarks.put(updatedBookmark);
+        updatedBookmarks.push(updatedBookmark);
+
+        const outboxItem: SyncOutboxItem = {
+          id: crypto.randomUUID(),
+          entityType: 'bookmark',
+          entityId: id,
+          operation: 'update',
+          baseVersion: existing.version,
+          payload: { ...updates, updatedAt: now },
+          status: 'pending',
+          attempts: 0,
+          createdAt: now
+        };
+        await db.syncOutbox.add(outboxItem);
+      }
+    });
+
+    if (this.eventBus) {
+      for (const b of updatedBookmarks) {
+        this.eventBus.publish({
+          type: 'BookmarkUpdated',
+          payload: {
+            id: b.id,
+            title: b.title,
+            remindAt: b.remindAt,
+            version: b.version
+          }
+        });
+      }
+    }
   }
 
   async delete(id: string): Promise<void> {
     const now = new Date().toISOString();
+    let wasDeleted = false;
 
     await db.transaction('rw', db.bookmarks, db.syncOutbox, async () => {
       const existing = await db.bookmarks.get(id);
@@ -92,6 +182,7 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
       };
       
       await db.bookmarks.put(updatedBookmark);
+      wasDeleted = true;
       
       const outboxItem: SyncOutboxItem = {
         id: crypto.randomUUID(),
@@ -106,6 +197,56 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
       };
       await db.syncOutbox.add(outboxItem);
     });
+
+    if (wasDeleted && this.eventBus) {
+      this.eventBus.publish({
+        type: 'BookmarkDeleted',
+        payload: { id }
+      });
+    }
+  }
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const deletedIds: string[] = [];
+
+    await db.transaction('rw', db.bookmarks, db.syncOutbox, async () => {
+      for (const id of ids) {
+        const existing = await db.bookmarks.get(id);
+        if (!existing || existing.deletedAt) continue;
+
+        const updatedBookmark: LocalBookmark = {
+          ...existing,
+          updatedAt: now,
+          deletedAt: now
+        };
+        await db.bookmarks.put(updatedBookmark);
+        deletedIds.push(id);
+
+        const outboxItem: SyncOutboxItem = {
+          id: crypto.randomUUID(),
+          entityType: 'bookmark',
+          entityId: id,
+          operation: 'delete',
+          baseVersion: existing.version,
+          payload: { deletedAt: now },
+          status: 'pending',
+          attempts: 0,
+          createdAt: now
+        };
+        await db.syncOutbox.add(outboxItem);
+      }
+    });
+
+    if (this.eventBus) {
+      for (const id of deletedIds) {
+        this.eventBus.publish({
+          type: 'BookmarkDeleted',
+          payload: { id }
+        });
+      }
+    }
   }
 
   async getPendingChanges(): Promise<SyncOutboxItem[]> {
@@ -212,14 +353,27 @@ export class GroupRepository implements SyncRepository<LocalGroup> {
       await db.groups.put(updatedGroup);
       
       if (updates.name && existing.name !== updates.name) {
-        // Bulk update local bookmarks
+        // Bulk update local bookmarks and queue sync mutations
         const affectedBookmarks = await db.bookmarks
-          .filter(b => b.group === existing.name)
+          .filter(b => b.group === existing.name && !b.deletedAt)
           .toArray();
         for (const b of affectedBookmarks) {
           b.group = updates.name;
           b.updatedAt = now;
           await db.bookmarks.put(b);
+
+          const bmOutboxItem: SyncOutboxItem = {
+            id: crypto.randomUUID(),
+            entityType: 'bookmark',
+            entityId: b.id,
+            operation: 'update',
+            baseVersion: b.version,
+            payload: { group: updates.name, updatedAt: now },
+            status: 'pending',
+            attempts: 0,
+            createdAt: now
+          };
+          await db.syncOutbox.add(bmOutboxItem);
         }
       }
       
@@ -243,7 +397,7 @@ export class GroupRepository implements SyncRepository<LocalGroup> {
   async delete(id: string): Promise<void> {
     const now = new Date().toISOString();
 
-    await db.transaction('rw', db.groups, db.syncOutbox, async () => {
+    await db.transaction('rw', db.groups, db.bookmarks, db.syncOutbox, async () => {
       const existing = await db.groups.get(id);
       if (!existing) return;
       if (existing.deletedAt) return; 
@@ -255,6 +409,29 @@ export class GroupRepository implements SyncRepository<LocalGroup> {
       };
       
       await db.groups.put(updatedGroup);
+
+      // Cascade bookmarks to Unsorted and queue sync mutations
+      const affectedBookmarks = await db.bookmarks
+        .filter(b => b.group === existing.name && !b.deletedAt)
+        .toArray();
+      for (const b of affectedBookmarks) {
+        b.group = 'Unsorted';
+        b.updatedAt = now;
+        await db.bookmarks.put(b);
+
+        const bmOutboxItem: SyncOutboxItem = {
+          id: crypto.randomUUID(),
+          entityType: 'bookmark',
+          entityId: b.id,
+          operation: 'update',
+          baseVersion: b.version,
+          payload: { group: 'Unsorted', updatedAt: now },
+          status: 'pending',
+          attempts: 0,
+          createdAt: now
+        };
+        await db.syncOutbox.add(bmOutboxItem);
+      }
       
       const outboxItem: SyncOutboxItem = {
         id: crypto.randomUUID(),

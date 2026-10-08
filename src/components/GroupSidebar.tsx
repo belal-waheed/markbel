@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   SlidersHorizontal,
+  MoreHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -70,6 +71,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
     getNavigationPreferences()
   )
   const [isHiddenTrayOpen, setIsHiddenTrayOpen] = useState(false)
+  const [mobileMenuOpenGroupName, setMobileMenuOpenGroupName] = useState<string | null>(null)
 
   useEffect(() => {
     const handlePrefsChanged = (e: any) => {
@@ -264,84 +266,169 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
               </div>
             ) : (
               visibleGroups.map((group) => {
+                const isMobileMenuOpen = mobileMenuOpenGroupName === group.name;
                 return (
-                  <button
-                    key={group.name}
-                    onClick={() => {
-                      setActiveGroup(group.name);
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors group ${
-                      activeGroup === group.name
-                        ? "bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-medium"
-                        : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Folder className="w-3.5 h-3.5 opacity-70 shrink-0" />
-                      <span className="truncate">{group.name}</span>
+                  <div key={group.name} className="flex flex-col">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setActiveGroup(group.name);
+                        setIsSidebarOpen(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setActiveGroup(group.name);
+                          setIsSidebarOpen(false);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors cursor-pointer select-none group ${
+                        activeGroup === group.name
+                          ? "bg-[var(--color-bg-element)] text-[var(--color-text-primary)] font-medium"
+                          : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                        <Folder className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                        <span className="truncate flex-1 text-left">{group.name}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* Desktop: Action Toolbar on Hover */}
+                        <div className="hidden md:group-hover:flex items-center gap-0.5 bg-[var(--color-bg-default)] rounded px-1 shadow-xs border border-[var(--color-border-default)]">
+                          <button
+                            type="button"
+                            onClick={(e) => handleTogglePinLocal(group.name, e)}
+                            className={`p-1.5 active:scale-90 cursor-pointer transition-colors ${
+                              group.isPinned
+                                ? "text-[var(--color-accent)]"
+                                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                            }`}
+                            title={group.isPinned ? "Unpin from top" : "Pin to top of sidebar"}
+                          >
+                            <Pin
+                              className={`w-3.5 h-3.5 ${
+                                group.isPinned ? "fill-current" : ""
+                              }`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleHideLocal(group.name, e)}
+                            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
+                            title="Hide group from sidebar"
+                          >
+                            <EyeOff className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditGroup(group.name);
+                              setIsSidebarOpen(false);
+                            }}
+                            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
+                            title="Edit Group"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              setIsSidebarOpen(false);
+                              deleteGroup(group.name, e);
+                            }}
+                            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] active:scale-90 cursor-pointer"
+                            title="Delete Group"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Default State: Pin Indicator & Count */}
+                        <div className="flex items-center gap-1 md:group-hover:hidden">
+                          {group.isPinned && (
+                            <Pin className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" />
+                          )}
+                          <span className="text-xs opacity-60">{group.count}</span>
+                        </div>
+
+                        {/* Mobile Action Toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMobileMenuOpenGroupName((prev) => (prev === group.name ? null : group.name));
+                          }}
+                          className="md:hidden p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded"
+                          title="Group actions"
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Action Toolbar on Hover */}
-                      <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 bg-[var(--color-bg-default)] rounded px-1 shadow-xs border border-[var(--color-border-default)]">
-                        <div
-                          onClick={(e) => handleTogglePinLocal(group.name, e)}
-                          className={`p-1.5 active:scale-90 cursor-pointer transition-colors ${
-                            group.isPinned
-                              ? "text-[var(--color-accent)]"
-                              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                    {/* Mobile Actions Drawer */}
+                    {isMobileMenuOpen && (
+                      <div
+                        className="md:hidden flex items-center justify-around py-1.5 px-2 bg-[var(--color-bg-default)] border border-[var(--color-border-default)] rounded-md mt-1 mb-1 mx-2 animate-in fade-in duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            handleTogglePinLocal(group.name, e);
+                            setMobileMenuOpenGroupName(null);
+                          }}
+                          className={`p-1.5 rounded flex items-center gap-1 text-xs ${
+                            group.isPinned ? "text-[var(--color-accent)] font-semibold" : "text-[var(--color-text-muted)]"
                           }`}
-                          title={group.isPinned ? "Unpin from top" : "Pin to top of sidebar"}
                         >
-                          <Pin
-                            className={`w-3.5 h-3.5 ${
-                              group.isPinned ? "fill-current" : ""
-                            }`}
-                          />
-                        </div>
-
-                        <div
-                          onClick={(e) => handleToggleHideLocal(group.name, e)}
-                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
-                          title="Hide group from sidebar"
+                          <Pin className={`w-3.5 h-3.5 ${group.isPinned ? "fill-current" : ""}`} />
+                          <span>{group.isPinned ? "Unpin" : "Pin"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            handleToggleHideLocal(group.name, e);
+                            setMobileMenuOpenGroupName(null);
+                          }}
+                          className="p-1.5 rounded flex items-center gap-1 text-xs text-[var(--color-text-muted)]"
                         >
                           <EyeOff className="w-3.5 h-3.5" />
-                        </div>
-
-                        <div
+                          <span>Hide</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             openEditGroup(group.name);
                             setIsSidebarOpen(false);
+                            setMobileMenuOpenGroupName(null);
                           }}
-                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] active:scale-90 cursor-pointer"
-                          title="Edit Group"
+                          className="p-1.5 rounded flex items-center gap-1 text-xs text-[var(--color-text-muted)]"
                         >
                           <Pencil className="w-3.5 h-3.5" />
-                        </div>
-
-                        <div
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => {
                             setIsSidebarOpen(false);
                             deleteGroup(group.name, e);
+                            setMobileMenuOpenGroupName(null);
                           }}
-                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-status-error)] active:scale-90 cursor-pointer"
-                          title="Delete Group"
+                          className="p-1.5 rounded flex items-center gap-1 text-xs text-[var(--color-status-error)]"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </div>
+                          <span>Delete</span>
+                        </button>
                       </div>
-
-                      {/* Default State: Pin Indicator & Count */}
-                      <div className="flex items-center gap-1 md:group-hover:hidden">
-                        {group.isPinned && (
-                          <Pin className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" />
-                        )}
-                        <span className="text-xs opacity-60">{group.count}</span>
-                      </div>
-                    </div>
-                  </button>
+                    )}
+                  </div>
                 );
               })
             )}
@@ -447,7 +534,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
             </div>
             <button
               onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[var(--color-status-error)] hover:bg-red-50 active:scale-95 rounded-md transition-all whitespace-nowrap"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[var(--color-status-error)] hover:bg-red-500/10 active:scale-95 rounded-md transition-all whitespace-nowrap"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign Out

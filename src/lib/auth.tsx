@@ -117,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await migrateGuestData(data.user.id).catch((err) => console.warn('[Auth] Guest data migration notice:', err))
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
+      await syncManager.sync(true).catch(() => {})
     } finally {
       setLoading(false)
     }
@@ -134,12 +135,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await migrateGuestData(data.user.id).catch((err) => console.warn('[Auth] Guest data migration notice:', err))
       await syncManager.registerDevice('web', '1.0.0')
       syncManager.startPeriodicSync()
+      await syncManager.sync(true).catch(() => {})
     } finally {
       setLoading(false)
     }
   }
 
   const logout = async () => {
+    localStorage.removeItem('markbel_token')
+    localStorage.removeItem('markbel_user')
     syncManager.stop()
     sendTokenToNative(null)
     setToken(null)

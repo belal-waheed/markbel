@@ -40,6 +40,9 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
 
   const debouncedUrl = useDebounce(url, 500);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const userEditedTitleRef = useRef(false);
+  const userEditedDescriptionRef = useRef(false);
+  const userEditedImageRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,6 +56,9 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
       setIsAutoGrouped(false);
       setRemindAt("");
       setIsPinned(false);
+      userEditedTitleRef.current = false;
+      userEditedDescriptionRef.current = false;
+      userEditedImageRef.current = false;
       setTimeout(() => urlInputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -77,15 +83,24 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
           `/metadata?url=${encodeURIComponent(debouncedUrl)}`
         );
         if (isMounted && meta) {
-          if (meta.title && !title) setTitle(meta.title);
-          if (meta.description && !description) setDescription(meta.description);
-          if (meta.image && !image) setImage(meta.image);
+          if (meta.title && !userEditedTitleRef.current) {
+            setTitle((prev) => (userEditedTitleRef.current || prev.trim() ? prev : meta.title!));
+          }
+          if (meta.description && !userEditedDescriptionRef.current) {
+            setDescription((prev) => (userEditedDescriptionRef.current || prev.trim() ? prev : meta.description!));
+          }
+          if (meta.image && !userEditedImageRef.current) {
+            setImage((prev) => (userEditedImageRef.current || prev.trim() ? prev : meta.image!));
+          }
         }
       } catch (err) {
         // Fallback title from hostname
         try {
           const parsed = new URL(debouncedUrl);
-          if (!title) setTitle(parsed.hostname.replace("www.", ""));
+          if (!userEditedTitleRef.current) {
+            const hostTitle = parsed.hostname.replace("www.", "");
+            setTitle((prev) => (userEditedTitleRef.current || prev.trim() ? prev : hostTitle));
+          }
         } catch {}
       } finally {
         if (isMounted) setIsLoadingMeta(false);
@@ -181,7 +196,10 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                userEditedTitleRef.current = true;
+                setTitle(e.target.value);
+              }}
               placeholder="e.g. Design Principles for Fast Apps"
               className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-2.5 px-3 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focused)] focus:ring-1 focus:ring-[var(--color-border-focused)]"
             />
@@ -193,7 +211,10 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                userEditedDescriptionRef.current = true;
+                setDescription(e.target.value);
+              }}
               placeholder="Add key notes or takeaways..."
               rows={2}
               className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-2 px-3 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focused)] focus:ring-1 focus:ring-[var(--color-border-focused)] resize-none"
