@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { SyncStorage, SyncOutboxItem, RemoteChange } from '@/sync';
+import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 
 export class WebSyncStorage implements SyncStorage {
   async getPendingChanges(limit: number): Promise<SyncOutboxItem[]> {
@@ -84,6 +85,10 @@ export class WebSyncStorage implements SyncStorage {
   }
 
   async applyRemoteChanges(changes: RemoteChange[]): Promise<void> {
+    const customRules = await getCustomSmartGroupRules().catch(() => []);
+    const activeGroups = await db.groups.filter((g) => !g.deletedAt).toArray().catch(() => []);
+    const groupNames = activeGroups.map((g) => g.name);
+
     await db.transaction('rw', db.bookmarks, db.groups, async () => {
       for (const change of changes) {
         const table = change.entityType === 'group' ? db.groups : db.bookmarks;
@@ -187,10 +192,24 @@ export class WebSyncStorage implements SyncStorage {
                 }
               : {};
 
+          let bookmarkGroup = raw.group || raw.group_name || 'Unsorted';
+          if (
+            change.entityType === 'bookmark' &&
+            (!bookmarkGroup || bookmarkGroup.toLowerCase() === 'unsorted')
+          ) {
+            const urlToMatch = raw.url || '';
+            if (urlToMatch) {
+              const smartGroup = resolveSmartGroup(urlToMatch, groupNames, customRules);
+              if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
+                bookmarkGroup = smartGroup;
+              }
+            }
+          }
+
           const data = {
             ...raw,
             ...bookmarkFields,
-            group: raw.group || raw.group_name || 'Unsorted',
+            group: bookmarkGroup,
             isRead,
             readAt: raw.readAt || raw.read_at || '',
             isPinned,

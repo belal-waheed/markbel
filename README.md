@@ -6,6 +6,7 @@
 
 [![Android App](https://img.shields.io/badge/Android-Download%20APK-3DDC84?logo=android&logoColor=white)](../../releases/latest)
 [![Edge Add-ons](https://img.shields.io/badge/Edge%20Add--ons-Install%20Extension-0078D7?logo=microsoftedge&logoColor=white)](https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc)
+[![Firefox Add-on](https://img.shields.io/badge/Firefox-Add--on%20ZIP-FF7139?logo=firefox-browser&logoColor=white)](../../releases/latest/download/markbel-firefox-extension.zip)
 [![Cloudflare Workers](https://img.shields.io/badge/Edge-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![Cloudflare D1](https://img.shields.io/badge/Database-Cloudflare%20D1%20SQLite-F38020?logo=sqlite&logoColor=white)](https://developers.cloudflare.com/d1/)
 [![React 19](https://img.shields.io/badge/Frontend-React%2019-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -16,7 +17,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/badge/CI-Passing-brightgreen.svg)](.github/workflows/ci.yml)
 
-[Live Demo](https://mark.obel.workers.dev) • [Edge Add-on](https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc) • [Download Android APK](../../releases/latest) • [Architecture Docs](docs/architecture/sync-protocol.md) • [LLM Specification](llms.txt) • [Contributing](CONTRIBUTING.md)
+[Live Demo](https://mark.obel.workers.dev) • [Firefox Add-on](../../releases/latest/download/markbel-firefox-extension.zip) • [Edge Add-on](https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc) • [Download Android APK](../../releases/latest) • [Architecture Docs](docs/architecture/sync-protocol.md) • [LLM Specification](llms.txt) • [Contributing](CONTRIBUTING.md)
 
 </div>
 

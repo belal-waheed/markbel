@@ -119,12 +119,15 @@ describe('Route Navigation Contract', () => {
 })
 
 describe('Platform Auto-Detection Logic', () => {
-  function detectPlatform(ua: string): 'android' | 'chrome' | 'ios' | 'desktop' {
+  function detectPlatform(ua: string): 'android' | 'chrome' | 'firefox' | 'ios' | 'desktop' {
     if (/Android/i.test(ua)) {
       return 'android'
     }
     if (/iPhone|iPad|iPod/i.test(ua)) {
       return 'ios'
+    }
+    if (/Firefox|FxiOS/i.test(ua)) {
+      return 'firefox'
     }
     if (/Chrome|CriOS/i.test(ua) && !/Edg|OPR/i.test(ua)) {
       return 'chrome'
@@ -144,6 +147,11 @@ describe('Platform Auto-Detection Logic', () => {
     expect(detectPlatform(iphoneUA)).toBe('ios')
   })
 
+  it('detects Firefox browsers on desktop', () => {
+    const firefoxUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0'
+    expect(detectPlatform(firefoxUA)).toBe('firefox')
+  })
+
   it('detects Chromium browsers on desktop', () => {
     const chromeUA =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
@@ -151,8 +159,8 @@ describe('Platform Auto-Detection Logic', () => {
   })
 
   it('falls back to desktop for non-Chromium or generic desktop agents', () => {
-    const firefoxUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0'
-    expect(detectPlatform(firefoxUA)).toBe('desktop')
+    const safariUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
+    expect(detectPlatform(safariUA)).toBe('desktop')
   })
 })
 

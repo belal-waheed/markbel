@@ -26,6 +26,7 @@ import {
   Star,
   Play,
   Menu,
+  Puzzle,
   X as CloseIcon
 } from 'lucide-react'
 import MarkbelLogo from '../components/MarkbelLogo.js'
@@ -38,26 +39,28 @@ interface LandingPageProps {
   forceShow?: boolean
 }
 
-type PlatformType = 'android' | 'chrome' | 'ios' | 'desktop'
+export type PlatformType = 'android' | 'chrome' | 'firefox' | 'ios' | 'desktop'
 
-interface PlatformInfo {
+export interface PlatformInfo {
   type: PlatformType
   name: string
   label: string
 }
 
-function detectPlatform(): PlatformInfo {
-  if (typeof window === 'undefined' || !navigator?.userAgent) {
+export function detectPlatform(customUA?: string): PlatformInfo {
+  const ua = customUA || (typeof window !== 'undefined' && navigator?.userAgent ? navigator.userAgent : '')
+  if (!ua) {
     return { type: 'desktop', name: 'Web PWA', label: 'Web Platform' }
   }
-
-  const ua = navigator.userAgent
 
   if (/Android/i.test(ua)) {
     return { type: 'android', name: 'Android APK', label: 'Android Device' }
   }
   if (/iPhone|iPad|iPod/i.test(ua)) {
     return { type: 'ios', name: 'Web PWA (iOS)', label: 'iOS Device' }
+  }
+  if (/Firefox|FxiOS/i.test(ua)) {
+    return { type: 'firefox', name: 'Firefox Add-on', label: 'Mozilla Firefox' }
   }
   if (/Edg\//i.test(ua)) {
     return { type: 'chrome', name: 'Edge Add-on', label: 'Microsoft Edge' }
@@ -176,6 +179,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
   const detectedPlatform = useMemo(() => detectPlatform(), [])
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false)
+  const [extensionModalTab, setExtensionModalTab] = useState<'chrome' | 'edge' | 'firefox'>('firefox')
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -824,8 +828,8 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Android APK Card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* 1. Android App (APK) Card */}
           <div
             className={`p-6 rounded-2xl bg-[var(--color-bg-elevated)] border transition-all flex flex-col justify-between ${
               detectedPlatform.type === 'android'
@@ -879,7 +883,76 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
             </div>
           </div>
 
-          {/* Chrome / Edge Extension Card */}
+          {/* 2. Firefox & Firefox Dev Edition Card */}
+          <div
+            className={`p-6 rounded-2xl bg-[var(--color-bg-elevated)] border transition-all flex flex-col justify-between ${
+              detectedPlatform.type === 'firefox'
+                ? 'border-[var(--color-accent)] shadow-md ring-2 ring-[var(--color-accent)]/20'
+                : 'border-[var(--color-border-default)] shadow-xs hover:border-[var(--color-bg-element)] hover:shadow-sm'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-element)] flex items-center justify-center text-[var(--color-text-primary)]">
+                  <Puzzle className="w-6 h-6 text-amber-500" />
+                </div>
+                {detectedPlatform.type === 'firefox' ? (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--color-accent)] text-white">
+                    Recommended for Your Browser
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
+                    Gecko MV3
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Firefox & Dev Edition</h3>
+              <p className="text-xs font-mono text-[var(--color-text-muted)] mt-0.5">Gecko • Manifest V3</p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
+                Dedicated Mozilla Firefox and Firefox Developer Edition add-on with event page MV3 background execution and local debugging.
+              </p>
+
+              <ul className="mt-4 space-y-2 text-xs text-[var(--color-text-primary)] font-medium">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Firefox MV3 Event Background</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>about:debugging 1-Click Load</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Developer Edition Persistent Ready</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-[var(--color-border-default)] flex flex-col gap-2.5">
+              <button
+                onClick={() => {
+                  setExtensionModalTab('firefox')
+                  setIsExtensionModalOpen(true)
+                }}
+                className="w-full btn-primary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Firefox Setup Guide</span>
+              </button>
+
+              <a
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-firefox-extension.zip"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full text-center text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors py-1 flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
+              >
+                <Download className="w-3 h-3" />
+                <span>Download markbel-firefox-extension.zip</span>
+              </a>
+            </div>
+          </div>
+
+          {/* 3. Microsoft Edge & Chromium Card */}
           <div
             className={`p-6 rounded-2xl bg-[var(--color-bg-elevated)] border transition-all flex flex-col justify-between ${
               detectedPlatform.type === 'chrome'
@@ -898,7 +971,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Browser Extension</h3>
+              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Edge & Chromium</h3>
               <p className="text-xs font-mono text-[var(--color-text-muted)] mt-0.5">Chromium • Manifest V3</p>
               <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
                 Save the current tab into Markbel with one click. Supports custom tags, instant group assignment, and automatic metadata parsing.
@@ -932,7 +1005,10 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
               </a>
 
               <button
-                onClick={() => setIsExtensionModalOpen(true)}
+                onClick={() => {
+                  setExtensionModalTab('chrome')
+                  setIsExtensionModalOpen(true)
+                }}
                 className="w-full btn-secondary py-2.5 px-4 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-[var(--color-accent)]/30 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all cursor-pointer shadow-xs"
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -946,12 +1022,12 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
                 className="w-full text-center text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors py-1 flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
               >
                 <Download className="w-3 h-3" />
-                <span>Download markbel-extension.zip (v1.0.2)</span>
+                <span>Download markbel-extension.zip</span>
               </a>
             </div>
           </div>
 
-          {/* Web PWA Card */}
+          {/* 4. Web PWA & Guest Vault Card */}
           <div
             className={`p-6 rounded-2xl bg-[var(--color-bg-elevated)] border transition-all flex flex-col justify-between ${
               detectedPlatform.type === 'desktop' || detectedPlatform.type === 'ios'
@@ -970,7 +1046,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Web PWA</h3>
+              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Web PWA & Guest Vault</h3>
               <p className="text-xs font-mono text-[var(--color-text-muted)] mt-0.5">PWA • Zero Installation</p>
               <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
                 Full-featured progressive web application accessible from any modern browser. Supports home screen installation on iOS and desktop.
@@ -1134,6 +1210,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
       <ExtensionSetupModal
         isOpen={isExtensionModalOpen}
         onClose={() => setIsExtensionModalOpen(false)}
+        initialTab={extensionModalTab}
       />
       <ReleaseNotesModal
         isOpen={isReleaseModalOpen}

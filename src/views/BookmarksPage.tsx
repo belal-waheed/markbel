@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks, deduplicateLocalGroups } from "../db/db";
 import { syncManager } from "../db/SyncManager";
+import { SyncState } from "../sync";
 import { bookmarkRepository, groupRepository } from "../db/SyncRepository";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../components/Toast";
@@ -52,9 +53,29 @@ export default function BookmarksPage() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
 
-    // Initial mount: self-heal duplicate groups, init default smart groups, sync pull
-    deduplicateLocalGroups().finally(() => {
-      initializeDefaultSmartGroups(user?.id || "local-user");
+    // BroadcastChannel & SyncState listener for SYNC_COMPLETED events
+    let syncChannel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        syncChannel = new BroadcastChannel("markbel-sync-channel");
+        syncChannel.onmessage = (event) => {
+          if (event.data?.type === "SYNC_COMPLETED") {
+            autoOrganizeUnsortedBookmarks(user?.id || "local-user");
+          }
+        };
+      } catch {}
+    }
+
+    const unsubSync = syncManager.subscribe((state) => {
+      if (state === SyncState.Idle) {
+        autoOrganizeUnsortedBookmarks(user?.id || "local-user");
+      }
+    });
+
+    // Initial mount: self-heal duplicate groups, init default smart groups, auto-organize unsorted, sync pull
+    deduplicateLocalGroups().finally(async () => {
+      await initializeDefaultSmartGroups(user?.id || "local-user");
+      await autoOrganizeUnsortedBookmarks(user?.id || "local-user");
       syncManager.sync(true);
     });
 
@@ -63,6 +84,12 @@ export default function BookmarksPage() {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleFocus);
+      if (syncChannel) {
+        try {
+          syncChannel.close();
+        } catch {}
+      }
+      unsubSync();
     };
   }, []);
 

@@ -21,7 +21,10 @@
     "cap:build": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
     "build:extension": "vite build --config vite.config.extension.ts",
-    "extension:zip": "npm run build:extension && node scripts/zip-extension.cjs"
+    "build:extension:firefox": "vite build --config vite.config.extension.ts --mode firefox",
+    "extension:zip": "npm run build:extension && node scripts/zip-extension.cjs",
+    "extension:zip:firefox": "npm run build:extension:firefox && node scripts/zip-extension-firefox.cjs",
+    "build:extension:all": "npm run extension:zip && npm run extension:zip:firefox"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

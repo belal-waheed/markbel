@@ -395,4 +395,81 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       expect(getSmartGroupCacheSize()).toBe(1000);
     });
   });
+
+  describe('Retroactive Auto-Organization & Group Auto-Provisioning Engine', () => {
+    it('retroactively resolves smart groups for remote-synced and local unsorted bookmarks', () => {
+      // Arrange
+      const bookmarks = [
+        { id: 'b1', url: 'https://www.youtube.com/watch?v=1', group: 'Unsorted', userId: 'remote-synced' },
+        { id: 'b2', url: 'https://instagram.com/p/2', group: 'Unsorted', userId: 'local-user' },
+        { id: 'b3', url: 'https://x.com/post/3', group: 'Unsorted', userId: undefined },
+        { id: 'b4', url: 'https://det.animarco.org/episode/4', group: 'Unsorted', userId: 'remote-synced' },
+        { id: 'b5', url: 'https://random-blog.com/post/5', group: 'Unsorted', userId: 'local-user' },
+      ];
+
+      const customRules: CompoundSmartGroupRule[] = [
+        {
+          id: 'rule-anime',
+          name: 'Anime Tracker',
+          group: 'Anime',
+          groupColor: 'purple',
+          constraints: [{ id: 'c-anime', operator: 'domain_contains', value: 'animarco' }],
+        },
+      ];
+
+      const knownGroups = ['YT', 'Insta', 'X'];
+
+      // Act
+      const organized = bookmarks.map((b) => {
+        const smartGroup = resolveSmartGroup(b.url, knownGroups, customRules);
+        return {
+          ...b,
+          newGroup: smartGroup && smartGroup.toLowerCase() !== 'unsorted' ? smartGroup : b.group,
+        };
+      });
+
+      // Assert
+      expect(organized[0].newGroup).toBe('YT');
+      expect(organized[1].newGroup).toBe('Insta');
+      expect(organized[2].newGroup).toBe('X');
+      expect(organized[3].newGroup).toBe('Anime');
+      expect(organized[4].newGroup).toBe('Unsorted');
+    });
+
+    it('identifies unprovisioned smart groups for auto-provisioning', () => {
+      // Arrange
+      const activeGroups = [{ id: 'g1', name: 'YT' }, { id: 'g2', name: 'Insta' }];
+      const existingNames = new Set(activeGroups.map((g) => g.name.toLowerCase()));
+
+      const targetGroup = 'Anime';
+
+      // Act
+      const needsProvisioning = !existingNames.has(targetGroup.toLowerCase());
+
+      // Assert
+      expect(needsProvisioning).toBe(true);
+    });
+  });
+
+  describe('Firefox Manifest V3 Contract Validation', () => {
+    it('validates Firefox manifest structure and Gecko configuration', async () => {
+      // Arrange
+      const fs = await import('fs');
+      const path = await import('path');
+      const manifestPath = path.resolve(process.cwd(), 'extension/manifest.firefox.json');
+
+      // Act
+      expect(fs.existsSync(manifestPath)).toBe(true);
+      const content = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+      // Assert
+      expect(content.manifest_version).toBe(3);
+      expect(content.browser_specific_settings?.gecko?.id).toBe('markbel-extension@obel.dev');
+      expect(content.browser_specific_settings?.gecko?.strict_min_version).toBe('109.0');
+      expect(content.background?.scripts).toEqual(['background.js']);
+      expect(content.action?.default_popup).toBe('popup/index.html');
+      expect(content.permissions).toContain('activeTab');
+    });
+  });
 });
+

@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -152,7 +153,7 @@ public class ShareActivity extends Activity {
             payload.put("url", url);
             payload.put("title", title);
             payload.put("description", description);
-            payload.put("group", "Unsorted");
+            payload.put("group", resolveSmartGroup(url));
             change.put("payload", payload);
 
             changes.put(change);
@@ -178,5 +179,20 @@ public class ShareActivity extends Activity {
         } catch (Exception e) {
             mainHandler.post(() -> Toast.makeText(context, "Unable to save to Markbel. Check connection.", Toast.LENGTH_SHORT).show());
         }
+    }
+
+    private static String resolveSmartGroup(String url) {
+        if (url == null) return "Unsorted";
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (lower.contains("youtube.com") || lower.contains("youtu.be")) {
+            return "YT";
+        }
+        if (lower.contains("instagram.com") || lower.contains("instagr.am") || lower.contains("ig.me")) {
+            return "Insta";
+        }
+        if (lower.contains("twitter.com") || lower.contains("x.com") || lower.contains("t.co")) {
+            return "X";
+        }
+        return "Unsorted";
     }
 }

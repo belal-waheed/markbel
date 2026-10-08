@@ -10,6 +10,7 @@ image*.png
 # Build Outputs
 dist/
 dist-extension/
+dist-extension-firefox/
 out/
 build/
 .next/

@@ -62,7 +62,7 @@ import {
   ConstraintOperator,
   PRESET_SMART_RULES,
 } from "../lib/smartGroups.js";
-import { db, deduplicateLocalGroups } from "../db/db.js";
+import { db, deduplicateLocalGroups, autoOrganizeUnsortedBookmarks } from "../db/db.js";
 
 const COLOR_OPTIONS = [
   { name: "blue", label: "Blue", bg: "bg-blue-500" },
@@ -325,6 +325,8 @@ export default function SettingsPage() {
     setRuleError("");
     try {
       const installed = await installPresetRule(presetId);
+      await autoOrganizeUnsortedBookmarks(user?.id || "local-user");
+      syncManager.sync(true);
       await refreshGroupsAndRules();
       setNoticeMessage(`Preset "${installed.name}" installed and group "${installed.group}" activated.`);
       setTimeout(() => setNoticeMessage(""), 4000);
@@ -459,6 +461,8 @@ export default function SettingsPage() {
     try {
       const updated = [newRule, ...customRules];
       await saveCustomSmartGroupRules(updated);
+      await autoOrganizeUnsortedBookmarks(user?.id || "local-user");
+      syncManager.sync(true);
       await refreshGroupsAndRules();
 
       setBuilderRuleName("");

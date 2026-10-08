@@ -22,6 +22,15 @@ For the easiest setup, you can install the extension directly from the Microsoft
 
 ---
 
+### Method 4: Mozilla Firefox & Firefox Developer Edition
+1. Download `markbel-firefox-extension.zip` from GitHub Releases (or build with `npm run extension:zip:firefox`).
+2. Unzip into a permanent folder on your computer.
+3. Open `about:debugging#/runtime/this-firefox` in Firefox or Firefox Developer Edition.
+4. Click **Load Temporary Add-on...** and select `manifest.json` from the extracted folder.
+5. *(Firefox Developer Edition only)* For permanent installation without signature enforcement, open `about:config` and set `xpinstall.signatures.required` to `false`.
+
+---
+
 ## Initial Setup & Authentication
 Before you can save bookmarks, you must link the extension to your Markbel vault:
 1. Pin the extension to your toolbar.
@@ -31,7 +40,7 @@ Before you can save bookmarks, you must link the extension to your Markbel vault
 
 ---
 
-## ⚡ Power User Features
+## Power User Features
 
 ### Global Keyboard Shortcuts
 You can capture bookmarks without using your mouse:
@@ -56,6 +65,8 @@ If you are running Markbel locally or self-hosting on your own Cloudflare D1 ins
 
 ---
 
-## Known Issues
-- **Firefox**: Uses Manifest V3 Service Workers (`background.js`). Firefox support for MV3 background service workers is partial, meaning background syncs may fail. Please use a Chromium-based browser for the best experience.
-- **Safari**: Requires a completely different build pipeline (Xcode/Mac Catalyst) and is not supported.
+## Platform Support
+- **Chromium Browsers**: 100% native support (Microsoft Edge, Google Chrome, Brave, Arc, Opera, Vivaldi).
+- **Mozilla Firefox & Firefox Dev Edition**: 100% native Manifest V3 event script support with Gecko ID (`markbel-extension@obel.dev`).
+- **Safari**: Requires Xcode/Mac Catalyst packaging and is not currently supported.
+

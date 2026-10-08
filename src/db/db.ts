@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { resolveSmartGroup, getCustomSmartGroupRules } from '../lib/smartGroups.js';
+import { resolveSmartGroup, getCustomSmartGroupRules, DEFAULT_SMART_GROUPS } from '../lib/smartGroups.js';
 
 export interface LocalBookmark {
   id: string;
@@ -362,18 +362,17 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
   await initializeDefaultSmartGroups(targetUserId);
 
   const activeGroups = await db.groups
-    .filter((g) => (g.userId === targetUserId || !g.userId) && !g.deletedAt)
+    .filter((g) => !g.deletedAt)
     .toArray();
 
   const groupNames = activeGroups.map((g) => g.name);
 
   let organizedCount = 0;
 
-  await db.transaction('rw', [db.bookmarks, db.syncOutbox], async () => {
+  await db.transaction('rw', [db.bookmarks, db.syncOutbox, db.groups], async () => {
     const unsortedBookmarks = await db.bookmarks
       .filter(
         (b) =>
-          (b.userId === targetUserId || !b.userId) &&
           !b.deletedAt &&
           (!b.group || b.group.toLowerCase() === 'unsorted')
       )
@@ -384,6 +383,58 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
     for (const b of unsortedBookmarks) {
       const smartGroup = resolveSmartGroup(b.url, groupNames, customRules);
       if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
+        // Auto-provision missing group if it doesn't exist in db.groups
+        const groupExists = activeGroups.some(
+          (g) => g.name.toLowerCase().trim() === smartGroup.toLowerCase().trim()
+        );
+
+        if (!groupExists) {
+          let groupColor = '#005fb8';
+          const matchingRule = customRules.find(
+            (r) => r.group.toLowerCase().trim() === smartGroup.toLowerCase().trim()
+          );
+          if (matchingRule?.groupColor) {
+            groupColor = matchingRule.groupColor;
+          } else {
+            const defaultGroup = DEFAULT_SMART_GROUPS.find(
+              (dg) => dg.name.toLowerCase().trim() === smartGroup.toLowerCase().trim()
+            );
+            if (defaultGroup?.color) {
+              groupColor = defaultGroup.color;
+            }
+          }
+
+          const newGroupId = crypto.randomUUID();
+          const newGroup: LocalGroup = {
+            id: newGroupId,
+            userId: targetUserId,
+            name: smartGroup,
+            color: groupColor,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          };
+
+          await db.groups.add(newGroup);
+          activeGroups.push(newGroup);
+          groupNames.push(smartGroup);
+
+          if (targetUserId !== 'local-user') {
+            await db.syncOutbox.add({
+              id: crypto.randomUUID(),
+              entityType: 'group',
+              entityId: newGroupId,
+              operation: 'create',
+              baseVersion: 0,
+              payload: newGroup,
+              status: 'pending',
+              attempts: 0,
+              createdAt: now,
+            });
+          }
+        }
+
         const newVersion = (b.version || 0) + 1;
         const updated: LocalBookmark = {
           ...b,
