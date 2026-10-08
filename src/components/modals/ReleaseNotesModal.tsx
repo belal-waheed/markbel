@@ -44,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.0
+                  What's New in Markbel v2.5.1
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Light Studio Extension, Self-Healing Group Deduplication, Mobile Touch Polish & Edge Security
+                Firefox & Dev Edition Extension, Category Auto-Rule Engine, Android Brand Icon & Landing Revamp
               </p>
             </div>
           </div>
@@ -190,10 +190,10 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.5.0)
+                Direct Download Assets (v2.5.1)
               </span>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/tag/v2.5.0"
+                href="https://github.com/belal-waheed/markbel/releases/tag/v2.5.1"
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-semibold text-[var(--color-accent)] hover:underline flex items-center gap-1 touch-manipulation"
@@ -203,25 +203,35 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.0/Markbel.apk"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.1/Markbel.apk"
                 target="_blank"
                 rel="noreferrer"
-                className="btn-primary py-2.5 px-3.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs touch-manipulation cursor-pointer"
+                className="btn-primary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs touch-manipulation cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download Markbel.apk (Android)</span>
+                <span>Markbel.apk (Android)</span>
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.0/markbel-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.1/markbel-firefox-extension.zip"
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary py-2.5 px-3.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
+                className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 touch-manipulation cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download markbel-extension.zip</span>
+                <span>Firefox Extension (.zip)</span>
+              </a>
+
+              <a
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.1/markbel-extension.zip"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Chromium Extension (.zip)</span>
               </a>
             </div>
           </div>
