@@ -4,6 +4,7 @@
  */
 
 import { bookmarkRepository } from '@/db/SyncRepository';
+import { syncManager } from '@/db/SyncManager';
 
 export const DEFAULT_API_BASE = 'https://mark.obel.workers.dev/api';
 
@@ -114,6 +115,7 @@ export async function clearSession(): Promise<void> {
 export async function login(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const base = await getApiBase();
   const targetUrl = `${base}/users/login`;
+  const cleanEmail = (email || '').trim().toLowerCase();
 
   try {
     const res = await fetch(targetUrl, {
@@ -121,7 +123,7 @@ export async function login(email: string, password: string): Promise<{ token: s
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: cleanEmail, password })
     });
 
     const data = await res.json().catch(() => ({}));
@@ -132,6 +134,7 @@ export async function login(email: string, password: string): Promise<{ token: s
 
     if (data.token) {
       await setSession(data.token, data.user);
+      await syncManager.sync(true).catch(() => {});
     }
     
     return data;
@@ -215,12 +218,64 @@ export async function saveBookmark({
     isPinned: Boolean(isPinned)
   });
 
-  // 2. Trigger background worker to flush the outbox
+  // 2. Direct sync race (up to 2500ms) to ensure mutations reach Cloudflare D1 before popup closes
   try {
-    chrome.runtime.sendMessage({ type: 'SYNC_OUTBOX' });
+    await Promise.race([
+      syncManager.sync(true),
+      new Promise((res) => setTimeout(res, 2500))
+    ]);
   } catch (err) {
-    console.warn('Could not notify background worker to sync outbox immediately', err);
+    console.warn('[Markbel Extension] Immediate sync notice:', err);
   }
+
+  // 3. Trigger background worker to flush the outbox as fallback
+  try {
+    chrome.runtime.sendMessage({ type: 'SYNC_OUTBOX' }).catch(() => {});
+  } catch {}
 
   return { success: true, bookmarkId };
 }
+
+/**
+ * Automatically inspects open Markbel web tabs to import an active session
+ */
+export async function syncSessionFromActiveVaultTab(): Promise<{ success: boolean; email?: string; error?: string }> {
+  try {
+    const tabs = await chrome.tabs.query({ url: '*://mark.obel.workers.dev/*' });
+    if (!tabs || tabs.length === 0) {
+      return { success: false, error: 'No open Markbel tabs found.' };
+    }
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      try {
+        const [execution] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const token = localStorage.getItem('markbel_token');
+            const userStr = localStorage.getItem('markbel_user');
+            if (token && userStr) {
+              try {
+                return { token, user: JSON.parse(userStr) };
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          }
+        });
+        if (execution?.result?.token && execution?.result?.user) {
+          await setSession(execution.result.token, execution.result.user);
+          await syncManager.sync(true).catch(() => {});
+          return { success: true, email: execution.result.user.email };
+        }
+      } catch (scriptErr) {
+        console.warn('[Markbel Extension] Tab script inspection failed:', scriptErr);
+      }
+    }
+    return { success: false, error: 'No authenticated session found in open tabs.' };
+  } catch (err: any) {
+    console.warn('[Markbel Extension] syncSessionFromActiveVaultTab error:', err);
+    return { success: false, error: err?.message || 'Failed to inspect open tabs.' };
+  }
+}
+

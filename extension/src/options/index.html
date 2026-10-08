@@ -22,7 +22,12 @@
       <h2>Account & Session</h2>
       <div id="account-logged-in" class="account-state hidden">
         <p class="account-info">Signed in as <strong id="user-email"></strong></p>
-        <button id="btn-logout" class="btn-danger" type="button">Sign Out</button>
+        <div class="account-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+          <button id="btn-open-vault-options" class="btn-secondary" type="button">Open Web Vault (/app)</button>
+          <button id="btn-sync-now" class="btn-secondary" type="button">Sync Outbox Now</button>
+          <button id="btn-logout" class="btn-danger" type="button">Sign Out</button>
+        </div>
+        <div id="options-sync-status" class="banner hidden" style="margin-top: 10px;"></div>
       </div>
 
       <div id="account-logged-out" class="account-state">
@@ -35,6 +40,7 @@
           </div>
           <div id="opt-auth-error" class="banner banner-error hidden"></div>
         </form>
+        <button type="button" id="btn-sync-vault-tab-options" class="btn-secondary" style="margin-top: 10px; width: 100%;">Sync Session from Open Web Vault Tab</button>
       </div>
     </section>
 
@@ -69,7 +75,7 @@
           <kbd>Alt + Shift + S</kbd>
         </div>
       </div>
-      <p class="shortcut-hint">Shortcuts can be customized in your browser's extension settings (<code>chrome://extensions/shortcuts</code>).</p>
+      <p class="shortcut-hint" id="shortcut-hint-text">Shortcuts can be customized in your browser's extension settings (<code>chrome://extensions/shortcuts</code>).</p>
     </section>
   </div>
 

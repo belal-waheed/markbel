@@ -7,7 +7,8 @@ import {
   login,
   verifySession,
   saveBookmark,
-  getApiBase
+  getApiBase,
+  syncSessionFromActiveVaultTab
 } from '../api';
 import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
@@ -24,6 +25,7 @@ const inputEmail = document.getElementById('input-email') as HTMLInputElement;
 const inputPassword = document.getElementById('input-password') as HTMLInputElement;
 const authError = document.getElementById('auth-error') as HTMLElement;
 const btnLoginSubmit = document.getElementById('btn-login-submit') as HTMLButtonElement;
+const btnSyncVaultTab = document.getElementById('btn-sync-vault-tab') as HTMLButtonElement | null;
 
 const formSave = document.getElementById('form-save') as HTMLFormElement;
 const inputTitle = document.getElementById('input-title') as HTMLInputElement;
@@ -54,7 +56,15 @@ let selectedGroup = 'Unsorted';
 async function init(): Promise<void> {
   setupEventHandlers();
 
-  const session = await verifySession();
+  let session = await verifySession();
+  if (!session) {
+    // Attempt silent auto-import from open Markbel web vault tab
+    const tabSync = await syncSessionFromActiveVaultTab();
+    if (tabSync.success) {
+      session = await verifySession();
+    }
+  }
+
   if (!session) {
     showView('auth');
     return;
@@ -86,7 +96,12 @@ async function loadActiveTabData(): Promise<void> {
     }
 
     // Check for restricted internal browser URLs
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+    if (
+      tab.url.startsWith('chrome://') ||
+      tab.url.startsWith('edge://') ||
+      tab.url.startsWith('about:') ||
+      tab.url.startsWith('moz-extension://')
+    ) {
       inputTitle.value = tab.title || 'Browser Internal Tab';
       inputUrl.value = tab.url;
       btnSaveSubmit.disabled = true;
@@ -247,7 +262,7 @@ function setupEventHandlers(): void {
   // Vault Navigation
   btnOpenVault.addEventListener('click', async () => {
     const base = await getApiBase();
-    const vaultUrl = base.replace(/\/api$/, '');
+    const vaultUrl = `${base.replace(/\/api$/, '')}/app`;
     chrome.tabs.create({ url: vaultUrl });
   });
 
@@ -255,6 +270,35 @@ function setupEventHandlers(): void {
   btnOptions.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
+
+  // Sync Session from Open Tab
+  if (btnSyncVaultTab) {
+    btnSyncVaultTab.addEventListener('click', async () => {
+      authError.classList.add('hidden');
+      btnSyncVaultTab.disabled = true;
+      btnSyncVaultTab.textContent = 'Connecting to Vault Tab...';
+
+      try {
+        const result = await syncSessionFromActiveVaultTab();
+        if (result.success) {
+          const session = await verifySession();
+          if (session) {
+            showView('save');
+            await loadActiveTabData();
+            return;
+          }
+        }
+        authError.textContent = result.error || 'Could not find an authenticated Markbel tab.';
+        authError.classList.remove('hidden');
+      } catch (err: any) {
+        authError.textContent = err?.message || 'Failed to sync session from tab';
+        authError.classList.remove('hidden');
+      } finally {
+        btnSyncVaultTab.disabled = false;
+        btnSyncVaultTab.textContent = 'Sync Session from Open Web Vault Tab';
+      }
+    });
+  }
 
   // Group Chips
   chipsContainer.addEventListener('click', (e) => {

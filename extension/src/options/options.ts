@@ -8,14 +8,21 @@ import {
   clearSession,
   login,
   verifySession,
-  normalizeApiUrl
+  normalizeApiUrl,
+  syncSessionFromActiveVaultTab
 } from '../api';
+import { syncManager } from '@/db/SyncManager';
 
 // DOM Elements
 const accountLoggedIn = document.getElementById('account-logged-in') as HTMLElement;
 const accountLoggedOut = document.getElementById('account-logged-out') as HTMLElement;
 const userEmail = document.getElementById('user-email') as HTMLElement;
 const btnLogout = document.getElementById('btn-logout') as HTMLButtonElement;
+const btnOpenVaultOptions = document.getElementById('btn-open-vault-options') as HTMLButtonElement | null;
+const btnSyncNow = document.getElementById('btn-sync-now') as HTMLButtonElement | null;
+const optionsSyncStatus = document.getElementById('options-sync-status') as HTMLElement | null;
+const btnSyncVaultTabOptions = document.getElementById('btn-sync-vault-tab-options') as HTMLButtonElement | null;
+const shortcutHintText = document.getElementById('shortcut-hint-text') as HTMLElement | null;
 
 const formOptionsLogin = document.getElementById('form-options-login') as HTMLFormElement;
 const optEmail = document.getElementById('opt-email') as HTMLInputElement;
@@ -37,6 +44,15 @@ async function init(): Promise<void> {
   // Load configured API URL
   const currentBase = await getApiBase();
   inputApiUrl.value = currentBase;
+
+  // Setup shortcut hint based on browser
+  if (shortcutHintText) {
+    if (/firefox/i.test(navigator.userAgent)) {
+      shortcutHintText.innerHTML = 'Shortcuts can be customized in Firefox Add-ons manager (<code>about:addons</code> &rarr; gear icon &rarr; <em>Manage Extension Shortcuts</em>).';
+    } else {
+      shortcutHintText.innerHTML = 'Shortcuts can be customized in your browser\'s extension settings (<code>chrome://extensions/shortcuts</code>).';
+    }
+  }
 
   // Check auth session
   await renderSessionState();
@@ -61,6 +77,60 @@ async function renderSessionState(): Promise<void> {
  * Event Listeners
  */
 function setupEventListeners(): void {
+  // Vault Navigation
+  if (btnOpenVaultOptions) {
+    btnOpenVaultOptions.addEventListener('click', async () => {
+      const base = await getApiBase();
+      const vaultUrl = `${base.replace(/\/api$/, '')}/app`;
+      chrome.tabs.create({ url: vaultUrl });
+    });
+  }
+
+  // Sync Outbox Now
+  if (btnSyncNow) {
+    btnSyncNow.addEventListener('click', async () => {
+      if (btnSyncNow) btnSyncNow.disabled = true;
+      if (optionsSyncStatus) {
+        showBanner(optionsSyncStatus, 'Syncing local mutations with cloud...', 'success');
+      }
+      try {
+        await syncManager.sync(true);
+        if (optionsSyncStatus) {
+          showBanner(optionsSyncStatus, 'Sync completed successfully.', 'success');
+        }
+      } catch (err: any) {
+        if (optionsSyncStatus) {
+          showBanner(optionsSyncStatus, err?.message || 'Sync failed.', 'error');
+        }
+      } finally {
+        if (btnSyncNow) btnSyncNow.disabled = false;
+      }
+    });
+  }
+
+  // Sync Session from Open Vault Tab
+  if (btnSyncVaultTabOptions) {
+    btnSyncVaultTabOptions.addEventListener('click', async () => {
+      btnSyncVaultTabOptions.disabled = true;
+      btnSyncVaultTabOptions.textContent = 'Connecting...';
+      try {
+        const result = await syncSessionFromActiveVaultTab();
+        if (result.success) {
+          await renderSessionState();
+        } else {
+          optAuthError.textContent = result.error || 'No authenticated Markbel tab found.';
+          optAuthError.classList.remove('hidden');
+        }
+      } catch (err: any) {
+        optAuthError.textContent = err?.message || 'Failed to sync session from tab.';
+        optAuthError.classList.remove('hidden');
+      } finally {
+        btnSyncVaultTabOptions.disabled = false;
+        btnSyncVaultTabOptions.textContent = 'Sync Session from Open Web Vault Tab';
+      }
+    });
+  }
+
   // Save API URL
   formApiConfig.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -86,7 +156,7 @@ function setupEventListeners(): void {
     btnOptLogin.textContent = 'Signing in...';
 
     try {
-      await login(optEmail.value.trim(), optPassword.value);
+      await login(optEmail.value.trim().toLowerCase(), optPassword.value);
       optPassword.value = '';
       await renderSessionState();
     } catch (err: any) {

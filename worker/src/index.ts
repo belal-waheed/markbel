@@ -143,12 +143,14 @@ const authMiddleware = async (c: any, next: any) => {
 app.post("/api/users/signup", async (c) => {
   try {
     const { name, email, password, avatar } = await c.req.json();
-    if (!name || !email || !password) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanName = String(name || '').trim();
+    if (!cleanName || !cleanEmail || !password) {
       return c.json({ error: "Name, email, and password are required" }, 400);
     }
 
     const existing = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?")
-      .bind(email.toLowerCase())
+      .bind(cleanEmail)
       .first();
 
     if (existing) {
@@ -162,7 +164,7 @@ app.post("/api/users/signup", async (c) => {
     await c.env.DB.prepare(
       "INSERT INTO users (id, name, email, password_hash, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)"
     )
-      .bind(id, name, email.toLowerCase(), passwordHash, avatar || "", now)
+      .bind(id, cleanName, cleanEmail, passwordHash, avatar || "", now)
       .run();
 
     // Seed default smart groups (YT, Insta, X)
@@ -182,12 +184,12 @@ app.post("/api/users/signup", async (c) => {
 
     const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
-    const token = await sign({ id, email, exp }, secret, "HS256");
+    const token = await sign({ id, email: cleanEmail, exp }, secret, "HS256");
 
     return c.json(
       {
         token,
-        user: { id, name, email: email.toLowerCase(), avatar: avatar || "", createdAt: now },
+        user: { id, name: cleanName, email: cleanEmail, avatar: avatar || "", createdAt: now },
       },
       201
     );
@@ -199,14 +201,15 @@ app.post("/api/users/signup", async (c) => {
 app.post("/api/users/login", async (c) => {
   try {
     const { email, password } = await c.req.json();
-    if (!email || !password) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !password) {
       return c.json({ error: "Email and password are required" }, 400);
     }
 
     const user: any = await c.env.DB.prepare(
       "SELECT id, name, email, password_hash, avatar, created_at FROM users WHERE email = ?"
     )
-      .bind(email.toLowerCase())
+      .bind(cleanEmail)
       .first();
 
     if (!user) {

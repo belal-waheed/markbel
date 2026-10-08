@@ -465,10 +465,12 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       // Assert
       expect(content.manifest_version).toBe(3);
       expect(content.browser_specific_settings?.gecko?.id).toBe('markbel-extension@obel.dev');
-      expect(content.browser_specific_settings?.gecko?.strict_min_version).toBe('109.0');
+      expect(content.browser_specific_settings?.gecko?.strict_min_version).toBe('112.0');
       expect(content.background?.scripts).toEqual(['background.js']);
+      expect(content.background?.type).toBe('module');
       expect(content.action?.default_popup).toBe('popup/index.html');
       expect(content.permissions).toContain('activeTab');
+      expect(content.permissions).toContain('tabs');
     });
   });
 });
