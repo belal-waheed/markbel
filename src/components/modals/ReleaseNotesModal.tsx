@@ -2,9 +2,8 @@ import React from 'react'
 import {
   X,
   Sparkles,
-  Layers,
-  FlaskConical,
-  Tag,
+  KeyRound,
+  ShieldCheck,
   Download,
   ExternalLink,
   CheckCircle2
@@ -44,14 +43,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.2
+                  What's New in Markbel v2.5.3
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Cascade Sync Engine, Batch Transactions, Reminder Controls, QStash Alert Deduplication & Firefox MV3
+                Firefox Developer Edition MV3 Module Support, 1-Click Vault Session Import, Direct Popup Sync &amp; GitHub Actions Modernization
               </p>
             </div>
           </div>
@@ -66,7 +65,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-          {/* Feature 1: Cascade Sync Engine & Batch Transactions */}
+          {/* Feature 1: Firefox MV3 Module Engine & Direct Popup Sync */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5" />
@@ -74,113 +73,87 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Cascade Sync Engine & Atomic Batch Transactions
-                </h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  Sync & Storage
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Renaming or deleting a group now seamlessly cascades bookmark assignments across IndexedDB and Cloudflare D1 with automatic version bumping and outbox synchronization. Bulk actions execute in single atomic transactions.
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>D1 & IndexedDB Cascade Synchronization</span>
-                </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>Atomic bulkUpdate & bulkDelete Transactions</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 2: Reminder Controls & Smart Alert Deduplication */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Reminder Controls & Smart Alert Deduplication
-                </h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  Notifications
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Directly snooze (+1 day) or dismiss reminders from cards without opening the edit modal. Cloudflare QStash reminder cron records dispatch timestamps in D1, permanently eliminating repeated alert notifications.
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                  <span>Quick Snooze (+1d) & Dismiss Controls</span>
-                </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                  <span>D1 notified_at Cron Deduplication</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 3: Reactive Archive Vault & Modal Input Safety */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <FlaskConical className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Reactive Archive Vault & Modal Input Safety
-                </h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  UI & Reactivity
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Archive Vault now reactively synchronizes via Dexie live queries and triggers immediate background sync upon unarchiving or deleting. Add Bookmark modal protects active user typing from background preview overwrites.
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                  <span>Reactive Archive useLiveQuery</span>
-                </span>
-                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                  <span>Input Race Condition Elimination</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 4: Firefox & Firefox Developer Edition Target */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Tag className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Firefox & Firefox Dev Edition Extension Target
+                  Firefox MV3 Module Engine &amp; Direct Popup Sync
                 </h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
                   Browser Extensions
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Dedicated Gecko Manifest V3 packaging with event background scripts for Mozilla Firefox and Developer Edition, including interactive about:debugging load guide.
+                Full ES module event script runtime support for Firefox and Firefox Developer Edition. The extension popup triggers immediate direct sync execution before dismissal and accurately navigates to the `/app` dashboard.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Gecko MV3 ES Module Scripts</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Immediate Pre-Dismissal Sync</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Accurate /app Dashboard Navigation</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature 2: 1-Click Web Vault Session Discovery */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  1-Click Web Vault Session Discovery
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Authentication
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Automatic session token detection from active open <code className="text-[10px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-surface)]">mark.obel.workers.dev</code> tabs, eliminating manual token entry or credential copy-pasting during extension onboarding.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Automatic Vault Tab Discovery</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Zero Manual Setup Friction</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature 3: Edge Worker Auth Hardening & CI Modernization */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Edge Worker Auth Hardening &amp; CI Modernization
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Infrastructure
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Whitespace-trimmed email resolution in Cloudflare D1 for robust cross-client authentication, paired with modern zero-deprecation GitHub Actions workflows powered by <code className="text-[10px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-surface)]">actions/setup-java@v5</code> and <code className="text-[10px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-surface)]">actions/setup-node@v5</code> on Node 24.
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400" />
-                  <span>Gecko MV3 Event Page Compliance</span>
+                  <span>D1 Whitespace-Trimmed Auth</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400" />
-                  <span>Firefox Dev Edition Persistent Ready</span>
+                  <span>GitHub Actions Node 24 Modernization</span>
                 </span>
               </div>
             </div>
@@ -190,10 +163,10 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.5.2)
+                Direct Download Assets (v2.5.3)
               </span>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/tag/v2.5.2"
+                href="https://github.com/belal-waheed/markbel/releases/tag/v2.5.3"
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-semibold text-[var(--color-accent)] hover:underline flex items-center gap-1 touch-manipulation"
@@ -205,7 +178,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.2/Markbel.apk"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.3/Markbel.apk"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-primary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs touch-manipulation cursor-pointer"
@@ -215,7 +188,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.2/markbel-firefox-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.3/markbel-firefox-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 touch-manipulation cursor-pointer"
@@ -225,7 +198,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.2/markbel-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.3/markbel-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 touch-manipulation cursor-pointer"

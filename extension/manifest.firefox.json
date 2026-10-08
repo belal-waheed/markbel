@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Markbel",
   "short_name": "Markbel",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "Instant 1-click bookmarks, rich media metadata extraction, and smart grouping for Markbel.",
   "browser_specific_settings": {
     "gecko": {
