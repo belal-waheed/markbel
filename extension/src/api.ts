@@ -8,6 +8,29 @@ import { syncManager } from '@/db/SyncManager';
 
 export const DEFAULT_API_BASE = 'https://mark.obel.workers.dev/api';
 
+export async function checkHostPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return true;
+  try {
+    return await chrome.permissions.contains({
+      origins: ['https://mark.obel.workers.dev/*'],
+    });
+  } catch {
+    return true;
+  }
+}
+
+export async function requestHostPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return false;
+  try {
+    return await chrome.permissions.request({
+      origins: ['https://mark.obel.workers.dev/*'],
+    });
+  } catch (err) {
+    console.warn('[Markbel Extension] Host permission request error:', err);
+    return false;
+  }
+}
+
 export class NetworkError extends Error {
   constructor(message: string) {
     super(message);
@@ -140,6 +163,22 @@ export async function login(email: string, password: string): Promise<{ token: s
     return data;
   } catch (err: any) {
     console.error('[Markbel Extension Login Error]:', err);
+    const isNetworkError =
+      err?.name === 'TypeError' ||
+      (typeof err?.message === 'string' &&
+        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')));
+    if (isNetworkError) {
+      const hasPerm = await checkHostPermission();
+      if (!hasPerm) {
+        throw new Error(
+          "Host permission for mark.obel.workers.dev is missing. Click 'Grant Permission' or toggle it in about:addons -> Markbel -> Permissions."
+        );
+      } else {
+        throw new Error(
+          "Network connection to mark.obel.workers.dev failed. If using Telecom Egypt (WE), disable ECH in Firefox about:config (network.dns.echconfig.enabled = false)."
+        );
+      }
+    }
     throw err;
   }
 }
@@ -224,8 +263,24 @@ export async function saveBookmark({
       syncManager.sync(true),
       new Promise((res) => setTimeout(res, 2500))
     ]);
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[Markbel Extension] Immediate sync notice:', err);
+    const isNetworkError =
+      err?.name === 'TypeError' ||
+      (typeof err?.message === 'string' &&
+        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')));
+    if (isNetworkError) {
+      const hasPerm = await checkHostPermission();
+      if (!hasPerm) {
+        throw new Error(
+          "Host permission for mark.obel.workers.dev is missing. Click 'Grant Permission' or toggle it in about:addons -> Markbel -> Permissions."
+        );
+      } else {
+        throw new Error(
+          "Network connection to mark.obel.workers.dev failed. If using Telecom Egypt (WE), disable ECH in Firefox about:config (network.dns.echconfig.enabled = false)."
+        );
+      }
+    }
   }
 
   // 3. Trigger background worker to flush the outbox as fallback

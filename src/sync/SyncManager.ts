@@ -286,7 +286,11 @@ export class SyncManager {
         console.log('Sync aborted');
       } else {
         console.error('Sync error:', err);
-        await this.handleHttpError(err.status || 500);
+        if (typeof err?.status === 'number' && err.status > 0) {
+          await this.handleHttpError(err.status);
+        } else {
+          console.warn('Network connectivity issue during sync - will retry when back online or on schedule');
+        }
         this.metrics.lastError = err.message;
         this.setState(SyncState.Error, err.message);
       }

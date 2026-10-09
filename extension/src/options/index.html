@@ -17,6 +17,21 @@
       </div>
     </header>
 
+    <!-- Host Permission Warning Banner (Firefox MV3) -->
+    <div id="banner-permission-warning" class="permission-warning-banner hidden">
+      <div class="permission-warning-content">
+        <svg class="permission-warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div class="permission-warning-text">
+          <strong>Host Permission Required:</strong> Markbel requires access to <code>mark.obel.workers.dev</code> to authenticate and synchronize bookmarks.
+        </div>
+      </div>
+      <button type="button" id="btn-grant-permission" class="btn-permission-grant">Grant Permission</button>
+    </div>
+
     <!-- Account Section -->
     <section class="settings-card">
       <h2>Account & Session</h2>

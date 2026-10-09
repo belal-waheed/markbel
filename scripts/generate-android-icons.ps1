@@ -1,12 +1,18 @@
 Add-Type -AssemblyName System.Drawing
 
-$sourceLogo = "d:\dev\apps\projects\web\markbel\public\logo.png"
+$sourceLogo = Join-Path $PSScriptRoot "..\public\logo.png"
+if (-not (Test-Path $sourceLogo)) {
+    $sourceLogo = "d:\dev\projects\markbel\public\logo.png"
+}
 if (-not (Test-Path $sourceLogo)) {
     Write-Error "Source logo not found at $sourceLogo"
     exit 1
 }
 
-$androidRes = "d:\dev\apps\projects\web\markbel\android\app\src\main\res"
+$androidRes = Join-Path $PSScriptRoot "..\android\app\src\main\res"
+if (-not (Test-Path $androidRes)) {
+    $androidRes = "d:\dev\projects\markbel\android\app\src\main\res"
+}
 
 # Standard sizes for legacy launcher icons (width x height)
 $launcherSizes = @{

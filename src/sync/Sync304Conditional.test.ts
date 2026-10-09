@@ -159,4 +159,42 @@ describe("Sync 304 Conditional Cursor Validation", () => {
       notModified: true,
     });
   });
+
+  it("does not treat TypeError: NetworkError as an HTTP 500 server error", async () => {
+    const storage = createMockStorage(10);
+    const env = createMockEnv();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const mockApiClient: ApiClient = {
+      get: vi.fn().mockRejectedValue(new TypeError("NetworkError when attempting to fetch resource.")),
+      post: vi.fn().mockResolvedValue({ results: [] }),
+      put: vi.fn().mockResolvedValue({}),
+    };
+
+    const manager = new SyncManager({
+      storage,
+      connectivity: env,
+      lifecycle: env,
+      apiClient: mockApiClient,
+    });
+
+    await manager.sync(true);
+
+    // Verify it did not log Server error 500
+    const server500Logs = warnSpy.mock.calls.filter((call) =>
+      call.some((arg) => typeof arg === "string" && arg.includes("Server error 500"))
+    );
+    expect(server500Logs.length).toBe(0);
+
+    // Verify it logged network connectivity warning instead
+    const networkWarnLogs = warnSpy.mock.calls.filter((call) =>
+      call.some((arg) => typeof arg === "string" && arg.includes("Network connectivity issue during sync"))
+    );
+    expect(networkWarnLogs.length).toBe(1);
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
 });
+

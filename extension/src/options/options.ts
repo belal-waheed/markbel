@@ -9,11 +9,16 @@ import {
   login,
   verifySession,
   normalizeApiUrl,
-  syncSessionFromActiveVaultTab
+  syncSessionFromActiveVaultTab,
+  checkHostPermission,
+  requestHostPermission
 } from '../api';
 import { syncManager } from '@/db/SyncManager';
 
 // DOM Elements
+const bannerPermissionWarning = document.getElementById('banner-permission-warning') as HTMLElement | null;
+const btnGrantPermission = document.getElementById('btn-grant-permission') as HTMLButtonElement | null;
+
 const accountLoggedIn = document.getElementById('account-logged-in') as HTMLElement;
 const accountLoggedOut = document.getElementById('account-logged-out') as HTMLElement;
 const userEmail = document.getElementById('user-email') as HTMLElement;
@@ -40,6 +45,12 @@ const apiStatusBanner = document.getElementById('api-status-banner') as HTMLElem
  */
 async function init(): Promise<void> {
   setupEventListeners();
+
+  // Check Firefox MV3 host permissions
+  const hasHostPerm = await checkHostPermission();
+  if (!hasHostPerm && bannerPermissionWarning) {
+    bannerPermissionWarning.classList.remove('hidden');
+  }
 
   // Load configured API URL
   const currentBase = await getApiBase();
@@ -83,6 +94,26 @@ function setupEventListeners(): void {
       const base = await getApiBase();
       const vaultUrl = `${base.replace(/\/api$/, '')}/app`;
       chrome.tabs.create({ url: vaultUrl });
+    });
+  }
+
+  // Host Permission Request (Firefox MV3)
+  if (btnGrantPermission) {
+    btnGrantPermission.addEventListener('click', async () => {
+      btnGrantPermission.disabled = true;
+      btnGrantPermission.textContent = 'Requesting...';
+      try {
+        const granted = await requestHostPermission();
+        if (granted) {
+          if (bannerPermissionWarning) {
+            bannerPermissionWarning.classList.add('hidden');
+          }
+          await renderSessionState();
+        }
+      } finally {
+        btnGrantPermission.disabled = false;
+        btnGrantPermission.textContent = 'Grant Permission';
+      }
     });
   }
 

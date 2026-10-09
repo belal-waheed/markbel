@@ -8,7 +8,9 @@ import {
   verifySession,
   saveBookmark,
   getApiBase,
-  syncSessionFromActiveVaultTab
+  syncSessionFromActiveVaultTab,
+  checkHostPermission,
+  requestHostPermission
 } from '../api';
 import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
@@ -16,6 +18,9 @@ import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from '../content';
 
 // DOM Elements
+const bannerPermissionWarning = document.getElementById('banner-permission-warning') as HTMLElement | null;
+const btnGrantPermission = document.getElementById('btn-grant-permission') as HTMLButtonElement | null;
+
 const viewAuth = document.getElementById('view-auth') as HTMLElement;
 const viewSave = document.getElementById('view-save') as HTMLElement;
 const viewSuccess = document.getElementById('view-success') as HTMLElement;
@@ -55,6 +60,12 @@ let selectedGroup = 'Unsorted';
  */
 async function init(): Promise<void> {
   setupEventHandlers();
+
+  // Check Firefox MV3 host permissions
+  const hasHostPerm = await checkHostPermission();
+  if (!hasHostPerm && bannerPermissionWarning) {
+    bannerPermissionWarning.classList.remove('hidden');
+  }
 
   let session = await verifySession();
   if (!session) {
@@ -270,6 +281,30 @@ function setupEventHandlers(): void {
   btnOptions.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
+
+  // Host Permission Request (Firefox MV3)
+  if (btnGrantPermission) {
+    btnGrantPermission.addEventListener('click', async () => {
+      btnGrantPermission.disabled = true;
+      btnGrantPermission.textContent = 'Requesting...';
+      try {
+        const granted = await requestHostPermission();
+        if (granted) {
+          if (bannerPermissionWarning) {
+            bannerPermissionWarning.classList.add('hidden');
+          }
+          const session = await verifySession();
+          if (session) {
+            showView('save');
+            await loadActiveTabData();
+          }
+        }
+      } finally {
+        btnGrantPermission.disabled = false;
+        btnGrantPermission.textContent = 'Grant Permission';
+      }
+    });
+  }
 
   // Sync Session from Open Tab
   if (btnSyncVaultTab) {
