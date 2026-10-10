@@ -5,6 +5,7 @@
 
 import {
   login,
+  getSession,
   verifySession,
   saveBookmark,
   getApiBase,
@@ -67,22 +68,26 @@ async function init(): Promise<void> {
     bannerPermissionWarning.classList.remove('hidden');
   }
 
-  let session = await verifySession();
-  if (!session) {
-    // Attempt silent auto-import from open Markbel web vault tab
-    const tabSync = await syncSessionFromActiveVaultTab();
-    if (tabSync.success) {
-      session = await verifySession();
+  const session = await getSession();
+  if (session.isAuthenticated && session.user) {
+    showView('save');
+    await loadActiveTabData();
+    verifySession().catch(() => {});
+  } else {
+    let activeSession = await verifySession();
+    if (!activeSession) {
+      const tabSync = await syncSessionFromActiveVaultTab();
+      if (tabSync.success) {
+        activeSession = await verifySession();
+      }
+    }
+    if (activeSession) {
+      showView('save');
+      await loadActiveTabData();
+    } else {
+      showView('auth');
     }
   }
-
-  if (!session) {
-    showView('auth');
-    return;
-  }
-
-  showView('save');
-  await loadActiveTabData();
 }
 
 function showView(name: 'auth' | 'save' | 'success'): void {

@@ -102,6 +102,10 @@ export class MarkbelDatabase extends Dexie {
 
 export const db = new MarkbelDatabase();
 
+if (typeof window !== 'undefined') {
+  (window as any).db = db;
+}
+
 /**
  * Migrates local guest data (userId = 'local-user' or empty) to the authenticated user ID,
  * and enqueues sync outbox operations so they are immediately pushed to Cloudflare D1.

@@ -146,7 +146,8 @@ export async function login(email: string, password: string): Promise<{ token: s
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email: cleanEmail, password })
+      body: JSON.stringify({ email: cleanEmail, password }),
+      signal: AbortSignal.timeout(5000)
     });
 
     const data = await res.json().catch(() => ({}));
@@ -165,8 +166,10 @@ export async function login(email: string, password: string): Promise<{ token: s
     console.error('[Markbel Extension Login Error]:', err);
     const isNetworkError =
       err?.name === 'TypeError' ||
+      err?.name === 'TimeoutError' ||
+      err?.name === 'AbortError' ||
       (typeof err?.message === 'string' &&
-        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')));
+        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch') || err.message.includes('timeout') || err.message.includes('aborted')));
     if (isNetworkError) {
       const hasPerm = await checkHostPermission();
       if (!hasPerm) {
@@ -199,7 +202,8 @@ export async function verifySession(): Promise<AuthUser | null> {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.token}`
-      }
+      },
+      signal: AbortSignal.timeout(5000)
     });
 
     if (res.status === 401) {

@@ -173,11 +173,31 @@ public class ShareActivity extends Activity {
             } else if (code == 401) {
                 mainHandler.post(() -> Toast.makeText(context, "Markbel session expired. Please log in.", Toast.LENGTH_LONG).show());
             } else {
-                mainHandler.post(() -> Toast.makeText(context, "Could not save to Markbel (Server error: " + code + ")", Toast.LENGTH_SHORT).show());
+                saveToOfflineQueue(context, url, title, description);
             }
             conn.disconnect();
         } catch (Exception e) {
-            mainHandler.post(() -> Toast.makeText(context, "Unable to save to Markbel. Check connection.", Toast.LENGTH_SHORT).show());
+            saveToOfflineQueue(context, url, title, description);
+        }
+    }
+
+    private void saveToOfflineQueue(Context context, String url, String title, String description) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String existingJson = prefs.getString("pending_shares", "[]");
+            JSONArray array = new JSONArray(existingJson);
+
+            JSONObject item = new JSONObject();
+            item.put("url", url);
+            item.put("title", title);
+            item.put("description", description);
+            item.put("timestamp", System.currentTimeMillis());
+
+            array.put(item);
+            prefs.edit().putString("pending_shares", array.toString()).apply();
+            mainHandler.post(() -> Toast.makeText(context, "Markbel: Saved to offline queue!", Toast.LENGTH_SHORT).show());
+        } catch (Exception e) {
+            mainHandler.post(() -> Toast.makeText(context, "Unable to save bookmark offline.", Toast.LENGTH_SHORT).show());
         }
     }
 

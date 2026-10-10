@@ -27,6 +27,7 @@ async function getAuthHeaders(extraHeaders?: any): Promise<Record<string, string
 import { ofetch } from 'ofetch';
 
 const baseClient = ofetch.create({
+  timeout: 7000,
   retry: 1,
   retryDelay: 500,
   async onRequest({ options }) {
