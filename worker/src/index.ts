@@ -327,11 +327,16 @@ app.post("/api/auth/forgot-password", async (c) => {
       return c.json({ success: true, message: "If an account exists, a reset code has been sent." });
     }
 
-    // Generate 6-digit verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 6-digit verification code using cryptographically secure random values
+    const randomBytes = new Uint32Array(1);
+    crypto.getRandomValues(randomBytes);
+    const code = (100000 + (randomBytes[0] % 900000)).toString();
     const id = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const now = new Date().toISOString();
+
+    // Ensure attempts column exists in password_resets
+    await c.env.DB.prepare("ALTER TABLE password_resets ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0").run().catch(() => {});
 
     // Clean up older tokens for this email
     await c.env.DB.prepare("DELETE FROM password_resets WHERE email = ?")
@@ -339,7 +344,7 @@ app.post("/api/auth/forgot-password", async (c) => {
       .run();
 
     await c.env.DB.prepare(
-      "INSERT INTO password_resets (id, email, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO password_resets (id, email, token, expires_at, created_at, attempts) VALUES (?, ?, ?, ?, ?, 0)"
     )
       .bind(id, normalizedEmail, code, expiresAt, now)
       .run();
@@ -426,9 +431,7 @@ app.post("/api/auth/forgot-password", async (c) => {
       success: true,
       message: emailDelivered
         ? "Verification code sent to your email address."
-        : "Reset code generated. Please enter your 6-digit code to update your password.",
-      // Include devCode if email was not delivered or in development environment
-      devCode: !emailDelivered ? code : undefined,
+        : "If an account exists, a verification code has been generated and sent.",
       emailDelivered,
     });
   } catch (err: any) {
@@ -447,12 +450,28 @@ app.post("/api/auth/verify-code", async (c) => {
     const now = new Date().toISOString();
 
     const resetRecord: any = await c.env.DB.prepare(
+      "SELECT id, attempts FROM password_resets WHERE email = ? AND expires_at > ?"
+    )
+      .bind(normalizedEmail, now)
+      .first();
+
+    if (resetRecord && (resetRecord.attempts ?? 0) >= 5) {
+      await c.env.DB.prepare("DELETE FROM password_resets WHERE id = ?").bind(resetRecord.id).run();
+      return c.json({ error: "Maximum verification attempts exceeded. Please request a new code." }, 429);
+    }
+
+    const validRecord: any = await c.env.DB.prepare(
       "SELECT id FROM password_resets WHERE email = ? AND token = ? AND expires_at > ?"
     )
       .bind(normalizedEmail, code.trim(), now)
       .first();
 
-    if (!resetRecord) {
+    if (!validRecord) {
+      if (resetRecord) {
+        await c.env.DB.prepare("UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?")
+          .bind(resetRecord.id)
+          .run();
+      }
       return c.json({ error: "Invalid or expired verification code" }, 400);
     }
 
@@ -469,20 +488,36 @@ app.post("/api/auth/reset-password", async (c) => {
       return c.json({ error: "Email, reset code, and new password are required" }, 400);
     }
 
-    if (newPassword.length < 4) {
-      return c.json({ error: "Password must be at least 4 characters long" }, 400);
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return c.json({ error: "New password must be at least 8 characters long" }, 400);
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const now = new Date().toISOString();
 
     const resetRecord: any = await c.env.DB.prepare(
+      "SELECT id, attempts FROM password_resets WHERE email = ? AND expires_at > ?"
+    )
+      .bind(normalizedEmail, now)
+      .first();
+
+    if (resetRecord && (resetRecord.attempts ?? 0) >= 5) {
+      await c.env.DB.prepare("DELETE FROM password_resets WHERE id = ?").bind(resetRecord.id).run();
+      return c.json({ error: "Maximum verification attempts exceeded. Please request a new code." }, 429);
+    }
+
+    const validRecord: any = await c.env.DB.prepare(
       "SELECT id FROM password_resets WHERE email = ? AND token = ? AND expires_at > ?"
     )
       .bind(normalizedEmail, code.trim(), now)
       .first();
 
-    if (!resetRecord) {
+    if (!validRecord) {
+      if (resetRecord) {
+        await c.env.DB.prepare("UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?")
+          .bind(resetRecord.id)
+          .run();
+      }
       return c.json({ error: "Invalid or expired verification code" }, 400);
     }
 
@@ -664,6 +699,11 @@ app.post("/api/sync/mutations", authMiddleware, async (c) => {
     return c.json({ results: [] });
   }
 
+  try {
+    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sync_changes_client_id ON sync_changes(client_change_id)").run();
+    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence)").run();
+  } catch {}
+
   // 1. Prefetch existing sync changes for idempotency check in batch
   const changeIds = changes.map((ch) => ch.changeId);
   const existingSyncMap = new Map<string, { sequence: number; entity_version: number }>();
@@ -808,32 +848,7 @@ app.post("/api/sync/mutations", authMiddleware, async (c) => {
             }
           }
 
-          // 2. If still missing image or title, attempt eager metadata scrape via app.request
-          if ((!bookmarkImage || !bookmarkTitle || bookmarkTitle === bookmarkUrl) && bookmarkUrl) {
-            try {
-              const metaReq = await app.request(
-                `/api/metadata?url=${encodeURIComponent(bookmarkUrl)}`,
-                { method: "GET" },
-                c.env
-              );
-              if (metaReq.ok) {
-                const scraped: any = await metaReq.json();
-                if (scraped?.image && !bookmarkImage) {
-                  bookmarkImage = scraped.image;
-                }
-                if (scraped?.title && (!bookmarkTitle || bookmarkTitle === bookmarkUrl)) {
-                  bookmarkTitle = scraped.title;
-                }
-                if (scraped?.description && !bookmarkDescription) {
-                  bookmarkDescription = scraped.description;
-                }
-              }
-            } catch (eagerErr) {
-              console.warn("[Sync Push] Eager metadata fetch error:", eagerErr);
-            }
-          }
-
-          // 3. Fallback title if still empty
+          // 2. Fallback title if still empty
           if (!bookmarkTitle && bookmarkUrl) {
             try {
               bookmarkTitle = new URL(bookmarkUrl).hostname.replace(/^www\./, "");

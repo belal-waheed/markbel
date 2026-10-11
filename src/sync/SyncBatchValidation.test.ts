@@ -144,4 +144,57 @@ describe("Sync Mutations Zod Boundary Validation", () => {
     };
     expect(SyncMutationsPayloadSchema.safeParse(emptyEntityId).success).toBe(false);
   });
+
+  it("compactOutbox prunes poison-pill items with attempts > 5 older than 7 days", async () => {
+    const { SyncManager } = await import("./SyncManager");
+    const mockManager = new SyncManager({
+      storage: {} as any,
+      connectivity: {} as any,
+      lifecycle: {} as any,
+      apiClient: {} as any,
+    });
+
+    const now = Date.now();
+    const tenDaysAgo = new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const twoDaysAgo = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+    const pending: any[] = [
+      {
+        id: "poison-old-1",
+        entityId: "e-1",
+        entityType: "bookmark",
+        operation: "update",
+        attempts: 6,
+        createdAt: tenDaysAgo,
+        payload: { title: "Old Failure" },
+      },
+      {
+        id: "poison-recent-1",
+        entityId: "e-2",
+        entityType: "bookmark",
+        operation: "update",
+        attempts: 6,
+        createdAt: twoDaysAgo,
+        payload: { title: "Recent Failure" },
+      },
+      {
+        id: "valid-1",
+        entityId: "e-3",
+        entityType: "bookmark",
+        operation: "create",
+        attempts: 1,
+        createdAt: twoDaysAgo,
+        payload: { title: "Valid Active" },
+      },
+    ];
+
+    const { compacted, toDeleteFromDb } = mockManager.compactOutbox(pending);
+
+    // poison-old-1 is older than 7 days and has > 5 attempts, so it should be marked for deletion
+    expect(toDeleteFromDb).toContain("poison-old-1");
+    // poison-recent-1 has attempts > 5 but is recent, so it's skipped from compacted but not deleted yet
+    expect(toDeleteFromDb).not.toContain("poison-recent-1");
+    // Only valid-1 is compacted
+    expect(compacted.map((c) => c.id)).toEqual(["valid-1"]);
+  });
 });

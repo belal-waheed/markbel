@@ -54,10 +54,15 @@ function getHeaders(): HeadersInit {
 }
 
 export const api = {
-  async get<T>(path: string): Promise<T> {
+  async get<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(resolveApiUrl(path), {
+      ...options,
       method: 'GET',
-      headers: getHeaders()
+      headers: {
+        ...getHeaders(),
+        ...(options?.headers ? (options.headers as Record<string, string>) : {})
+      },
+      signal: options?.signal
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {

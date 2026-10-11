@@ -76,11 +76,14 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
     }
 
     let isMounted = true;
+    const controller = new AbortController();
+
     const fetchMetadata = async () => {
       setIsLoadingMeta(true);
       try {
         const meta = await api.get<{ title?: string; description?: string; image?: string }>(
-          `/metadata?url=${encodeURIComponent(debouncedUrl)}`
+          `/metadata?url=${encodeURIComponent(debouncedUrl)}`,
+          { signal: controller.signal }
         );
         if (isMounted && meta) {
           if (meta.title && !userEditedTitleRef.current) {
@@ -93,7 +96,10 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
             setImage((prev) => (userEditedImageRef.current || prev.trim() ? prev : meta.image!));
           }
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === "AbortError" || controller.signal.aborted) {
+          return;
+        }
         // Fallback title from hostname
         try {
           const parsed = new URL(debouncedUrl);
@@ -110,6 +116,7 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
     fetchMetadata();
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [debouncedUrl]);
 

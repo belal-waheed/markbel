@@ -89,17 +89,23 @@ export class SyncManager {
   // -------------------------------------------------------------
   // Outbox Compaction
   // -------------------------------------------------------------
-  private compactOutbox(pending: SyncOutboxItem[]): { compacted: SyncOutboxItem[]; toDeleteFromDb: string[] } {
+  compactOutbox(pending: SyncOutboxItem[]): { compacted: SyncOutboxItem[]; toDeleteFromDb: string[] } {
+    const compacted: SyncOutboxItem[] = [];
+    const toDeleteFromDb: string[] = [];
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
     // Group by entityId
     const byEntity = new Map<string, SyncOutboxItem[]>();
     for (const item of pending) {
-      if ((item.attempts ?? 0) > 5) continue; // Skip poison pills
+      if ((item.attempts ?? 0) > 5) {
+        if (new Date(item.createdAt).getTime() < sevenDaysAgo) {
+          toDeleteFromDb.push(item.id);
+        }
+        continue; // Skip poison pills from active sync
+      }
       if (!byEntity.has(item.entityId)) byEntity.set(item.entityId, []);
       byEntity.get(item.entityId)!.push(item);
     }
-
-    const compacted: SyncOutboxItem[] = [];
-    const toDeleteFromDb: string[] = [];
 
     for (const [entityId, ops] of byEntity.entries()) {
       ops.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -185,12 +191,10 @@ export class SyncManager {
       if (!deviceId) throw new Error("Device ID not found");
       
       const pendingChanges = await this.storage.getPendingChanges(10000);
-      const activeChanges = pendingChanges.filter(item => (item.attempts ?? 0) <= 5);
-      
-      const { compacted: compactedBatch, toDeleteFromDb } = this.compactOutbox(activeChanges);
+      const { compacted: compactedBatch, toDeleteFromDb } = this.compactOutbox(pendingChanges);
       const pushBatch = compactedBatch.slice(0, 100);
 
-      // If pending changes collapsed offline without needing server push
+      // If pending changes collapsed offline without needing server push or poison pills were pruned
       if (pushBatch.length === 0 && toDeleteFromDb.length > 0) {
         await this.storage.removePendingChanges(toDeleteFromDb);
       }

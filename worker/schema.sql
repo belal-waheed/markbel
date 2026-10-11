@@ -87,7 +87,8 @@ CREATE TABLE IF NOT EXISTS password_resets (
     email TEXT NOT NULL,
     token TEXT NOT NULL,
     expires_at TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
 );
 
 -- Indexes for performance
@@ -95,6 +96,8 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, is_archived,
 CREATE INDEX IF NOT EXISTS idx_bookmarks_group ON bookmarks(user_id, group_name);
 CREATE INDEX IF NOT EXISTS idx_groups_user ON groups(user_id, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_sync_changes_pull ON sync_changes(user_id, entity_type, sequence);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_client_id ON sync_changes(client_change_id);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
 
