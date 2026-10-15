@@ -169,7 +169,12 @@ export async function login(email: string, password: string): Promise<{ token: s
       err?.name === 'TimeoutError' ||
       err?.name === 'AbortError' ||
       (typeof err?.message === 'string' &&
-        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch') || err.message.includes('timeout') || err.message.includes('aborted')));
+        (err.message.includes('NetworkError') ||
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('timeout') ||
+          err.message.includes('TimeoutError') ||
+          err.message.includes('aborted') ||
+          err.message.includes('ERR_CONNECTION_TIMED_OUT')));
     if (isNetworkError) {
       const hasPerm = await checkHostPermission();
       if (!hasPerm) {
@@ -178,7 +183,7 @@ export async function login(email: string, password: string): Promise<{ token: s
         );
       } else {
         throw new Error(
-          "Network connection to mark.obel.workers.dev failed. If using Telecom Egypt (WE), disable ECH in Firefox about:config (network.dns.echconfig.enabled = false)."
+          "Network connection to mark.obel.workers.dev timed out. If using Telecom Egypt (WE/Vodafone), set Chrome Secure DNS to Google Public DNS (chrome://settings/security -> Use secure DNS -> Google) to bypass blocked 188.114.x IP ranges."
         );
       }
     }
@@ -219,7 +224,21 @@ export async function verifySession(): Promise<AuthUser | null> {
     await chrome.storage.local.set({ authUser: user });
     return user;
   } catch (err: any) {
-    console.warn('[Markbel Extension] Offline session check notice:', err);
+    const errMsg = typeof err?.message === 'string' ? err.message : '';
+    const isTimeout =
+      err?.name === 'TimeoutError' ||
+      err?.name === 'AbortError' ||
+      errMsg.includes('timeout') ||
+      errMsg.includes('TimeoutError') ||
+      errMsg.includes('ERR_CONNECTION_TIMED_OUT') ||
+      errMsg.includes('Failed to fetch');
+    if (isTimeout) {
+      console.warn(
+        '[Markbel Extension] Network connection to mark.obel.workers.dev timed out. If using Telecom Egypt (WE/Vodafone), set Chrome Secure DNS to Google Public DNS (chrome://settings/security -> Use secure DNS -> Google) to bypass blocked 188.114.x IP ranges.'
+      );
+    } else {
+      console.warn('[Markbel Extension] Offline session check notice:', err);
+    }
     return session.user;
   }
 }
@@ -271,8 +290,14 @@ export async function saveBookmark({
     console.warn('[Markbel Extension] Immediate sync notice:', err);
     const isNetworkError =
       err?.name === 'TypeError' ||
+      err?.name === 'TimeoutError' ||
+      err?.name === 'AbortError' ||
       (typeof err?.message === 'string' &&
-        (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')));
+        (err.message.includes('NetworkError') ||
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('timeout') ||
+          err.message.includes('TimeoutError') ||
+          err.message.includes('ERR_CONNECTION_TIMED_OUT')));
     if (isNetworkError) {
       const hasPerm = await checkHostPermission();
       if (!hasPerm) {
@@ -281,7 +306,7 @@ export async function saveBookmark({
         );
       } else {
         throw new Error(
-          "Network connection to mark.obel.workers.dev failed. If using Telecom Egypt (WE), disable ECH in Firefox about:config (network.dns.echconfig.enabled = false)."
+          "Network connection to mark.obel.workers.dev timed out. If using Telecom Egypt (WE/Vodafone), set Chrome Secure DNS to Google Public DNS (chrome://settings/security -> Use secure DNS -> Google) to bypass blocked 188.114.x IP ranges."
         );
       }
     }

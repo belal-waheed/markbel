@@ -78,6 +78,10 @@ export class MarkbelDatabase extends Dexie {
   constructor() {
     super('MarkbelDatabase');
     
+    this.on('versionchange', () => {
+      this.close();
+    });
+
     // Define tables and indexes
     this.version(1).stores({
       bookmarks: 'id, userId, group, isArchived, isRead, deletedAt', 
@@ -96,6 +100,15 @@ export class MarkbelDatabase extends Dexie {
 
     this.version(4).stores({
       bookmarks: 'id, userId, group, isArchived, isRead, contentType, deletedAt'
+    }).upgrade(() => {});
+
+    this.version(5).stores({
+      bookmarks: 'id, userId, group, isArchived, isRead, contentType, deletedAt',
+      groups: 'id, userId, name, deletedAt',
+      syncOutbox: 'id, entityType, entityId, status, createdAt',
+      syncMetadata: 'key',
+      appConfig: 'key',
+      scheduledNotifications: 'id, bookmarkId, triggerAtUtc'
     }).upgrade(() => {});
   }
 }
@@ -373,8 +386,9 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
   const groupNames = activeGroups.map((g) => g.name);
 
   let organizedCount = 0;
+  const customRules = await getCustomSmartGroupRules().catch(() => []);
 
-  await db.transaction('rw', [db.bookmarks, db.syncOutbox, db.groups], async () => {
+  await db.transaction('rw', [db.bookmarks, db.syncOutbox, db.groups, db.appConfig], async () => {
     const unsortedBookmarks = await db.bookmarks
       .filter(
         (b) =>
@@ -382,8 +396,6 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
           (!b.group || b.group.toLowerCase() === 'unsorted')
       )
       .toArray();
-
-    const customRules = await getCustomSmartGroupRules().catch(() => []);
 
     for (const b of unsortedBookmarks) {
       const smartGroup = resolveSmartGroup(b.url, groupNames, customRules);

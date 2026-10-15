@@ -131,7 +131,23 @@ function setupEventListeners(): void {
         }
       } catch (err: any) {
         if (optionsSyncStatus) {
-          showBanner(optionsSyncStatus, err?.message || 'Sync failed.', 'error');
+          const errMsg = err?.message || '';
+          const isTimeout =
+            err?.name === 'TimeoutError' ||
+            err?.name === 'AbortError' ||
+            errMsg.includes('TimeoutError') ||
+            errMsg.includes('timeout') ||
+            errMsg.includes('ERR_CONNECTION_TIMED_OUT') ||
+            errMsg.includes('Failed to fetch');
+          if (isTimeout) {
+            showBanner(
+              optionsSyncStatus,
+              "Network connection to mark.obel.workers.dev timed out. If using Telecom Egypt (WE/Vodafone), set Chrome Secure DNS to Google Public DNS (chrome://settings/security -> Use secure DNS -> Google) to bypass blocked 188.114.x IP ranges.",
+              'error'
+            );
+          } else {
+            showBanner(optionsSyncStatus, errMsg || 'Sync failed.', 'error');
+          }
         }
       } finally {
         if (btnSyncNow) btnSyncNow.disabled = false;

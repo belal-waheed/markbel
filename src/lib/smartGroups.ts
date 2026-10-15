@@ -4,6 +4,7 @@
  * with specificity scoring, operator matching, and 1-click preset auto-provisioning.
  */
 
+import Dexie from 'dexie';
 import { db } from '../db/db.js';
 
 export type ConstraintOperator =
@@ -353,10 +354,13 @@ export function sortRulesBySpecificity(
  */
 export async function getCustomSmartGroupRules(): Promise<CompoundSmartGroupRule[]> {
   try {
-    const entry = await db.appConfig.get(CUSTOM_RULES_CONFIG_KEY);
-    if (entry && Array.isArray(entry.value)) {
-      return entry.value.map(normalizeRule);
-    }
+    return await Dexie.ignoreTransaction(async () => {
+      const entry = await db.appConfig.get(CUSTOM_RULES_CONFIG_KEY);
+      if (entry && Array.isArray(entry.value)) {
+        return entry.value.map(normalizeRule);
+      }
+      return [];
+    });
   } catch (err) {
     console.warn('[SmartGroups] Failed to read custom rules from appConfig:', err);
   }

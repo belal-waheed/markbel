@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import { db } from '../db';
 import { SyncStorage, SyncOutboxItem, RemoteChange } from '@/sync';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
@@ -37,16 +38,34 @@ export class WebSyncStorage implements SyncStorage {
   }
 
   async getDeviceId(): Promise<string | undefined> {
-    const existing = await db.appConfig.get('deviceId');
-    if (existing) return existing.value;
-    
-    const newId = `browser-${crypto.randomUUID()}`;
-    await db.appConfig.put({ key: 'deviceId', value: newId });
-    return newId;
+    try {
+      const existing = await Dexie.ignoreTransaction(() => db.appConfig.get('deviceId'));
+      if (existing?.value) return existing.value;
+      
+      const newId = `browser-${crypto.randomUUID()}`;
+      await Dexie.ignoreTransaction(() => db.appConfig.put({ key: 'deviceId', value: newId }));
+      return newId;
+    } catch {
+      if (typeof localStorage !== 'undefined') {
+        const cached = localStorage.getItem('markbel_device_id');
+        if (cached) return cached;
+        const genId = `browser-${crypto.randomUUID()}`;
+        localStorage.setItem('markbel_device_id', genId);
+        return genId;
+      }
+      return `browser-${crypto.randomUUID()}`;
+    }
   }
 
   async saveDeviceId(deviceId: string): Promise<void> {
-    await db.appConfig.put({ key: 'deviceId', value: deviceId });
+    try {
+      await Dexie.ignoreTransaction(() => db.appConfig.put({ key: 'deviceId', value: deviceId }));
+    } catch {}
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('markbel_device_id', deviceId);
+      } catch {}
+    }
   }
 
   async getAuthToken(): Promise<string | null> {

@@ -1720,6 +1720,16 @@ const ALLOWED_IMAGE_MIMES = new Set([
   "image/x-icon",
 ]);
 
+export function isSignedCdnExpired(url: URL): boolean {
+  if (url.hostname.endsWith(".cdninstagram.com") || url.hostname.endsWith(".fbcdn.net")) {
+    const oe = url.searchParams.get("oe");
+    if (oe && /^[0-9a-fA-F]{8}$/.test(oe)) {
+      return parseInt(oe, 16) * 1000 < Date.now();
+    }
+  }
+  return false;
+}
+
 app.get("/api/proxy/image", async (c) => {
   const imageUrl = c.req.query("url")?.trim();
   if (!imageUrl) {
@@ -1734,6 +1744,13 @@ app.get("/api/proxy/image", async (c) => {
     const parsed = new URL(imageUrl);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return c.text("Invalid protocol", 400);
+    }
+
+    if (isSignedCdnExpired(parsed)) {
+      return c.text("Signed CDN URL has expired", 410, {
+        "Cache-Control": "public, max-age=86400, immutable",
+        "Access-Control-Allow-Origin": "*",
+      });
     }
 
     // Attempt cache match using Cloudflare edge cache
@@ -1755,6 +1772,14 @@ app.get("/api/proxy/image", async (c) => {
     let referer = customReferer || `${parsed.protocol}//${parsed.hostname}/`;
     if (parsed.hostname.includes("vid3rb.com") || parsed.hostname.includes("anime3rb.com")) {
       referer = "https://anime3rb.com/";
+    } else if (parsed.hostname.includes("cdninstagram.com") || parsed.hostname.includes("instagram.com")) {
+      referer = "https://www.instagram.com/";
+    } else if (parsed.hostname.includes("twimg.com") || parsed.hostname.includes("x.com") || parsed.hostname.includes("twitter.com")) {
+      referer = "https://x.com/";
+    } else if (parsed.hostname.includes("fbcdn.net") || parsed.hostname.includes("facebook.com")) {
+      referer = "https://www.facebook.com/";
+    } else if (parsed.hostname.includes("redditmedia.com") || parsed.hostname.includes("redd.it")) {
+      referer = "https://www.reddit.com/";
     }
 
     // Fetch upstream image with desktop browser headers and origin referer to bypass hotlink protection
@@ -1769,6 +1794,17 @@ app.get("/api/proxy/image", async (c) => {
         "Sec-Fetch-Site": "cross-site",
       },
     });
+
+    // If initial fetch returned 403 on Instagram CDN, retry once without Referer header
+    if (upstreamRes.status === 403 && parsed.hostname.includes("cdninstagram.com")) {
+      upstreamRes = await fetch(imageUrl, {
+        redirect: "follow",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        },
+      });
+    }
 
     // If initial fetch returned 301/302 that wasn't automatically followed
     if ((upstreamRes.status === 301 || upstreamRes.status === 302) && upstreamRes.headers.get("location")) {
@@ -1786,7 +1822,10 @@ app.get("/api/proxy/image", async (c) => {
     }
 
     if (!upstreamRes.ok) {
-      return c.text(`Upstream image failed with status ${upstreamRes.status}`, 502);
+      return c.text(`Upstream image failed with status ${upstreamRes.status}`, 404, {
+        "Cache-Control": "public, max-age=300",
+        "Access-Control-Allow-Origin": "*",
+      });
     }
 
     const rawContentType = (upstreamRes.headers.get("content-type") || "").toLowerCase().split(";")[0].trim();
@@ -1799,6 +1838,9 @@ app.get("/api/proxy/image", async (c) => {
     headers.set("Content-Type", contentType);
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Cache-Control", "public, max-age=604800, s-maxage=2592000, immutable");
+    headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 
     const proxyResponse = new Response(upstreamRes.body, {
       status: 200,
