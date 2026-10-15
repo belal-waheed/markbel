@@ -2,49 +2,115 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
     <!-- Primary Meta Tags -->
-    <title>Markbel — Ultimate Bookmarks Vault & Link Manager</title>
-    <meta name="title" content="Markbel — Ultimate Bookmarks Vault & Link Manager" />
-    <meta name="description" content="Markbel is a premium, secure bookmarks vault and link manager that lets you organize, search, and preview your links in real-time. Secure, fast, and beautifully designed." />
-    <meta name="keywords" content="bookmarks, link manager, bookmark vault, bookmarking app, link saver, link organizer, secure bookmarks, cyber vault" />
-    <meta name="author" content="Markbel" />
-    <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#f6f5f0" />
+    <title>Markbel: Free Open-Source Offline Bookmark Manager & Vault</title>
+    <meta name="title" content="Markbel: Free Open-Source Offline Bookmark Manager & Vault" />
+    <meta name="description" content="Free open-source, offline-first bookmark manager and Pocket/Raindrop.io alternative. Save YouTube, Instagram Reels, X, and code with 0ms local IndexedDB." />
+    <meta name="keywords" content="bookmark manager, offline bookmarks, raindrop alternative, pocket alternative, open source link vault, indexeddb, cloudflare workers, d1 sqlite, dexie js" />
+    <meta name="author" content="Belal Waheed" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+
+    <!-- Theme Colors -->
+    <meta name="theme-color" content="#090d16" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f5f0" media="(prefers-color-scheme: light)" />
 
     <!-- Canonical Link -->
     <link rel="canonical" href="https://mark.obel.workers.dev/" />
 
+    <!-- Alternates & Sitemaps -->
+    <link rel="alternate" type="text/plain" title="LLM Context Summary" href="https://mark.obel.workers.dev/llms.txt" />
+    <link rel="alternate" type="text/plain" title="LLM Full Documentation" href="https://mark.obel.workers.dev/llms-full.txt" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://mark.obel.workers.dev/sitemap.xml" />
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://mark.obel.workers.dev" />
-    <meta property="og:title" content="Markbel — Ultimate Bookmarks Vault & Link Manager" />
-    <meta property="og:description" content="Markbel is a premium, secure bookmarks vault and link manager that lets you organize, search, and preview your links in real-time." />
-    <meta property="og:image" content="/logo.png" />
+    <meta property="og:url" content="https://mark.obel.workers.dev/" />
+    <meta property="og:site_name" content="Markbel" />
+    <meta property="og:title" content="Markbel: Free Open-Source Offline Bookmark Manager & Vault" />
+    <meta property="og:description" content="Free open-source, offline-first bookmark manager and Pocket/Raindrop.io alternative. Save YouTube, Instagram Reels, X, and code with 0ms local IndexedDB." />
+    <meta property="og:image" content="https://mark.obel.workers.dev/logo.png" />
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://mark.obel.workers.dev" />
-    <meta property="twitter:title" content="Markbel — Ultimate Bookmarks Vault & Link Manager" />
-    <meta property="twitter:description" content="Markbel is a premium, secure bookmarks vault and link manager that lets you organize, search, and preview your links in real-time." />
-    <meta property="twitter:image" content="/logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://mark.obel.workers.dev/" />
+    <meta name="twitter:title" content="Markbel: Free Open-Source Offline Bookmark Manager & Vault" />
+    <meta name="twitter:description" content="Free open-source, offline-first bookmark manager and Pocket/Raindrop.io alternative. Save YouTube, Instagram Reels, X, and code with 0ms local IndexedDB." />
+    <meta name="twitter:image" content="https://mark.obel.workers.dev/logo.png" />
 
     <!-- Favicons & Manifest -->
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- Structured Data (JSON-LD) for SEO -->
+    <!-- Structured Data (JSON-LD) for SEO and GEO -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Markbel",
-        "url": "https://mark.obel.workers.dev",
-        "description": "Markbel is a premium, secure bookmarks vault and link manager that lets you organize, search, and preview your links in real-time.",
-        "applicationCategory": "ProductivityApplication",
-        "operatingSystem": "All"
+        "@graph": [
+          {
+            "@type": ["WebApplication", "SoftwareApplication"],
+            "@id": "https://mark.obel.workers.dev/#webapp",
+            "name": "Markbel",
+            "url": "https://mark.obel.workers.dev/",
+            "applicationCategory": "ProductivityApplication",
+            "operatingSystem": "Web, Android, Windows, macOS, Linux",
+            "softwareVersion": "2.5.7",
+            "dateModified": "2026-10-15",
+            "description": "Free open-source, offline-first bookmark manager and Pocket/Raindrop.io alternative. Save YouTube, Instagram Reels, X, and code with 0ms local IndexedDB.",
+            "image": "https://mark.obel.workers.dev/logo.png",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Belal Waheed",
+              "url": "https://github.com/belal-waheed"
+            },
+            "maintainer": {
+              "@type": "Person",
+              "name": "Belal Waheed",
+              "url": "https://github.com/belal-waheed"
+            },
+            "license": "https://opensource.org/licenses/MIT",
+            "codeRepository": "https://github.com/belal-waheed/markbel",
+            "storageRequirements": "Dexie.js v5 local IndexedDB storage with Cloudflare Workers and D1 SQLite cloud delta sync"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://mark.obel.workers.dev/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is the best free open-source alternative to Pocket and Raindrop.io?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Markbel is a 100% free, open-source alternative to Pocket and Raindrop.io with offline-first local IndexedDB storage (Dexie.js v5), zero paywalls, no tracking, and multi-device cloud delta sync on Cloudflare Workers and D1 SQLite."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I save YouTube videos, Instagram Reels, and Twitter posts for offline viewing?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, Markbel automatically recognizes URLs from YouTube, Instagram Reels, X (Twitter), TikTok, Reddit, and GitHub, extracts oEmbed metadata and posters, groups them intelligently, and keeps them accessible offline."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I self-host Markbel without managing Docker or a VPS?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, Markbel deploys effortlessly on Cloudflare Workers and Cloudflare D1 serverless SQLite completely within Cloudflare's free tier, requiring zero Docker containers or monthly server fees."
+                }
+              }
+            ]
+          }
+        ]
       }
     </script>
   </head>

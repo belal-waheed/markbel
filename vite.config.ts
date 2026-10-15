@@ -44,7 +44,14 @@ export default defineConfig({
         skipWaiting: true,
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [
+          /^\/api/,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
+          /^\/llms\.txt$/,
+          /^\/llms-full\.txt$/,
+          /^\/manifest\.json$/,
+        ],
         runtimeCaching: [
           {
             urlPattern: /^\/api\/proxy\/image/,

@@ -1,0 +1,271 @@
+# Markbel - Full System Specification & Architecture Manual (v2.5.7)
+
+## 1. System Overview
+Markbel is an open-source, local-first, offline-capable bookmark management and rich media archiving platform. It delivers 0ms sub-millisecond local database interactions using Dexie.js v5 (IndexedDB) and edge-based multi-device synchronization over Cloudflare Workers and Cloudflare D1 (serverless SQLite). Markbel is engineered as a privacy-respecting, zero-cost, self-hostable alternative to Raindrop.io, Pocket, and Wallabag.
+
+---
+
+## 2. Database Schemas
+
+### 2.1 Client Schema (Dexie.js v5 IndexedDB)
+```typescript
+interface LocalBookmark {
+  id: string;              // Primary key (UUID v4 or nanoid)
+  userId: string;          // Account ID or 'guest'
+  title: string;           // Bookmark title
+  url: string;             // Target URL
+  description?: string;    // Extracted description or user note
+  image?: string;          // Extracted thumbnail or poster URL
+  favicon?: string;        // Domain favicon URL
+  siteName?: string;       // Extracted site publication name
+  author?: string;         // Article/media author
+  publishedAt?: string;    // Publication timestamp
+  contentType?: 'article' | 'video' | 'audio' | 'tweet' | 'code' | 'website' | 'playlist';
+  readingTime?: number;    // Estimated reading time in minutes
+  wordCount?: number;      // Parsed body text word count
+  canonicalUrl?: string;   // Canonical URL link
+  articleContent?: string; // Extracted readable reader-mode HTML
+  group: string;           // Group category ID or smart group tag
+  isRead?: boolean;        // Read/Unread flag
+  readAt?: string;         // ISO 8601 read timestamp
+  isPinned?: boolean;      // Pinned priority flag
+  remindAt?: string;       // ISO 8601 reminder timestamp
+  notifiedAt?: string;     // ISO 8601 notification dispatch timestamp
+  isArchived?: boolean;    // Archive status flag
+  archiveGroup?: string;   // Optional archive bucket identifier
+  version: number;         // Entity mutation version
+  createdAt: string;       // ISO 8601 creation timestamp
+  updatedAt: string;       // ISO 8601 mutation timestamp (used in LWW)
+  deletedAt: string | null;// Soft delete timestamp
+}
+
+interface LocalGroup {
+  id: string;              // Primary key
+  userId: string;          // Account ID or 'guest'
+  name: string;            // Group display name
+  color: string;           // Group accent color hex or token
+  version: number;         // Group entity version
+  createdAt: string;       // ISO 8601 creation timestamp
+  updatedAt: string;       // ISO 8601 mutation timestamp
+  deletedAt: string | null;// Soft delete timestamp
+}
+
+interface SyncOutboxItem {
+  id: string;              // Local outbox mutation ID (UUID)
+  entityType: string;      // 'bookmark' | 'group'
+  entityId: string;        // Target record ID
+  operation: 'create' | 'update' | 'delete';
+  baseVersion: number;     // Version at mutation time
+  payload: Record<string, any>; // Delta payload
+  status: 'pending' | 'processing' | 'failed';
+  attempts: number;        // Retry counter
+  lastError?: string;      // Diagnostics for last sync failure
+  createdAt: string;       // ISO 8601 timestamp
+}
+
+interface SyncMetadata {
+  key: string;             // 'bookmark-sync'
+  cursor: number | null;   // Monotonic sequence cursor
+  lastSuccessfulSyncAt: string | null;
+  protocolVersion: number; // Sync protocol revision
+}
+```
+
+### 2.2 Server Schema (Cloudflare D1 Serverless SQLite)
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    avatar TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    image TEXT DEFAULT '',
+    favicon TEXT DEFAULT '',
+    site_name TEXT DEFAULT '',
+    author TEXT DEFAULT '',
+    published_at TEXT DEFAULT '',
+    content_type TEXT DEFAULT 'website',
+    reading_time INTEGER DEFAULT 0,
+    word_count INTEGER DEFAULT 0,
+    canonical_url TEXT DEFAULT '',
+    article_content TEXT DEFAULT '',
+    group_name TEXT NOT NULL DEFAULT 'Unsorted',
+    is_read INTEGER DEFAULT 0,
+    read_at TEXT DEFAULT '',
+    is_pinned INTEGER DEFAULT 0,
+    remind_at TEXT DEFAULT '',
+    notified_at TEXT DEFAULT NULL,
+    is_archived INTEGER DEFAULT 0,
+    archive_group TEXT DEFAULT '',
+    version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT DEFAULT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT 'blue',
+    version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT DEFAULT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS sync_changes (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    entity_version INTEGER NOT NULL,
+    client_change_id TEXT NOT NULL,
+    record_json TEXT,
+    changed_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'web',
+    push_token TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    last_active_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    token TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, is_archived, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_group ON bookmarks(user_id, group_name);
+CREATE INDEX IF NOT EXISTS idx_groups_user ON groups(user_id, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_pull ON sync_changes(user_id, entity_type, sequence);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_client_id ON sync_changes(client_change_id);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence);
+```
+
+---
+
+## 3. Synchronization Protocol & Outbox Queue
+
+### 3.1 Push Protocol (`POST /api/sync/push`)
+- **Headers**: `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "changes": [
+    {
+      "id": "c7a8b9e0-1234-4567-89ab-cdef01234567",
+      "entityType": "bookmark",
+      "entityId": "bmk_8f90a1",
+      "operation": "create",
+      "baseVersion": 0,
+      "payload": {
+        "url": "https://github.com/belal-waheed/markbel",
+        "title": "Markbel Repository",
+        "group": "Dev",
+        "updatedAt": "2026-10-15T04:00:00.000Z"
+      }
+    }
+  ]
+}
+```
+- **Response Body**:
+```json
+{
+  "success": true,
+  "processed": 1,
+  "results": [
+    { "clientChangeId": "c7a8b9e0-1234-4567-89ab-cdef01234567", "status": "applied", "sequence": 142 }
+  ],
+  "latestSequence": 142
+}
+```
+
+### 3.2 Pull Protocol (`GET /api/sync/pull?since={sequence}`)
+- **Headers**: `Authorization: Bearer <JWT>`, `If-None-Match: <etag>`
+- **Response**: Returns HTTP 304 Not Modified if no changes occurred since cursor.
+- **Response Body (HTTP 200)**:
+```json
+{
+  "changes": [
+    {
+      "sequence": 143,
+      "entityType": "bookmark",
+      "entityId": "bmk_8f90a1",
+      "operation": "update",
+      "entityVersion": 1,
+      "record": {
+        "id": "bmk_8f90a1",
+        "title": "Markbel: Open-Source Link Vault",
+        "updatedAt": "2026-10-15T04:10:00.000Z"
+      },
+      "changedAt": "2026-10-15T04:10:01.000Z"
+    }
+  ],
+  "latestSequence": 143,
+  "hasMore": false
+}
+```
+
+### 3.3 Conflict Resolution (Last-Write-Wins)
+1. Local outbox mutations are applied optimistically to local IndexedDB with 0ms UI delay.
+2. During synchronization pull, incoming changes compare `record.updatedAt` against local `updatedAt`.
+3. If local mutation timestamp is strictly newer, local state wins and the outbox pushes the newer record.
+4. If remote timestamp is equal or newer, remote record updates local Dexie storage.
+
+---
+
+## 4. Metadata Extraction, Media Heuristics & Image Proxy
+
+### 4.1 Metadata Endpoint (`GET /api/metadata?url={url}`)
+- **YouTube**: Detects standard watch URLs, short links (`youtu.be`), and YouTube Shorts (`/shorts/`). Requests official oEmbed API and falls back to `https://img.youtube.com/vi/{id}/hqdefault.jpg`.
+- **Instagram Reels**: Detects Instagram reel and post URLs, extracting media posters and authors via metadata scrapers.
+- **Twitter / X**: Queries `https://publish.twitter.com/oembed?url={url}` for author names and post previews.
+- **TikTok**: Queries TikTok official oEmbed for creator tags and video covers.
+- **Reddit & GitHub**: Extracts repository metadata, open issues, stars, author profiles, and OpenGraph images.
+- **Reader Mode Extraction**: Parses article HTML for sanitized readability text, calculating estimated reading time and word counts.
+
+### 4.2 Secure Image Proxy (`GET /api/proxy/image?url={url}`)
+- Protects user privacy against third-party IP tracking and cross-site cookies.
+- Implements strict Server-Side Request Forgery (SSRF) defense: blocks private/internal IP ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`).
+- Enforces content-type validation (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/svg+xml`).
+- Cached at the edge and in Service Worker Workbox CacheFirst store with 14-day TTL.
+
+---
+
+## 5. Security Architecture, Authentication & Rate Limiting
+- **Password Protection**: Salted PBKDF2 with SHA-256 (100,000 iterations) using edge-native `crypto.subtle`.
+- **JWT Issuance**: Stateless HMAC-SHA256 tokens carrying user claims, validated via edge middleware.
+- **Guest-to-User Migration**: Guest bookmarks stored under `userId: 'guest'` are atomically re-indexed and transferred to the authenticated user ID upon registration/login.
+- **Password Reset Flow**: Cryptographically secure 6-digit verification codes with exponential backoff, attempt limiters, and automated expiration.
+- **Edge Rate Limiting**: Per-IP and per-account sliding-window rate limiters protecting authentication endpoints from brute-force attacks.
+
+---
+
+## 6. Universal Clients & Cross-Platform Distribution
+- **Web SPA / PWA**: Hosted on Cloudflare Workers edge static assets with Workbox service worker offline caching and Web Share Target integration (`/share`).
+- **Android Native App**: Built with Capacitor 8 (`@capacitor/android`), handling OS deep links and Android system share intent to instantly capture links.
+- **Browser Extensions**: Manifest V3 extensions for Google Chrome and Mozilla Firefox with context menu and popup bookmarking shortcuts.
