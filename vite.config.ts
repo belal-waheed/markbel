@@ -51,6 +51,7 @@ export default defineConfig({
           /^\/llms\.txt$/,
           /^\/llms-full\.txt$/,
           /^\/manifest\.json$/,
+          /^\/[a-f0-9]{32}\.txt$/,
         ],
         runtimeCaching: [
           {
