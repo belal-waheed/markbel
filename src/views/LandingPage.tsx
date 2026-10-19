@@ -968,7 +968,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
             {/* Standardized 2-Tier Bottom Action Area */}
             <div className="mt-auto pt-4 border-t border-[var(--color-border-default)] flex flex-col gap-2">
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/Markbel.apk"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/Markbel.apk"
                 target="_blank"
                 rel="noreferrer"
                 className="w-full btn-primary h-10 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all"
@@ -1057,13 +1057,13 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
                 <span>Firefox Setup Guide</span>
               </button>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/markbel-firefox-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-firefox-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="w-full btn-secondary h-10 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-[var(--color-border-default)] hover:bg-[var(--color-bg-element)] text-[var(--color-text-primary)] transition-all shadow-xs"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Firefox ZIP (v2.5.8)</span>
+                <span>Download Firefox ZIP</span>
               </a>
             </div>
           </div>
@@ -1147,13 +1147,13 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
                 <span>Chrome & Brave Setup Guide</span>
               </button>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/markbel-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="w-full btn-secondary h-10 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-[var(--color-border-default)] hover:bg-[var(--color-bg-element)] text-[var(--color-text-primary)] transition-all shadow-xs"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Chromium ZIP (v2.5.8)</span>
+                <span>Download Chromium ZIP</span>
               </a>
             </div>
           </div>

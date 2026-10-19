@@ -172,10 +172,10 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--color-text-primary)]">
-                Direct Download Assets (v2.5.8)
+                Direct Download Assets
               </span>
               <a
-                href="https://github.com/belal-waheed/markbel/releases/tag/v2.5.8"
+                href="https://github.com/belal-waheed/markbel/releases/latest"
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-semibold text-[var(--color-accent)] hover:underline flex items-center gap-1 touch-manipulation"
@@ -187,7 +187,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/Markbel.apk"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/Markbel.apk"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-primary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs touch-manipulation cursor-pointer"
@@ -197,7 +197,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/markbel-firefox-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-firefox-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 touch-manipulation cursor-pointer"
@@ -207,7 +207,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
               </a>
 
               <a
-                href="https://github.com/belal-waheed/markbel/releases/download/v2.5.8/markbel-extension.zip"
+                href="https://github.com/belal-waheed/markbel/releases/latest/download/markbel-extension.zip"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary py-2.5 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
