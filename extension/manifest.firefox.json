@@ -67,7 +67,7 @@
     "toggle-spotlight": {
       "suggested_key": {
         "default": "Alt+O",
-        "mac": "Command+Option+O"
+        "mac": "Alt+O"
       },
       "description": "Toggle In-Page Spotlight Link Launcher"
     }
