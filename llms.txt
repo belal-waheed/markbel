@@ -1,6 +1,6 @@
 # Markbel
 
-> Markbel (v2.5.7) is a 100% free, open-source, offline-first bookmark manager and cross-platform link vault. Engineered as a high-performance replacement for Raindrop.io, Pocket, and Omnivore. Highlights: 0ms local read/write latency via IndexedDB (Dexie.js v5), bi-directional outbox delta sync on Cloudflare Workers and D1 (SQLite), automatic smart grouping for rich media (YouTube, Instagram Reels, X/Twitter, Reddit, GitHub), native Android app with OS share-sheet integration, and Manifest V3 extensions for Chrome/Firefox.
+> Markbel (v2.5.8) is a 100% free, open-source, offline-first bookmark manager and cross-platform link vault. Engineered as a high-performance replacement for Raindrop.io, Pocket, and Omnivore. Highlights: 0ms local read/write latency via IndexedDB (Dexie.js v5), bi-directional outbox delta sync on Cloudflare Workers and D1 (SQLite), automatic smart grouping for rich media (YouTube, Instagram Reels, X/Twitter, Reddit, GitHub), native Android app with OS share-sheet integration, and Manifest V3 extensions for Chrome/Firefox.
 
 ## Key Links & Resources
 - Live Web Application: https://mark.obel.workers.dev/
@@ -18,7 +18,7 @@
 7. **Complete Data Sovereignty & Portability**: Full JSON export/import, guest-to-authenticated seamless migration, and client-side cryptographic hashing.
 
 ## Feature Comparison Matrix
-| Feature | Markbel v2.5.7 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
+| Feature | Markbel v2.5.8 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **License & Pricing** | Free MIT Open-Source | Proprietary Freemium ($38/yr) | Open-Source / Paid Cloud | Open-Source Self-Hosted | Open-Source Self-Hosted |
 | **Offline-First Storage** | Yes (0ms IndexedDB / Dexie v5) | Cached only (Network required) | No (Server dependent) | No (Server dependent) | Partial |

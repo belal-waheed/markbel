@@ -1,4 +1,4 @@
-# Markbel - Full System Specification & Architecture Manual (v2.5.7)
+# Markbel - Full System Specification & Architecture Manual (v2.5.8)
 
 ## 1. System Overview
 Markbel is an open-source, local-first, offline-capable bookmark management and rich media archiving platform. It delivers 0ms sub-millisecond local database interactions using Dexie.js v5 (IndexedDB) and edge-based multi-device synchronization over Cloudflare Workers and Cloudflare D1 (serverless SQLite). Markbel is engineered as a privacy-respecting, zero-cost, self-hostable alternative to Raindrop.io, Pocket, and Wallabag.

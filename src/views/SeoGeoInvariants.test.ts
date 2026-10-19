@@ -67,7 +67,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       )
       expect(webApp).toBeDefined()
       expect(webApp.name).toBe('Markbel')
-      expect(webApp.softwareVersion).toBe('2.5.7')
+      expect(webApp.softwareVersion).toBe('2.5.8')
       expect(webApp.storageRequirements).toContain('Dexie.js v5')
 
       const faq = parsed['@graph'].find((item: any) => item['@type'] === 'FAQPage')
@@ -132,7 +132,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       expect(llms).toContain('Cloudflare D1')
     })
 
-    it('llms-full.txt documents full v2.5.7 system architecture and schemas', () => {
+    it('llms-full.txt documents full v2.5.8 system architecture and schemas', () => {
       expect(fs.existsSync(llmsFullPath)).toBe(true)
       const full = fs.readFileSync(llmsFullPath, 'utf-8')
 
