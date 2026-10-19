@@ -1,6 +1,7 @@
 /**
  * Markbel Extension - Popup HUD Controller (TypeScript)
- * Type-safe active tab extraction, smart grouping, and delta sync submission.
+ * Type-safe active tab extraction, smart grouping, dual-mode switcher (Save Tab / Quick Open),
+ * and 0ms local Dexie search.
  */
 
 import {
@@ -16,16 +17,26 @@ import {
 import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
+import { filterAndRankBookmarks, SearchBookmarkItem } from '@/lib/searchCatalog';
 import type { ExtractedPageMetadata } from '../content';
 
-// DOM Elements
+// DOM Elements - Shell & Navigation
 const bannerPermissionWarning = document.getElementById('banner-permission-warning') as HTMLElement | null;
 const btnGrantPermission = document.getElementById('btn-grant-permission') as HTMLButtonElement | null;
+const btnOpenVault = document.getElementById('btn-open-vault') as HTMLButtonElement;
+const btnOptions = document.getElementById('btn-options') as HTMLButtonElement;
 
+// Mode Switcher Elements
+const btnModeSave = document.getElementById('btn-mode-save') as HTMLButtonElement;
+const btnModeSearch = document.getElementById('btn-mode-search') as HTMLButtonElement;
+
+// Views
 const viewAuth = document.getElementById('view-auth') as HTMLElement;
 const viewSave = document.getElementById('view-save') as HTMLElement;
+const viewSearch = document.getElementById('view-search') as HTMLElement;
 const viewSuccess = document.getElementById('view-success') as HTMLElement;
 
+// Auth View Elements
 const formLogin = document.getElementById('form-login') as HTMLFormElement;
 const inputEmail = document.getElementById('input-email') as HTMLInputElement;
 const inputPassword = document.getElementById('input-password') as HTMLInputElement;
@@ -33,6 +44,7 @@ const authError = document.getElementById('auth-error') as HTMLElement;
 const btnLoginSubmit = document.getElementById('btn-login-submit') as HTMLButtonElement;
 const btnSyncVaultTab = document.getElementById('btn-sync-vault-tab') as HTMLButtonElement | null;
 
+// Save View Elements
 const formSave = document.getElementById('form-save') as HTMLFormElement;
 const inputTitle = document.getElementById('input-title') as HTMLInputElement;
 const inputUrl = document.getElementById('input-url') as HTMLInputElement;
@@ -49,12 +61,29 @@ const previewCard = document.getElementById('preview-image-container') as HTMLEl
 const previewImage = document.getElementById('preview-image') as HTMLImageElement;
 const successGroupLabel = document.getElementById('success-group-label') as HTMLElement;
 
-const btnOpenVault = document.getElementById('btn-open-vault') as HTMLButtonElement;
-const btnOptions = document.getElementById('btn-options') as HTMLButtonElement;
+// Quick Open / Search View Elements
+const inputSearchVault = document.getElementById('input-search-vault') as HTMLInputElement;
+const btnSearchClear = document.getElementById('btn-search-clear') as HTMLButtonElement;
+const searchGroupChips = document.getElementById('search-group-chips') as HTMLElement;
+const searchResultsList = document.getElementById('search-results-list') as HTMLElement;
 
 // State
+let currentMode: 'save' | 'search' = 'save';
 let currentMeta: ExtractedPageMetadata | null = null;
 let selectedGroup = 'Unsorted';
+let searchCatalog: SearchBookmarkItem[] = [];
+let activeSearchGroup = 'All';
+let selectedResultIndex = 0;
+let filteredResults: SearchBookmarkItem[] = [];
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /**
  * Initialize View
@@ -69,9 +98,10 @@ async function init(): Promise<void> {
   }
 
   const session = await getSession();
+  let isAuthenticated = false;
+
   if (session.isAuthenticated && session.user) {
-    showView('save');
-    await loadActiveTabData();
+    isAuthenticated = true;
     verifySession().catch(() => {});
   } else {
     let activeSession = await verifySession();
@@ -82,22 +112,211 @@ async function init(): Promise<void> {
       }
     }
     if (activeSession) {
-      showView('save');
-      await loadActiveTabData();
-    } else {
-      showView('auth');
+      isAuthenticated = true;
     }
+  }
+
+  if (isAuthenticated) {
+    await loadActiveTabData();
+
+    // Check if active tab URL already exists in vault
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    let isAlreadyInVault = false;
+    if (tab?.url) {
+      const existing = await db.bookmarks
+        .where('url')
+        .equals(tab.url)
+        .and((b) => !b.deletedAt)
+        .first()
+        .catch(() => null);
+      if (existing) isAlreadyInVault = true;
+    }
+
+    if (isAlreadyInVault) {
+      await switchMode('search');
+    } else {
+      await switchMode('save');
+    }
+  } else {
+    showView('auth');
   }
 }
 
-function showView(name: 'auth' | 'save' | 'success'): void {
+function showView(name: 'auth' | 'save' | 'search' | 'success'): void {
   viewAuth.classList.add('hidden');
   viewSave.classList.add('hidden');
+  viewSearch.classList.add('hidden');
   viewSuccess.classList.add('hidden');
 
-  if (name === 'auth') viewAuth.classList.remove('hidden');
-  if (name === 'save') viewSave.classList.remove('hidden');
-  if (name === 'success') viewSuccess.classList.remove('hidden');
+  if (name === 'auth') {
+    viewAuth.classList.remove('hidden');
+    btnModeSave.classList.add('hidden');
+    btnModeSearch.classList.add('hidden');
+  } else {
+    btnModeSave.classList.remove('hidden');
+    btnModeSearch.classList.remove('hidden');
+  }
+
+  if (name === 'save') {
+    viewSave.classList.remove('hidden');
+    currentMode = 'save';
+    btnModeSave.classList.add('active');
+    btnModeSearch.classList.remove('active');
+  }
+
+  if (name === 'search') {
+    viewSearch.classList.remove('hidden');
+    currentMode = 'search';
+    btnModeSearch.classList.add('active');
+    btnModeSave.classList.remove('active');
+  }
+
+  if (name === 'success') {
+    viewSuccess.classList.remove('hidden');
+  }
+}
+
+async function switchMode(mode: 'save' | 'search'): Promise<void> {
+  showView(mode);
+
+  if (mode === 'search') {
+    await loadSearchCatalog();
+    renderSearchResults();
+    inputSearchVault.focus();
+    inputSearchVault.select();
+  }
+}
+
+/**
+ * Load Search Catalog from IndexedDB
+ */
+async function loadSearchCatalog(): Promise<void> {
+  try {
+    const bookmarks = await db.bookmarks.filter((b) => !b.deletedAt).toArray();
+    searchCatalog = bookmarks.map((b) => ({
+      id: b.id,
+      title: b.title || b.url,
+      url: b.url,
+      description: b.description || '',
+      group: b.group || 'Unsorted',
+      favicon: b.favicon || '',
+      image: b.image || '',
+      isPinned: !!b.isPinned,
+      createdAt: b.createdAt || '',
+    }));
+    renderSearchGroupChips();
+  } catch (err) {
+    console.warn('[Markbel Popup] Failed to load search catalog:', err);
+  }
+}
+
+/**
+ * Render Search Group Filter Chips
+ */
+function renderSearchGroupChips(): void {
+  const groups = new Set<string>();
+  for (const b of searchCatalog) {
+    if (b.group && b.group.trim()) {
+      groups.add(b.group.trim());
+    }
+  }
+
+  const groupList = ['All', ...Array.from(groups).sort()];
+  searchGroupChips.innerHTML = groupList
+    .map(
+      (g) =>
+        `<button type="button" class="search-chip ${
+          g.toLowerCase() === activeSearchGroup.toLowerCase() ? 'active' : ''
+        }" data-group="${escapeHtml(g)}">${escapeHtml(g)}</button>`
+    )
+    .join('');
+}
+
+/**
+ * Render Search Results List with Selection Highlight
+ */
+function renderSearchResults(): void {
+  filteredResults = filterAndRankBookmarks(searchCatalog, inputSearchVault.value, activeSearchGroup);
+
+  if (filteredResults.length === 0) {
+    searchResultsList.innerHTML = `
+      <div class="search-empty-state">
+        <p>No bookmarks found matching "<strong>${escapeHtml(inputSearchVault.value)}</strong>"</p>
+        <span style="font-size: 11px; opacity: 0.7;">Try searching by title, group, or domain</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (selectedResultIndex >= filteredResults.length) {
+    selectedResultIndex = 0;
+  }
+
+  searchResultsList.innerHTML = filteredResults
+    .map((item, idx) => {
+      const isSelected = idx === selectedResultIndex;
+      const initial = (item.title || item.url || '?').charAt(0).toUpperCase();
+      const iconHtml = item.favicon
+        ? `<img class="search-item-icon" src="${escapeHtml(item.favicon)}" alt="" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+           <div class="search-item-fallback-icon" style="display: none;">${escapeHtml(initial)}</div>`
+        : `<div class="search-item-fallback-icon">${escapeHtml(initial)}</div>`;
+
+      let domain = '';
+      try {
+        domain = new URL(item.url).hostname.replace(/^www\./, '');
+      } catch {
+        domain = item.url;
+      }
+
+      return `
+        <div class="search-item ${isSelected ? 'selected' : ''}" data-index="${idx}" role="option" aria-selected="${isSelected}">
+          ${iconHtml}
+          <div class="search-item-info">
+            <div class="search-item-header">
+              <span class="search-item-title">${escapeHtml(item.title || item.url)}</span>
+              ${item.isPinned ? `<span class="search-item-pin-badge" title="Pinned">★</span>` : ''}
+              <span class="search-item-group">${escapeHtml(item.group || 'Unsorted')}</span>
+            </div>
+            <span class="search-item-url">${escapeHtml(domain)}</span>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  renderSelection();
+}
+
+function renderSelection(): void {
+  const items = searchResultsList.querySelectorAll<HTMLElement>('.search-item');
+  items.forEach((el, idx) => {
+    if (idx === selectedResultIndex) {
+      el.classList.add('selected');
+      el.setAttribute('aria-selected', 'true');
+      el.scrollIntoView({ block: 'nearest' });
+    } else {
+      el.classList.remove('selected');
+      el.setAttribute('aria-selected', 'false');
+    }
+  });
+}
+
+/**
+ * Open Bookmark Action
+ */
+async function openBookmark(item: SearchBookmarkItem, newTab: boolean, active: boolean): Promise<void> {
+  if (newTab) {
+    await chrome.tabs.create({ url: item.url, active });
+    if (active) window.close();
+  } else {
+    const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    if (currentTab?.id) {
+      await chrome.tabs.update(currentTab.id, { url: item.url });
+    } else {
+      await chrome.tabs.create({ url: item.url, active: true });
+    }
+    window.close();
+  }
 }
 
 /**
@@ -134,7 +353,6 @@ async function loadActiveTabData(): Promise<void> {
           meta = response.data;
         }
       } catch {
-        // Content script may not be injected yet, inject on-demand
         try {
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
@@ -210,7 +428,7 @@ async function loadActiveTabData(): Promise<void> {
       previewCard.classList.add('hidden');
     }
 
-    // Auto-resolve Smart Group via Markbel's domain and compound rules
+    // Auto-resolve Smart Group
     const customRules = await getCustomSmartGroupRules().catch(() => []);
     const autoGroup = resolveSmartGroup(currentMeta.url, [], customRules);
     const targetGroup = existingBookmark?.group || autoGroup || 'Unsorted';
@@ -225,7 +443,7 @@ async function loadActiveTabData(): Promise<void> {
 }
 
 /**
- * Dynamically load smart group chips from IndexedDB
+ * Dynamically load smart group chips from IndexedDB for Save View
  */
 async function loadDynamicGroupChips(targetGroup: string): Promise<void> {
   try {
@@ -238,8 +456,8 @@ async function loadDynamicGroupChips(targetGroup: string): Promise<void> {
       .map(
         (name) =>
           `<button type="button" class="chip ${
-            name.toLowerCase() === targetGroup.toLowerCase() ? 'active' : ''
-          }" data-group="${name}">${name}</button>`
+          name.toLowerCase() === targetGroup.toLowerCase() ? 'active' : ''
+          }" data-group="${escapeHtml(name)}">${escapeHtml(name)}</button>`
       )
       .join('');
   } catch (e) {
@@ -247,9 +465,6 @@ async function loadDynamicGroupChips(targetGroup: string): Promise<void> {
   }
 }
 
-/**
- * Handle Group Chip Selection
- */
 function selectGroup(groupName: string): void {
   selectedGroup = groupName;
   let matchedChip = false;
@@ -275,6 +490,111 @@ function selectGroup(groupName: string): void {
  * Event Listeners Setup
  */
 function setupEventHandlers(): void {
+  // Global Mode Toggle with Tab Key
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && e.target !== inputDesc) {
+      e.preventDefault();
+      switchMode(currentMode === 'save' ? 'search' : 'save');
+    }
+  });
+
+  // Mode Switcher Buttons
+  btnModeSave.addEventListener('click', () => switchMode('save'));
+  btnModeSearch.addEventListener('click', () => switchMode('search'));
+
+  // Quick Open Search Input Events
+  inputSearchVault.addEventListener('input', () => {
+    btnSearchClear.classList.toggle('hidden', !inputSearchVault.value);
+    selectedResultIndex = 0;
+    renderSearchResults();
+  });
+
+  btnSearchClear.addEventListener('click', () => {
+    inputSearchVault.value = '';
+    btnSearchClear.classList.add('hidden');
+    selectedResultIndex = 0;
+    renderSearchResults();
+    inputSearchVault.focus();
+  });
+
+  // Search Group Chips Click
+  searchGroupChips.addEventListener('click', (e) => {
+    const chip = (e.target as HTMLElement).closest('.search-chip');
+    if (!chip) return;
+    const group = chip.getAttribute('data-group');
+    if (group) {
+      activeSearchGroup = group;
+      searchGroupChips.querySelectorAll('.search-chip').forEach((c) => {
+        c.classList.toggle('active', c.getAttribute('data-group') === group);
+      });
+      selectedResultIndex = 0;
+      renderSearchResults();
+    }
+  });
+
+  // Search Keyboard Navigation
+  inputSearchVault.addEventListener('keydown', async (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (filteredResults.length > 0) {
+        selectedResultIndex = Math.min(selectedResultIndex + 1, filteredResults.length - 1);
+        renderSelection();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (filteredResults.length > 0) {
+        selectedResultIndex = Math.max(selectedResultIndex - 1, 0);
+        renderSelection();
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredResults.length > 0 && filteredResults[selectedResultIndex]) {
+        const selected = filteredResults[selectedResultIndex];
+        const newTab = e.ctrlKey || e.metaKey || e.shiftKey;
+        const active = !e.shiftKey;
+        await openBookmark(selected, newTab, active);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      window.close();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+      if (window.getSelection()?.toString().trim()) {
+        return; // Normal copy within input
+      }
+      if (filteredResults[selectedResultIndex]) {
+        e.preventDefault();
+        await navigator.clipboard.writeText(filteredResults[selectedResultIndex].url);
+        const originalPlaceholder = inputSearchVault.placeholder;
+        inputSearchVault.placeholder = 'URL copied to clipboard!';
+        setTimeout(() => {
+          inputSearchVault.placeholder = originalPlaceholder;
+        }, 1500);
+      }
+    }
+  });
+
+  // Search Results List Click
+  searchResultsList.addEventListener('click', (e) => {
+    const itemEl = (e.target as HTMLElement).closest('.search-item');
+    if (!itemEl) return;
+    const idx = Number(itemEl.getAttribute('data-index'));
+    if (!isNaN(idx) && filteredResults[idx]) {
+      openBookmark(filteredResults[idx], e.ctrlKey || e.metaKey, !e.shiftKey);
+    }
+  });
+
   // Vault Navigation
   btnOpenVault.addEventListener('click', async () => {
     const base = await getApiBase();
@@ -340,7 +660,7 @@ function setupEventHandlers(): void {
     });
   }
 
-  // Group Chips
+  // Group Chips in Save Tab
   chipsContainer.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest('.chip');
     if (!chip) return;

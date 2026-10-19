@@ -386,17 +386,23 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Ready to Use! Keyboard Shortcuts</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                         <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
-                          <span className="text-[var(--color-text-muted)]">Quick Save:</span>
+                          <span className="text-[var(--color-text-muted)]">Spotlight:</span>
                           <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
-                            Alt+Shift+S
+                            Alt+O
                           </kbd>
                         </div>
                         <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
                           <span className="text-[var(--color-text-muted)]">Open HUD:</span>
                           <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
                             Alt+B
+                          </kbd>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
+                          <span className="text-[var(--color-text-muted)]">Quick Save:</span>
+                          <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
+                            Alt+Shift+S
                           </kbd>
                         </div>
                       </div>
@@ -636,17 +642,23 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Ready to Use! Keyboard Shortcuts</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                         <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
-                          <span className="text-[var(--color-text-muted)]">Quick Save:</span>
+                          <span className="text-[var(--color-text-muted)]">Spotlight:</span>
                           <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
-                            Alt+Shift+S
+                            Alt+O
                           </kbd>
                         </div>
                         <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
                           <span className="text-[var(--color-text-muted)]">Open HUD:</span>
                           <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
                             Alt+B
+                          </kbd>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
+                          <span className="text-[var(--color-text-muted)]">Quick Save:</span>
+                          <kbd className="px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] font-mono text-[10px] text-[var(--color-text-primary)] border border-[var(--color-border-default)]">
+                            Alt+Shift+S
                           </kbd>
                         </div>
                       </div>

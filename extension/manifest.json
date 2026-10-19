@@ -57,6 +57,13 @@
         "mac": "Alt+Shift+S"
       },
       "description": "Instantly save current tab to Markbel"
+    },
+    "toggle-spotlight": {
+      "suggested_key": {
+        "default": "Alt+O",
+        "mac": "Command+Option+O"
+      },
+      "description": "Toggle In-Page Spotlight Link Launcher"
     }
   },
   "options_ui": {

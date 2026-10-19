@@ -17,6 +17,10 @@
         <span class="brand-title">Markbel</span>
         <span id="badge-in-vault" class="badge-in-vault hidden">In Vault</span>
       </div>
+      <div class="hud-mode-switcher">
+        <button id="btn-mode-save" class="mode-tab active" type="button">Save Tab</button>
+        <button id="btn-mode-search" class="mode-tab" type="button">Quick Open</button>
+      </div>
       <div class="header-actions">
         <button id="btn-open-vault" class="btn-icon" data-tooltip="Open Web Vault" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -126,6 +130,36 @@
           </button>
         </div>
       </form>
+    </div>
+
+    <!-- Quick Open / Search View -->
+    <div id="view-search" class="hud-view hidden">
+      <div class="search-box">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="input-search-vault" class="search-input" placeholder="Search bookmarks (title, group, url)..." autocomplete="off" spellcheck="false">
+          <button type="button" id="btn-search-clear" class="btn-clear hidden">&times;</button>
+        </div>
+        <div id="search-group-chips" class="search-chips-row">
+          <!-- Dynamic group chips inserted here -->
+        </div>
+      </div>
+
+      <div id="search-results-list" class="search-results-list" role="listbox">
+        <!-- Results or empty state inserted here -->
+      </div>
+
+      <div class="search-footer">
+        <div class="key-hints">
+          <span><kbd>&uarr;&darr;</kbd> Navigate</span>
+          <span><kbd>&crarr;</kbd> Open</span>
+          <span><kbd>Ctrl+&crarr;</kbd> New Tab</span>
+          <span><kbd>Tab</kbd> Switch Mode</span>
+        </div>
+      </div>
     </div>
 
     <!-- Success HUD Confirmation -->
