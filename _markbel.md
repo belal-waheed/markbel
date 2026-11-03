@@ -203,6 +203,18 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
+### Modernization Phase 2: View Virtualization & MCP Domain Normalization [DELIVERED]
+**Goal:** Guarantee 60fps scrolling and eliminate DOM bloat for 1,000+ bookmarks, and eliminate schema drift in MCP client.
+
+1. **Viewport Virtualization with `@tanstack/react-virtual`:**
+   - Integrated `useVirtualizer` in `src/views/BookmarksPage.tsx` with responsive column calculation (2 on mobile, 3 on tablet, 4 on desktop).
+   - Virtualized both List view and Grid view with dynamic measure refs and absolute transform positioning, ensuring only visible elements are mounted.
+2. **MCP Domain Normalization:**
+   - Normalized `BookmarkRecord` in `packages/mcp/src/client.ts` to canonical camelCase domain properties.
+   - Implemented boundary adapter `normalizeBookmark` seamlessly transforming raw server/database snake_case and legacy inputs.
+
+---
+
 ## 4. Verification Seams & Quality Gates
 
 Each milestone must pass the strict Markbel release pipeline:

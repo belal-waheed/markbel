@@ -64,7 +64,22 @@ describe("Markbel MCP Client & Server Architecture", () => {
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
         capturedUrl = url;
         return new Response(
-          JSON.stringify({ items: [], total: 0, limit: 10, offset: 0 }),
+          JSON.stringify({
+            items: [
+              {
+                id: "bm_search_1",
+                title: "Normalized Search Result",
+                site_name: "React Docs",
+                article_content: "Content body",
+                group_name: "Frontend",
+                is_read: 1,
+                is_pinned: 0,
+              },
+            ],
+            total: 1,
+            limit: 10,
+            offset: 0,
+          }),
           { status: 200 }
         );
       });
@@ -74,7 +89,7 @@ describe("Markbel MCP Client & Server Architecture", () => {
         fetchFn: mockFetch as any,
       });
 
-      await client.searchBookmarks({
+      const result = await client.searchBookmarks({
         q: "react architecture",
         group: "Dev",
         is_read: false,
@@ -84,6 +99,12 @@ describe("Markbel MCP Client & Server Architecture", () => {
         limit: 10,
         offset: 5,
       });
+
+      expect(result.items[0].siteName).toBe("React Docs");
+      expect(result.items[0].articleContent).toBe("Content body");
+      expect(result.items[0].groupName).toBe("Frontend");
+      expect(result.items[0].isRead).toBe(true);
+      expect(result.items[0].isPinned).toBe(false);
 
       const parsed = new URL(capturedUrl);
       expect(parsed.pathname).toBe("/api/agent/v1/bookmarks/search");

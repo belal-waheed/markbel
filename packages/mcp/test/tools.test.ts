@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { MarkbelClient } from "../src/client.js";
+import { MarkbelClient, normalizeBookmark } from "../src/client.js";
 import { createMarkbelServer } from "../src/index.js";
 
 describe("Markbel MCP Tools Execution & Error Handling", () => {
@@ -226,5 +226,67 @@ describe("Markbel MCP Tools Execution & Error Handling", () => {
     const parsedInvite = JSON.parse(inviteRes.content[0].text);
     expect(parsedInvite.status).toBe("pending");
     expect(parsedInvite.invite_token).toBe("mb_inv_abc123");
+  });
+
+  it("normalizes raw legacy snake_case payloads to canonical camelCase domain properties", () => {
+    const rawPayload = {
+      id: "bm_normalize_test",
+      url: "https://example.com/article",
+      title: "Clean Architecture",
+      description: "A deep dive into clean boundaries",
+      snippet: "Architecture snippet",
+      image: "https://example.com/cover.jpg",
+      favicon: "https://example.com/favicon.ico",
+      site_name: "Engineering Blog",
+      author: "Robert Martin",
+      published_at: "2026-01-01T00:00:00Z",
+      content_type: "article",
+      reading_time: 7,
+      word_count: 1400,
+      canonical_url: "https://example.com/article",
+      article_content: "<p>Deep article body</p>",
+      group: "Architecture",
+      is_read: 1,
+      read_at: "2026-01-02T12:00:00Z",
+      is_pinned: 0,
+      remind_at: "2026-02-01T09:00:00Z",
+      is_archived: 1,
+      archive_group: "2026 Archive",
+      version: 4,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-02T12:00:00Z",
+      deleted_at: null,
+    };
+
+    const normalized = normalizeBookmark(rawPayload);
+
+    expect(normalized).toEqual({
+      id: "bm_normalize_test",
+      url: "https://example.com/article",
+      title: "Clean Architecture",
+      description: "A deep dive into clean boundaries",
+      snippet: "Architecture snippet",
+      image: "https://example.com/cover.jpg",
+      favicon: "https://example.com/favicon.ico",
+      siteName: "Engineering Blog",
+      author: "Robert Martin",
+      publishedAt: "2026-01-01T00:00:00Z",
+      contentType: "article",
+      readingTime: 7,
+      wordCount: 1400,
+      canonicalUrl: "https://example.com/article",
+      articleContent: "<p>Deep article body</p>",
+      groupName: "Architecture",
+      isRead: true,
+      readAt: "2026-01-02T12:00:00Z",
+      isPinned: false,
+      remindAt: "2026-02-01T09:00:00Z",
+      isArchived: true,
+      archiveGroup: "2026 Archive",
+      version: 4,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-02T12:00:00Z",
+      deletedAt: null,
+    });
   });
 });

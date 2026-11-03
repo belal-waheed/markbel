@@ -10,6 +10,8 @@ import { registerAllTools } from "./tools/index.js";
 export const SERVER_NAME = "markbel";
 export const SERVER_VERSION = "2.5.8";
 
+export * from "./client.js";
+
 /**
  * Creates and configures a Markbel McpServer instance with all tools registered.
  */

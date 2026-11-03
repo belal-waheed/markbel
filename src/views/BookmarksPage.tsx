@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks, deduplicateLocalGroups } from "../db/db";
 import { syncManager } from "../db/SyncManager";
@@ -324,6 +325,47 @@ export default function BookmarksPage() {
     });
   }, [bookmarks, activeGroup, currentTab, debouncedSearchQuery]);
 
+  // Scroll Parent Ref for Viewport Virtualization
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Responsive Grid Column Detection (Mobile: 2, Tablet/Laptop: 3, Desktop: 4)
+  const getColumnCount = () => {
+    if (typeof window === "undefined") return 4;
+    const w = window.innerWidth;
+    if (w < 768) return 2;
+    if (w < 1280) return 3;
+    return 4;
+  };
+
+  const [columnCount, setColumnCount] = useState<number>(getColumnCount);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const next = getColumnCount();
+      setColumnCount((prev) => (prev !== next ? next : prev));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Viewport Virtualizers
+  const listVirtualizer = useVirtualizer({
+    count: filteredBookmarks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 76,
+    overscan: 5,
+  });
+
+  const rowCount = Math.ceil(filteredBookmarks.length / columnCount);
+
+  const gridVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 310,
+    overscan: 3,
+  });
+
   // Manual Trigger Sync
   const triggerSync = async () => {
     setIsSyncing(true);
@@ -599,7 +641,7 @@ export default function BookmarksPage() {
         </header>
 
         {/* Scrollable Viewport */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+        <main ref={parentRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
           <div className="max-w-[1600px] mx-auto">
             {/* Filter Bar & Search */}
             <BookmarkFilterBar
@@ -668,46 +710,103 @@ export default function BookmarksPage() {
                 </button>
               </div>
             ) : viewMode === "list" ? (
-              <div className="flex flex-col gap-2 sm:gap-2.5">
-                {filteredBookmarks.map((b) => (
-                  <BookmarkCard
-                    key={b.id}
-                    bookmark={b}
-                    viewMode="list"
-                    onClick={handleCardClick}
-                    onTogglePin={handleTogglePin}
-                    onToggleRead={handleToggleRead}
-                    onArchive={(bookmark) => setArchivingBookmark(bookmark)}
-                    onEdit={(bookmark) => setEditingBookmark(bookmark)}
-                    onDelete={(bookmark) => setDeletingBookmark(bookmark)}
-                    isSelected={selectedIds.has(b.id)}
-                    selectionMode={isSelectionMode}
-                    onToggleSelect={handleToggleSelect}
-                    onDismissReminder={handleDismissReminder}
-                    onSnoozeReminder={handleSnoozeReminder}
-                  />
-                ))}
+              <div
+                style={{
+                  height: `${listVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {listVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const b = filteredBookmarks[virtualRow.index];
+                  if (!b) return null;
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      ref={listVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="pb-2 sm:pb-2.5"
+                    >
+                      <BookmarkCard
+                        bookmark={b}
+                        viewMode="list"
+                        onClick={handleCardClick}
+                        onTogglePin={handleTogglePin}
+                        onToggleRead={handleToggleRead}
+                        onArchive={(bookmark) => setArchivingBookmark(bookmark)}
+                        onEdit={(bookmark) => setEditingBookmark(bookmark)}
+                        onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                        isSelected={selectedIds.has(b.id)}
+                        selectionMode={isSelectionMode}
+                        onToggleSelect={handleToggleSelect}
+                        onDismissReminder={handleDismissReminder}
+                        onSnoozeReminder={handleSnoozeReminder}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
-                {filteredBookmarks.map((b) => (
-                  <BookmarkCard
-                    key={b.id}
-                    bookmark={b}
-                    viewMode="grid"
-                    onClick={handleCardClick}
-                    onTogglePin={handleTogglePin}
-                    onToggleRead={handleToggleRead}
-                    onArchive={(bookmark) => setArchivingBookmark(bookmark)}
-                    onEdit={(bookmark) => setEditingBookmark(bookmark)}
-                    onDelete={(bookmark) => setDeletingBookmark(bookmark)}
-                    isSelected={selectedIds.has(b.id)}
-                    selectionMode={isSelectionMode}
-                    onToggleSelect={handleToggleSelect}
-                    onDismissReminder={handleDismissReminder}
-                    onSnoozeReminder={handleSnoozeReminder}
-                  />
-                ))}
+              <div
+                style={{
+                  height: `${gridVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {gridVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const startIndex = virtualRow.index * columnCount;
+                  const rowBookmarks = filteredBookmarks.slice(startIndex, startIndex + columnCount);
+
+                  return (
+                    <div
+                      key={`${virtualRow.key}-${columnCount}`}
+                      data-index={virtualRow.index}
+                      ref={gridVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="pb-2.5 sm:pb-4 lg:pb-5"
+                    >
+                      <div
+                        className="grid gap-2.5 sm:gap-4 lg:gap-5"
+                        style={{
+                          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                        }}
+                      >
+                        {rowBookmarks.map((b) => (
+                          <BookmarkCard
+                            key={b.id}
+                            bookmark={b}
+                            viewMode="grid"
+                            onClick={handleCardClick}
+                            onTogglePin={handleTogglePin}
+                            onToggleRead={handleToggleRead}
+                            onArchive={(bookmark) => setArchivingBookmark(bookmark)}
+                            onEdit={(bookmark) => setEditingBookmark(bookmark)}
+                            onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                            isSelected={selectedIds.has(b.id)}
+                            selectionMode={isSelectionMode}
+                            onToggleSelect={handleToggleSelect}
+                            onDismissReminder={handleDismissReminder}
+                            onSnoozeReminder={handleSnoozeReminder}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

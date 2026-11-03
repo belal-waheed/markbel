@@ -7,7 +7,6 @@ export interface BookmarkRecord {
   image?: string;
   favicon?: string;
   siteName?: string;
-  site_name?: string;
   author?: string;
   publishedAt?: string;
   contentType?: string;
@@ -15,24 +14,173 @@ export interface BookmarkRecord {
   wordCount?: number;
   canonicalUrl?: string;
   articleContent?: string;
-  article_content?: string;
-  group?: string;
   groupName?: string;
-  group_name?: string;
   isRead?: boolean;
-  is_read?: number | boolean;
   readAt?: string;
   isPinned?: boolean;
-  is_pinned?: number | boolean;
   remindAt?: string;
-  remind_at?: string;
   isArchived?: boolean;
-  is_archived?: number | boolean;
   archiveGroup?: string;
   version?: number;
   createdAt?: string;
   updatedAt?: string;
   deletedAt?: string | null;
+}
+
+export function normalizeBookmark(raw: any): BookmarkRecord {
+  if (!raw || typeof raw !== "object") {
+    return raw as BookmarkRecord;
+  }
+
+  const groupName =
+    raw.groupName !== undefined && raw.groupName !== null
+      ? String(raw.groupName)
+      : raw.group !== undefined && raw.group !== null
+      ? String(raw.group)
+      : raw.group_name !== undefined && raw.group_name !== null
+      ? String(raw.group_name)
+      : undefined;
+
+  const isRead =
+    raw.isRead !== undefined
+      ? Boolean(raw.isRead)
+      : raw.is_read !== undefined
+      ? Boolean(Number(raw.is_read))
+      : undefined;
+
+  const isPinned =
+    raw.isPinned !== undefined
+      ? Boolean(raw.isPinned)
+      : raw.is_pinned !== undefined
+      ? Boolean(Number(raw.is_pinned))
+      : undefined;
+
+  const isArchived =
+    raw.isArchived !== undefined
+      ? Boolean(raw.isArchived)
+      : raw.is_archived !== undefined
+      ? Boolean(Number(raw.is_archived))
+      : undefined;
+
+  const siteName =
+    raw.siteName !== undefined && raw.siteName !== null
+      ? String(raw.siteName)
+      : raw.site_name !== undefined && raw.site_name !== null
+      ? String(raw.site_name)
+      : undefined;
+
+  const articleContent =
+    raw.articleContent !== undefined && raw.articleContent !== null
+      ? String(raw.articleContent)
+      : raw.article_content !== undefined && raw.article_content !== null
+      ? String(raw.article_content)
+      : undefined;
+
+  const publishedAt =
+    raw.publishedAt !== undefined && raw.publishedAt !== null
+      ? String(raw.publishedAt)
+      : raw.published_at !== undefined && raw.published_at !== null
+      ? String(raw.published_at)
+      : undefined;
+
+  const contentType =
+    raw.contentType !== undefined && raw.contentType !== null
+      ? String(raw.contentType)
+      : raw.content_type !== undefined && raw.content_type !== null
+      ? String(raw.content_type)
+      : undefined;
+
+  const readingTime =
+    typeof raw.readingTime === "number"
+      ? raw.readingTime
+      : typeof raw.reading_time === "number"
+      ? raw.reading_time
+      : undefined;
+
+  const wordCount =
+    typeof raw.wordCount === "number"
+      ? raw.wordCount
+      : typeof raw.word_count === "number"
+      ? raw.word_count
+      : undefined;
+
+  const canonicalUrl =
+    raw.canonicalUrl !== undefined && raw.canonicalUrl !== null
+      ? String(raw.canonicalUrl)
+      : raw.canonical_url !== undefined && raw.canonical_url !== null
+      ? String(raw.canonical_url)
+      : undefined;
+
+  const readAt =
+    raw.readAt !== undefined && raw.readAt !== null
+      ? String(raw.readAt)
+      : raw.read_at !== undefined && raw.read_at !== null
+      ? String(raw.read_at)
+      : undefined;
+
+  const remindAt =
+    raw.remindAt !== undefined && raw.remindAt !== null
+      ? String(raw.remindAt)
+      : raw.remind_at !== undefined && raw.remind_at !== null
+      ? String(raw.remind_at)
+      : undefined;
+
+  const archiveGroup =
+    raw.archiveGroup !== undefined && raw.archiveGroup !== null
+      ? String(raw.archiveGroup)
+      : raw.archive_group !== undefined && raw.archive_group !== null
+      ? String(raw.archive_group)
+      : undefined;
+
+  const createdAt =
+    raw.createdAt !== undefined && raw.createdAt !== null
+      ? String(raw.createdAt)
+      : raw.created_at !== undefined && raw.created_at !== null
+      ? String(raw.created_at)
+      : undefined;
+
+  const updatedAt =
+    raw.updatedAt !== undefined && raw.updatedAt !== null
+      ? String(raw.updatedAt)
+      : raw.updated_at !== undefined && raw.updated_at !== null
+      ? String(raw.updated_at)
+      : undefined;
+
+  const deletedAt =
+    raw.deletedAt !== undefined
+      ? (raw.deletedAt as string | null)
+      : raw.deleted_at !== undefined
+      ? (raw.deleted_at as string | null)
+      : undefined;
+
+  return {
+    id: String(raw.id ?? ""),
+    url: String(raw.url ?? ""),
+    title: String(raw.title ?? ""),
+    description: raw.description !== undefined && raw.description !== null ? String(raw.description) : undefined,
+    snippet: raw.snippet !== undefined && raw.snippet !== null ? String(raw.snippet) : undefined,
+    image: raw.image !== undefined && raw.image !== null ? String(raw.image) : undefined,
+    favicon: raw.favicon !== undefined && raw.favicon !== null ? String(raw.favicon) : undefined,
+    siteName,
+    author: raw.author !== undefined && raw.author !== null ? String(raw.author) : undefined,
+    publishedAt,
+    contentType,
+    readingTime,
+    wordCount,
+    canonicalUrl,
+    articleContent,
+    groupName,
+    isRead,
+    readAt,
+    isPinned,
+    remindAt,
+    isArchived,
+    archiveGroup,
+    version: typeof raw.version === "number" ? raw.version : undefined,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  };
 }
 
 export interface SearchBookmarksParams {
@@ -194,36 +342,45 @@ export class MarkbelClient {
 
     const qs = searchParams.toString();
     const endpoint = `/api/agent/v1/bookmarks/search${qs ? `?${qs}` : ""}`;
-    return this.request<SearchResult>(endpoint, { method: "GET" });
+    const result = await this.request<any>(endpoint, { method: "GET" });
+    return {
+      items: Array.isArray(result?.items) ? result.items.map(normalizeBookmark) : [],
+      total: typeof result?.total === "number" ? result.total : 0,
+      limit: typeof result?.limit === "number" ? result.limit : (params.limit ?? 20),
+      offset: typeof result?.offset === "number" ? result.offset : (params.offset ?? 0),
+    };
   }
 
   async getBookmark(id: string): Promise<BookmarkRecord> {
     if (!id || typeof id !== "string") {
       throw new Error("Bookmark id is required");
     }
-    return this.request<BookmarkRecord>(`/api/agent/v1/bookmarks/${encodeURIComponent(id)}`, {
+    const res = await this.request<any>(`/api/agent/v1/bookmarks/${encodeURIComponent(id)}`, {
       method: "GET",
     });
+    return normalizeBookmark(res);
   }
 
   async createBookmark(data: CreateBookmarkInput): Promise<BookmarkRecord> {
     if (!data || !data.url) {
       throw new Error("URL is required to create a bookmark");
     }
-    return this.request<BookmarkRecord>("/api/agent/v1/bookmarks", {
+    const res = await this.request<any>("/api/agent/v1/bookmarks", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    return normalizeBookmark(res);
   }
 
   async updateBookmark(id: string, data: UpdateBookmarkInput): Promise<BookmarkRecord> {
     if (!id || typeof id !== "string") {
       throw new Error("Bookmark id is required");
     }
-    return this.request<BookmarkRecord>(`/api/agent/v1/bookmarks/${encodeURIComponent(id)}`, {
+    const res = await this.request<any>(`/api/agent/v1/bookmarks/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+    return normalizeBookmark(res);
   }
 
   async deleteBookmark(id: string): Promise<{ success: boolean; id: string }> {
