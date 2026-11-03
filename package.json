@@ -3,6 +3,9 @@
   "version": "2.5.8",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "vite",
@@ -56,6 +59,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.5.0",
     "@cloudflare/workers-types": "^5.20260830.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/chrome": "^0.2.8",

@@ -43,7 +43,7 @@ export function registerSettingsTools(server: McpServer, client: MarkbelClient):
     "Update user workflow preferences and category settings. Master credentials (passwords, emails, user ID) cannot be modified.",
     {
       settings: z
-        .record(z.unknown())
+        .record(z.string(), z.unknown())
         .describe("Key-value preference map (e.g., active navigation categories, reminder defaults, reader font size)"),
     },
     async (args) => {
