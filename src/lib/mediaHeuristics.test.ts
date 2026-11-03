@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractInstantMediaMetadata } from './mediaHeuristics';
+import { extractInstantMediaMetadata, upgradeInsecureImageUrl } from './mediaHeuristics';
 
 describe('extractInstantMediaMetadata Unit Tests', () => {
   describe('YouTube Heuristics', () => {
@@ -181,6 +181,33 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
     it('should return empty object for generic website without heuristics', () => {
       const result = extractInstantMediaMetadata('https://example.com/some/article');
       expect(result).toEqual({});
+    });
+  });
+
+  describe('upgradeInsecureImageUrl Tests', () => {
+    it('upgrades http:// URLs to https://', () => {
+      expect(upgradeInsecureImageUrl('http://example.com/image.png')).toBe('https://example.com/image.png');
+      expect(upgradeInsecureImageUrl('http://cdn.site.org/assets/pic.jpg?w=100')).toBe('https://cdn.site.org/assets/pic.jpg?w=100');
+    });
+
+    it('upgrades protocol-relative // URLs to https://', () => {
+      expect(upgradeInsecureImageUrl('//cdn.example.com/image.webp')).toBe('https://cdn.example.com/image.webp');
+    });
+
+    it('leaves https:// URLs untouched', () => {
+      expect(upgradeInsecureImageUrl('https://example.com/image.png')).toBe('https://example.com/image.png');
+    });
+
+    it('preserves localhost and 127.0.0.1 http development URLs', () => {
+      expect(upgradeInsecureImageUrl('http://localhost:3000/image.jpg')).toBe('http://localhost:3000/image.jpg');
+      expect(upgradeInsecureImageUrl('http://127.0.0.1:8080/image.png')).toBe('http://127.0.0.1:8080/image.png');
+    });
+
+    it('handles empty, null, and undefined values cleanly', () => {
+      expect(upgradeInsecureImageUrl('')).toBeUndefined();
+      expect(upgradeInsecureImageUrl('   ')).toBeUndefined();
+      expect(upgradeInsecureImageUrl(null)).toBeUndefined();
+      expect(upgradeInsecureImageUrl(undefined)).toBeUndefined();
     });
   });
 });

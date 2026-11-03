@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link as LinkIcon, ImageOff } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
+import { upgradeInsecureImageUrl } from "@/lib/mediaHeuristics";
 
 export type ImageStage = "DIRECT" | "PROXY" | "FAVICON" | "PLACEHOLDER";
 
@@ -29,9 +30,6 @@ export interface BookmarkImageProps {
 }
 
 export function getInitialStage(src?: string | null, fallbackSrc?: string | null): ImageStage {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return "PLACEHOLDER";
-  }
   const trimmed = src?.trim();
   const trimmedFallback = fallbackSrc?.trim();
   if (!trimmed || isExpiredSocialCdnUrl(trimmed)) {
@@ -67,10 +65,12 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
 
   const trimmedSrc = src?.trim();
   const trimmedFallback = fallbackSrc?.trim();
+  const secureSrc = upgradeInsecureImageUrl(trimmedSrc) || trimmedSrc;
+  const secureFallback = upgradeInsecureImageUrl(trimmedFallback) || trimmedFallback;
 
   let currentSrc: string | null = null;
   if (stage === "DIRECT") {
-    currentSrc = trimmedSrc || null;
+    currentSrc = secureSrc || null;
   } else if (stage === "PROXY") {
     if (trimmedSrc) {
       currentSrc = proxyBaseUrl
@@ -78,15 +78,10 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
         : resolveApiUrl(`/api/proxy/image?url=${encodeURIComponent(trimmedSrc)}`);
     }
   } else if (stage === "FAVICON") {
-    currentSrc = trimmedFallback || null;
+    currentSrc = secureFallback || null;
   }
 
   const handleError = () => {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setStage("PLACEHOLDER");
-      return;
-    }
-
     setIsLoaded(false);
     if (stage === "DIRECT") {
       if (trimmedSrc) {

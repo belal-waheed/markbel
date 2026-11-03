@@ -60,8 +60,8 @@ export default defineConfig({
             options: {
               cacheName: 'image-proxy-cache',
               expiration: {
-                maxEntries: 300,
-                maxAgeSeconds: 14 * 24 * 60 * 60,
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
                 purgeOnQuotaError: true,
               },
               cacheableResponse: {
@@ -75,8 +75,25 @@ export default defineConfig({
             options: {
               cacheName: 'external-thumbnail-cache',
               expiration: {
-                maxEntries: 300,
-                maxAgeSeconds: 14 * 24 * 60 * 60,
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: ({ request, url }) =>
+              request.destination === 'image' ||
+              /\.(?:png|jpg|jpeg|svg|webp|avif|gif|ico)(?:\?.*)?$/i.test(url.href),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'general-image-cache',
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
                 purgeOnQuotaError: true,
               },
               cacheableResponse: {
@@ -95,6 +112,22 @@ export default defineConfig({
           {
             urlPattern: /^\/api\/.*$/,
             handler: 'NetworkOnly',
+            options: {
+              plugins: [
+                {
+                  handlerDidError: async () => {
+                    return new Response(
+                      JSON.stringify({ error: 'Network unavailable (offline)' }),
+                      {
+                        status: 503,
+                        statusText: 'Service Unavailable',
+                        headers: { 'Content-Type': 'application/json' },
+                      }
+                    );
+                  },
+                },
+              ],
+            },
           },
         ]
       }

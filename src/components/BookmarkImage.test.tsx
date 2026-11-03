@@ -89,13 +89,22 @@ describe('BookmarkImage 4-Stage Fallback FSM & Social CDN Expired Check', () => 
       expect(stage).toBe('PLACEHOLDER');
     });
 
-    it('skips directly to PLACEHOLDER when offline to prevent socket storms and connection pool exhaustion', () => {
+    it('initializes to DIRECT even when offline so service worker can serve cached images', () => {
       vi.stubGlobal('navigator', {
         onLine: false,
       });
 
       const stage = getInitialStage('https://example.com/banner.jpg', 'https://example.com/favicon.ico');
-      expect(stage).toBe('PLACEHOLDER');
+      expect(stage).toBe('DIRECT');
+    });
+
+    it('initializes to FAVICON when image is missing even when offline', () => {
+      vi.stubGlobal('navigator', {
+        onLine: false,
+      });
+
+      const stage = getInitialStage('', 'https://example.com/favicon.ico');
+      expect(stage).toBe('FAVICON');
     });
   });
 
@@ -104,13 +113,8 @@ describe('BookmarkImage 4-Stage Fallback FSM & Social CDN Expired Check', () => 
     function simulateTransition(
       currentStage: ImageStage,
       src: string | null | undefined,
-      fallbackSrc: string | null | undefined,
-      isOnline: boolean = true
+      fallbackSrc: string | null | undefined
     ): ImageStage {
-      if (!isOnline) {
-        return 'PLACEHOLDER';
-      }
-
       const trimmedSrc = src?.trim();
       const trimmedFallback = fallbackSrc?.trim();
 
@@ -166,11 +170,22 @@ describe('BookmarkImage 4-Stage Fallback FSM & Social CDN Expired Check', () => 
       expect(stage).toBe('PLACEHOLDER');
     });
 
-    it('drops immediately to PLACEHOLDER on error when offline', () => {
+    it('preserves robust fallback progression DIRECT -> PROXY -> FAVICON -> PLACEHOLDER even when offline', () => {
+      vi.stubGlobal('navigator', {
+        onLine: false,
+      });
+
       const src = 'https://example.com/image.jpg';
       const fallback = 'https://example.com/favicon.ico';
 
-      const stage = simulateTransition('DIRECT', src, fallback, false);
+      let stage: ImageStage = 'DIRECT';
+      stage = simulateTransition(stage, src, fallback);
+      expect(stage).toBe('PROXY');
+
+      stage = simulateTransition(stage, src, fallback);
+      expect(stage).toBe('FAVICON');
+
+      stage = simulateTransition(stage, src, fallback);
       expect(stage).toBe('PLACEHOLDER');
     });
   });

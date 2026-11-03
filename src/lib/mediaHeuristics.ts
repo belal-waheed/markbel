@@ -34,6 +34,95 @@ const GITHUB_RESERVED_SEGMENTS = new Set([
 ]);
 
 /**
+ * Upgrades insecure http:// image URLs to https:// to prevent mixed-content blocks
+ * in strict environments such as Android WebViews and HTTPS PWA contexts.
+ * Preserves local/private loopback origins (localhost, 127.0.0.1) as HTTP.
+ */
+export function upgradeInsecureImageUrl(imageUrl?: string | null): string | undefined {
+  if (!imageUrl || typeof imageUrl !== 'string') return undefined;
+  const trimmed = imageUrl.trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+
+  if (trimmed.startsWith('http://')) {
+    try {
+      const parsed = new URL(trimmed);
+      if (
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1' ||
+        parsed.hostname.endsWith('.local')
+      ) {
+        return trimmed;
+      }
+      return trimmed.replace(/^http:\/\//i, 'https://');
+    } catch {
+      return trimmed.replace(/^http:\/\//i, 'https://');
+    }
+  }
+
+  return trimmed;
+}
+
+/**
+ * Sniffs image format from binary magic bytes.
+ * Returns standard MIME type or null if unrecognized.
+ */
+export function sniffImageMimeType(bytes: Uint8Array): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
+    return 'image/gif';
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0x01 && bytes[3] === 0x00) {
+    return 'image/x-icon';
+  }
+  if (bytes.length >= 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+    if (brand === 'avif' || brand === 'avis') {
+      return 'image/avif';
+    }
+  }
+  try {
+    const head = new TextDecoder('utf-8').decode(bytes.subarray(0, Math.min(bytes.length, 128))).trimStart().toLowerCase();
+    if (head.startsWith('<svg') || head.startsWith('<?xml')) {
+      return 'image/svg+xml';
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
  * Extracts immediate metadata without network requests based on platform URL patterns.
  */
 export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {

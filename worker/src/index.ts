@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { jwt, sign, verify } from "hono/jwt";
 import * as cheerio from "cheerio";
-import { extractInstantMediaMetadata } from "../../src/lib/mediaHeuristics";
+import { extractInstantMediaMetadata, sniffImageMimeType } from "../../src/lib/mediaHeuristics";
 import { z } from "zod";
 import { authMiddleware, requireScope, hashPatToken } from "./middleware/auth";
 import { agentRouter } from "./routes/agent";
@@ -1840,7 +1840,13 @@ const ALLOWED_IMAGE_MIMES = new Set([
   "image/avif",
   "image/gif",
   "image/x-icon",
+  "image/vnd.microsoft.icon",
+  "image/svg+xml",
+  "application/octet-stream",
+  "binary/octet-stream",
 ]);
+
+export { sniffImageMimeType };
 
 export function isSignedCdnExpired(url: URL): boolean {
   if (url.hostname.endsWith(".cdninstagram.com") || url.hostname.endsWith(".fbcdn.net")) {
@@ -1951,20 +1957,36 @@ app.get("/api/proxy/image", async (c) => {
     }
 
     const rawContentType = (upstreamRes.headers.get("content-type") || "").toLowerCase().split(";")[0].trim();
-    if (!ALLOWED_IMAGE_MIMES.has(rawContentType)) {
-      return c.text("Unsupported image media type", 415);
+    const isGenericMime =
+      !rawContentType ||
+      rawContentType === "application/octet-stream" ||
+      rawContentType === "binary/octet-stream";
+
+    let finalContentType: string;
+    let responseBody: BodyInit;
+
+    if (isGenericMime) {
+      const buffer = await upstreamRes.arrayBuffer();
+      finalContentType = sniffImageMimeType(new Uint8Array(buffer)) || "image/jpeg";
+      responseBody = buffer;
+    } else if (ALLOWED_IMAGE_MIMES.has(rawContentType)) {
+      finalContentType = rawContentType;
+      responseBody = upstreamRes.body!;
+    } else {
+      return c.text("Unsupported image media type", 415, {
+        "Access-Control-Allow-Origin": "*",
+      });
     }
 
-    const contentType = rawContentType || "image/jpeg";
     const headers = new Headers();
-    headers.set("Content-Type", contentType);
+    headers.set("Content-Type", finalContentType);
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Cache-Control", "public, max-age=604800, s-maxage=2592000, immutable");
     headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 
-    const proxyResponse = new Response(upstreamRes.body, {
+    const proxyResponse = new Response(responseBody, {
       status: 200,
       headers,
     });
