@@ -66,6 +66,14 @@ export interface AppConfig {
   value: any;
 }
 
+export interface CachedThumbnail {
+  id: string; // URL string
+  blob: Blob;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+}
+
 export class MarkbelDatabase extends Dexie {
   bookmarks!: Table<LocalBookmark, string>;
   groups!: Table<LocalGroup, string>;
@@ -74,6 +82,7 @@ export class MarkbelDatabase extends Dexie {
   appConfig!: Table<AppConfig, string>; // Store deviceId etc here
 
   scheduledNotifications!: Table<any, string>;
+  cachedThumbnails!: Table<CachedThumbnail, string>;
 
   constructor() {
     super('MarkbelDatabase');
@@ -109,6 +118,10 @@ export class MarkbelDatabase extends Dexie {
       syncMetadata: 'key',
       appConfig: 'key',
       scheduledNotifications: 'id, bookmarkId, triggerAtUtc'
+    }).upgrade(() => {});
+
+    this.version(6).stores({
+      cachedThumbnails: 'id, updatedAt'
     }).upgrade(() => {});
   }
 }
@@ -219,7 +232,7 @@ export async function migrateGuestData(userId: string): Promise<number> {
 export async function clearAllLocalData(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.bookmarks, db.groups, db.syncOutbox, db.syncMetadata, db.appConfig, db.scheduledNotifications],
+    [db.bookmarks, db.groups, db.syncOutbox, db.syncMetadata, db.appConfig, db.scheduledNotifications, db.cachedThumbnails],
     async () => {
       await db.bookmarks.clear();
       await db.groups.clear();
@@ -227,6 +240,7 @@ export async function clearAllLocalData(): Promise<void> {
       await db.syncMetadata.clear();
       await db.appConfig.clear();
       await db.scheduledNotifications.clear();
+      await db.cachedThumbnails.clear();
     }
   );
   if (typeof window !== 'undefined') {
@@ -483,3 +497,67 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
 
   return organizedCount;
 }
+
+/**
+ * Retrieves a locally cached thumbnail blob by URL.
+ */
+export async function getCachedThumbnail(url: string): Promise<CachedThumbnail | null> {
+  if (!url) return null;
+  try {
+    const item = await db.cachedThumbnails.get(url);
+    return item || null;
+  } catch (err) {
+    console.error('Failed to get cached thumbnail:', err);
+    return null;
+  }
+}
+
+/**
+ * Persists an image blob into Dexie cachedThumbnails.
+ */
+export async function saveCachedThumbnail(
+  url: string,
+  blob: Blob,
+  contentType: string = 'image/jpeg'
+): Promise<void> {
+  if (!url || !blob) return;
+  try {
+    const item: CachedThumbnail = {
+      id: url,
+      blob,
+      contentType: contentType || blob.type || 'image/jpeg',
+      size: blob.size,
+      updatedAt: new Date().toISOString(),
+    };
+    await db.cachedThumbnails.put(item);
+  } catch (err) {
+    console.error('Failed to save cached thumbnail:', err);
+  }
+}
+
+/**
+ * Prunes cached thumbnails when the count exceeds maxCount (default 300),
+ * removing the oldest records by updatedAt.
+ */
+export async function pruneCachedThumbnails(maxCount: number = 300): Promise<number> {
+  try {
+    const count = await db.cachedThumbnails.count();
+    if (count <= maxCount) {
+      return 0;
+    }
+    const excess = count - maxCount;
+    const oldestKeys = await db.cachedThumbnails
+      .orderBy('updatedAt')
+      .limit(excess)
+      .primaryKeys();
+
+    if (oldestKeys.length > 0) {
+      await db.cachedThumbnails.bulkDelete(oldestKeys);
+    }
+    return oldestKeys.length;
+  } catch (err) {
+    console.error('Failed to prune cached thumbnails:', err);
+    return 0;
+  }
+}
+
