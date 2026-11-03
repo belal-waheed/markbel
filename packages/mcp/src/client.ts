@@ -105,6 +105,24 @@ export interface VaultStats {
   latestSyncSequence: number;
 }
 
+export interface CollaboratorRecord {
+  id: string;
+  owner_id: string;
+  collaborator_user_id: string | null;
+  collaborator_email: string;
+  role: "viewer" | "editor";
+  status: "pending" | "accepted";
+  invite_token: string;
+  invite_link?: string;
+  created_at: string;
+  accepted_at?: string | null;
+}
+
+export interface InviteCollaboratorInput {
+  email: string;
+  role?: "viewer" | "editor";
+}
+
 export interface MarkbelClientOptions {
   baseUrl?: string;
   token: string;
@@ -265,6 +283,22 @@ export class MarkbelClient {
   async getStats(): Promise<VaultStats> {
     return this.request<VaultStats>("/api/agent/v1/stats", {
       method: "GET",
+    });
+  }
+
+  async listCollaborators(): Promise<{ collaborators: CollaboratorRecord[] }> {
+    return this.request<{ collaborators: CollaboratorRecord[] }>("/api/agent/v1/collaborators", {
+      method: "GET",
+    });
+  }
+
+  async inviteCollaborator(input: InviteCollaboratorInput): Promise<CollaboratorRecord> {
+    if (!input || !input.email) {
+      throw new Error("Collaborator email is required");
+    }
+    return this.request<CollaboratorRecord>("/api/agent/v1/collaborators", {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   }
 }

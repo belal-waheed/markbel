@@ -21,4 +21,8 @@ export type Variables = {
   userId: string;
   tokenScopes?: string[];
   authType?: 'jwt' | 'pat';
+  actorType?: 'user' | 'agent' | 'collaborator';
+  actorName?: string;
+  vaultOwnerId?: string;
+  vaultRole?: 'owner' | 'editor' | 'viewer';
 };

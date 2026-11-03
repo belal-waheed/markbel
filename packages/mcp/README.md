@@ -22,6 +22,8 @@ Connects desktop AI environments (Claude Desktop, Cursor, Antigravity, Gemini CL
 | `markbel_get_settings` | Settings & Health | Retrieve user workflow preferences, category toggles, and notification settings. |
 | `markbel_update_settings` | Settings & Health | Update workflow preferences and category configurations (master account credentials remain protected). |
 | `markbel_get_stats` | Settings & Health | Inspect vault health metrics: total links, unread count, archived count, group count, and sync sequence. |
+| `markbel_list_collaborators` | Collaboration | List all collaborators and pending invitations for the vault with roles and status. |
+| `markbel_invite_collaborator` | Collaboration | Invite a peer collaborator or agent to the vault with viewer or editor permissions. |
 
 ---
 

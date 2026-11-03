@@ -22,6 +22,17 @@ export const requireScope = (requiredScope: string) => {
   };
 };
 
+// Vault Role Verification Middleware (Full Vault Collaboration)
+export const requireVaultRole = (allowedRoles: ("owner" | "editor" | "viewer")[]) => {
+  return async (c: any, next: any) => {
+    const role = c.get("vaultRole") || "owner";
+    if (allowedRoles.includes(role)) {
+      return await next();
+    }
+    return c.json({ error: `Forbidden: role '${role}' cannot perform this action` }, 403);
+  };
+};
+
 // Auth Middleware (Supports both JWT and Personal Access Tokens mb_pat_...)
 export const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header("Authorization") || "";
@@ -68,6 +79,10 @@ export const authMiddleware = async (c: any, next: any) => {
       c.set("userId", tokenRow.user_id);
       c.set("tokenScopes", scopes);
       c.set("authType", "pat");
+      c.set("actorType", "agent");
+      c.set("actorName", tokenRow.name || "Agent");
+      c.set("vaultOwnerId", tokenRow.user_id);
+      c.set("vaultRole", "owner");
 
       return await next();
     } catch (err: any) {
@@ -80,9 +95,35 @@ export const authMiddleware = async (c: any, next: any) => {
   const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
   try {
     const payload = await verify(token, secret, "HS256");
-    c.set("userId", (payload as any).id || (payload as any).userId);
+    const currentUserId = (payload as any).id || (payload as any).userId;
+    c.set("userId", currentUserId);
     c.set("tokenScopes", ["*"]);
     c.set("authType", "jwt");
+    c.set("actorType", "user");
+    c.set("actorName", (payload as any).name || (payload as any).email || "User");
+    c.set("vaultOwnerId", currentUserId);
+    c.set("vaultRole", "owner");
+
+    // Optional Shared Vault Resolution via X-Vault-Owner header
+    const requestedVaultOwner = c.req.header("X-Vault-Owner")?.trim();
+    if (requestedVaultOwner && requestedVaultOwner !== currentUserId) {
+      const collabRow: any = await c.env.DB.prepare(
+        `SELECT role FROM vault_collaborators 
+         WHERE owner_id = ? AND (collaborator_user_id = ? OR collaborator_email = (SELECT email FROM users WHERE id = ?)) 
+         AND status = 'accepted'`
+      )
+        .bind(requestedVaultOwner, currentUserId, currentUserId)
+        .first();
+
+      if (collabRow) {
+        c.set("vaultOwnerId", requestedVaultOwner);
+        c.set("vaultRole", collabRow.role || "viewer");
+        c.set("actorType", "collaborator");
+      } else {
+        return c.json({ error: "Access denied to requested shared vault" }, 403);
+      }
+    }
+
     return await next();
   } catch (err: any) {
     console.error("[JWT Verify Error]:", err?.message || err);

@@ -180,4 +180,51 @@ describe("Markbel MCP Tools Execution & Error Handling", () => {
     });
     expect(JSON.parse(updateRes.content[0].text).success).toBe(true);
   });
+
+  it("executes markbel_list_collaborators and markbel_invite_collaborator", async () => {
+    const mockClient = {
+      listCollaborators: vi.fn().mockResolvedValue({
+        collaborators: [
+          {
+            id: "c1",
+            owner_id: "u1",
+            collaborator_email: "partner@example.com",
+            role: "editor",
+            status: "accepted",
+            created_at: "2026-11-03T00:00:00Z",
+          },
+        ],
+      }),
+      inviteCollaborator: vi.fn().mockResolvedValue({
+        id: "c2",
+        owner_id: "u1",
+        collaborator_email: "newagent@example.com",
+        role: "viewer",
+        status: "pending",
+        invite_token: "mb_inv_abc123",
+        created_at: "2026-11-03T00:00:00Z",
+      }),
+    } as unknown as MarkbelClient;
+
+    const server = createMarkbelServer(mockClient);
+
+    const listTool = (server as any)._registeredTools["markbel_list_collaborators"];
+    expect(listTool).toBeDefined();
+    const listRes = await listTool.handler();
+    expect(listRes.isError).toBeUndefined();
+    const parsedList = JSON.parse(listRes.content[0].text);
+    expect(parsedList.collaborators).toHaveLength(1);
+    expect(parsedList.collaborators[0].collaborator_email).toBe("partner@example.com");
+
+    const inviteTool = (server as any)._registeredTools["markbel_invite_collaborator"];
+    expect(inviteTool).toBeDefined();
+    const inviteRes = await inviteTool.handler({
+      email: "newagent@example.com",
+      role: "viewer",
+    });
+    expect(inviteRes.isError).toBeUndefined();
+    const parsedInvite = JSON.parse(inviteRes.content[0].text);
+    expect(parsedInvite.status).toBe("pending");
+    expect(parsedInvite.invite_token).toBe("mb_inv_abc123");
+  });
 });

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Bindings, Variables } from "../types";
-import { authMiddleware, requireScope } from "../middleware/auth";
+import { authMiddleware, requireScope, requireVaultRole } from "../middleware/auth";
 import { normalizeSyncRecord } from "../normalize";
 import { openApiSpec } from "../openapi";
 import { extractInstantMediaMetadata } from "../../../src/lib/mediaHeuristics";
@@ -48,7 +48,7 @@ async function ensureUserSettingsTable(db: D1Database): Promise<void> {
 
 agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     const q = c.req.query("q")?.trim() || "";
     const group = c.req.query("group")?.trim() || "";
     const isReadParam = c.req.query("is_read");
@@ -149,7 +149,7 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
 
 agentRouter.get("/bookmarks/:id", requireScope("bookmarks:read"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     const id = c.req.param("id");
 
     const row: any = await c.env.DB.prepare(
@@ -173,9 +173,11 @@ agentRouter.get("/bookmarks/:id", requireScope("bookmarks:read"), async (c) => {
 // BOOKMARKS MUTATIONS (bookmarks:write)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-agentRouter.post("/bookmarks", requireScope("bookmarks:write"), async (c) => {
+agentRouter.post("/bookmarks", requireScope("bookmarks:write"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
+    const actorType = c.get("actorType") || "agent";
+    const actorName = c.get("actorName") || "Agent";
     const body = await c.req.json();
 
     const rawUrl = (body.url || "").trim();
@@ -276,6 +278,8 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), async (c) => {
       remind_at: remindAt,
       is_archived: 0,
       archive_group: "",
+      actor_type: actorType,
+      actor_name: actorName,
       version,
       created_at: now,
       updated_at: now,
@@ -292,8 +296,8 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), async (c) => {
           id, user_id, title, url, description, image, favicon, site_name,
           author, published_at, content_type, reading_time, word_count, canonical_url,
           article_content, group_name, is_read, read_at, is_pinned, remind_at,
-          is_archived, archive_group, version, created_at, updated_at, deleted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+          is_archived, archive_group, actor_type, actor_name, version, created_at, updated_at, deleted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
       ).bind(
         id,
         userId,
@@ -317,15 +321,17 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), async (c) => {
         remindAt,
         0,
         "",
+        actorType,
+        actorName,
         version,
         now,
         now
       ),
       c.env.DB.prepare(
         `INSERT INTO sync_changes (
-          user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-        ) VALUES (?, 'bookmark', ?, 'create', ?, ?, ?, ?)`
-      ).bind(userId, id, version, clientChangeId, recordJson, now),
+          user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+        ) VALUES (?, 'bookmark', ?, 'create', ?, ?, ?, ?, ?, ?)`
+      ).bind(userId, id, version, clientChangeId, actorType, actorName, recordJson, now),
     ]);
 
     return c.json(normalized, 201);
@@ -335,9 +341,11 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), async (c) => {
   }
 });
 
-agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) => {
+agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
+    const actorType = c.get("actorType") || "agent";
+    const actorName = c.get("actorName") || "Agent";
     const id = c.req.param("id");
     const body = await c.req.json();
 
@@ -374,6 +382,8 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) =
       is_pinned: isPinned,
       remind_at: remindAt,
       is_archived: isArchived,
+      actor_type: actorType,
+      actor_name: actorName,
       version: newVersion,
       updated_at: now,
     };
@@ -386,7 +396,7 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) =
       c.env.DB.prepare(
         `UPDATE bookmarks SET
           title = ?, description = ?, group_name = ?, is_read = ?, read_at = ?,
-          is_pinned = ?, remind_at = ?, is_archived = ?, version = ?, updated_at = ?
+          is_pinned = ?, remind_at = ?, is_archived = ?, actor_type = ?, actor_name = ?, version = ?, updated_at = ?
         WHERE id = ? AND user_id = ?`
       ).bind(
         title,
@@ -397,6 +407,8 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) =
         isPinned,
         remindAt,
         isArchived,
+        actorType,
+        actorName,
         newVersion,
         now,
         id,
@@ -404,9 +416,9 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) =
       ),
       c.env.DB.prepare(
         `INSERT INTO sync_changes (
-          user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-        ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?)`
-      ).bind(userId, id, newVersion, clientChangeId, recordJson, now),
+          user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+        ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?, ?, ?)`
+      ).bind(userId, id, newVersion, clientChangeId, actorType, actorName, recordJson, now),
     ]);
 
     return c.json(normalized);
@@ -416,9 +428,11 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), async (c) =
   }
 });
 
-agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), async (c) => {
+agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
+    const actorType = c.get("actorType") || "agent";
+    const actorName = c.get("actorName") || "Agent";
     const id = c.req.param("id");
 
     const current: any = await c.env.DB.prepare(
@@ -437,6 +451,8 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), async (c) 
 
     const deletedRow = {
       ...current,
+      actor_type: actorType,
+      actor_name: actorName,
       deleted_at: now,
       version: newVersion,
       updated_at: now,
@@ -448,13 +464,13 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), async (c) 
     // CRITICAL SYNC INVARIANT: Soft delete + sync_changes delete entry
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE bookmarks SET deleted_at = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
-      ).bind(now, newVersion, now, id, userId),
+        "UPDATE bookmarks SET deleted_at = ?, actor_type = ?, actor_name = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+      ).bind(now, actorType, actorName, newVersion, now, id, userId),
       c.env.DB.prepare(
         `INSERT INTO sync_changes (
-          user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-        ) VALUES (?, 'bookmark', ?, 'delete', ?, ?, ?, ?)`
-      ).bind(userId, id, newVersion, clientChangeId, recordJson, now),
+          user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+        ) VALUES (?, 'bookmark', ?, 'delete', ?, ?, ?, ?, ?, ?)`
+      ).bind(userId, id, newVersion, clientChangeId, actorType, actorName, recordJson, now),
     ]);
 
     return c.json({ success: true, id });
@@ -464,9 +480,11 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), async (c) 
   }
 });
 
-agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) => {
+agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
+    const actorType = c.get("actorType") || "agent";
+    const actorName = c.get("actorName") || "Agent";
     const body = await c.req.json();
 
     if (!body || !Array.isArray(body.operations) || body.operations.length === 0) {
@@ -522,6 +540,8 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
           is_pinned: isPinned,
           remind_at: remindAt,
           is_archived: isArchived,
+          actor_type: actorType,
+          actor_name: actorName,
           version: newVersion,
           updated_at: now,
         };
@@ -534,7 +554,7 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
           c.env.DB.prepare(
             `UPDATE bookmarks SET
               title = ?, description = ?, group_name = ?, is_read = ?, read_at = ?,
-              is_pinned = ?, remind_at = ?, is_archived = ?, version = ?, updated_at = ?
+              is_pinned = ?, remind_at = ?, is_archived = ?, actor_type = ?, actor_name = ?, version = ?, updated_at = ?
             WHERE id = ? AND user_id = ?`
           ).bind(
             title,
@@ -545,6 +565,8 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
             isPinned,
             remindAt,
             isArchived,
+            actorType,
+            actorName,
             newVersion,
             now,
             id,
@@ -552,15 +574,17 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
           ),
           c.env.DB.prepare(
             `INSERT INTO sync_changes (
-              user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-            ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?)`
-          ).bind(userId, id, newVersion, clientChangeId, recordJson, now)
+              user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+            ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, id, newVersion, clientChangeId, actorType, actorName, recordJson, now)
         );
         processedCount++;
       } else if (action === "archive") {
         const updatedRow = {
           ...current,
           is_archived: 1,
+          actor_type: actorType,
+          actor_name: actorName,
           version: newVersion,
           updated_at: now,
         };
@@ -571,19 +595,21 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
 
         statements.push(
           c.env.DB.prepare(
-            "UPDATE bookmarks SET is_archived = 1, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
-          ).bind(newVersion, now, id, userId),
+            "UPDATE bookmarks SET is_archived = 1, actor_type = ?, actor_name = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+          ).bind(actorType, actorName, newVersion, now, id, userId),
           c.env.DB.prepare(
             `INSERT INTO sync_changes (
-              user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-            ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?)`
-          ).bind(userId, id, newVersion, clientChangeId, recordJson, now)
+              user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+            ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, id, newVersion, clientChangeId, actorType, actorName, recordJson, now)
         );
         processedCount++;
       } else if (action === "delete") {
         const deletedRow = {
           ...current,
           deleted_at: now,
+          actor_type: actorType,
+          actor_name: actorName,
           version: newVersion,
           updated_at: now,
         };
@@ -594,13 +620,13 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
 
         statements.push(
           c.env.DB.prepare(
-            "UPDATE bookmarks SET deleted_at = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
-          ).bind(now, newVersion, now, id, userId),
+            "UPDATE bookmarks SET deleted_at = ?, actor_type = ?, actor_name = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+          ).bind(now, actorType, actorName, newVersion, now, id, userId),
           c.env.DB.prepare(
             `INSERT INTO sync_changes (
-              user_id, entity_type, entity_id, operation, entity_version, client_change_id, record_json, changed_at
-            ) VALUES (?, 'bookmark', ?, 'delete', ?, ?, ?, ?)`
-          ).bind(userId, id, newVersion, clientChangeId, recordJson, now)
+              user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+            ) VALUES (?, 'bookmark', ?, 'delete', ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, id, newVersion, clientChangeId, actorType, actorName, recordJson, now)
         );
         processedCount++;
       }
@@ -623,7 +649,7 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), async (c) 
 
 agentRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
 
     const { results } = await c.env.DB.prepare(
       `SELECT g.id, g.name, g.color,
@@ -659,7 +685,7 @@ agentRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
 
 agentRouter.get("/rules", requireScope("groups:manage"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     await ensureUserSettingsTable(c.env.DB);
 
     const row: any = await c.env.DB.prepare(
@@ -684,9 +710,9 @@ agentRouter.get("/rules", requireScope("groups:manage"), async (c) => {
   }
 });
 
-agentRouter.put("/rules", requireScope("groups:manage"), async (c) => {
+agentRouter.put("/rules", requireScope("groups:manage"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     const body = await c.req.json();
 
     if (!body || !Array.isArray(body.rules)) {
@@ -718,7 +744,7 @@ agentRouter.put("/rules", requireScope("groups:manage"), async (c) => {
 
 agentRouter.get("/settings", requireScope("settings:manage"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     await ensureUserSettingsTable(c.env.DB);
 
     const row: any = await c.env.DB.prepare(
@@ -743,9 +769,9 @@ agentRouter.get("/settings", requireScope("settings:manage"), async (c) => {
   }
 });
 
-agentRouter.patch("/settings", requireScope("settings:manage"), async (c) => {
+agentRouter.patch("/settings", requireScope("settings:manage"), requireVaultRole(["owner"]), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
     const body = await c.req.json();
 
     if (!body || typeof body !== "object") {
@@ -810,7 +836,7 @@ agentRouter.patch("/settings", requireScope("settings:manage"), async (c) => {
 
 agentRouter.get("/stats", requireScope("bookmarks:read"), async (c) => {
   try {
-    const userId = c.get("userId");
+    const userId = c.get("vaultOwnerId") || c.get("userId");
 
     const [totalRes, unreadRes, archivedRes, groupsRes, syncRes]: any[] = await c.env.DB.batch([
       c.env.DB.prepare("SELECT COUNT(*) as count FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
@@ -840,5 +866,175 @@ agentRouter.get("/stats", requireScope("bookmarks:read"), async (c) => {
   } catch (err: any) {
     console.error("[Agent Stats Error]:", err?.message || err);
     return c.json({ error: err.message || "Failed to retrieve stats" }, 500);
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VAULT COLLABORATION & PEER SHARING (shares:manage)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// List collaborators for current vault
+agentRouter.get("/collaborators", requireScope("shares:manage"), async (c) => {
+  try {
+    const ownerId = c.get("vaultOwnerId") || c.get("userId");
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, owner_id, collaborator_user_id, collaborator_email, role, status, invite_token, created_at, accepted_at
+       FROM vault_collaborators WHERE owner_id = ? ORDER BY created_at DESC`
+    )
+      .bind(ownerId)
+      .all();
+
+    return c.json({ collaborators: results || [] });
+  } catch (err: any) {
+    console.error("[List Collaborators Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to list collaborators" }, 500);
+  }
+});
+
+// Invite a collaborator (owner only)
+agentRouter.post("/collaborators", requireScope("shares:manage"), requireVaultRole(["owner"]), async (c) => {
+  try {
+    const ownerId = c.get("userId");
+    const body = await c.req.json();
+    const email = (body.email || "").trim().toLowerCase();
+    const role = body.role === "editor" ? "editor" : "viewer";
+
+    if (!email || !email.includes("@")) {
+      return c.json({ error: "Valid email address is required" }, 400);
+    }
+
+    // Check if user is inviting themselves
+    const ownerUser: any = await c.env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(ownerId).first();
+    if (ownerUser && ownerUser.email?.toLowerCase() === email) {
+      return c.json({ error: "Cannot invite vault owner as collaborator" }, 400);
+    }
+
+    // Check if invitation already exists
+    const existing: any = await c.env.DB.prepare(
+      "SELECT id FROM vault_collaborators WHERE owner_id = ? AND collaborator_email = ?"
+    )
+      .bind(ownerId, email)
+      .first();
+
+    if (existing) {
+      return c.json({ error: "Collaborator or invitation already exists for this email" }, 409);
+    }
+
+    const id = crypto.randomUUID();
+    const randomBytes = crypto.getRandomValues(new Uint8Array(16));
+    const tokenSuffix = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const inviteToken = `mb_inv_${tokenSuffix}`;
+    const now = new Date().toISOString();
+
+    // Check if the invited email belongs to an existing registered user
+    const existingUser: any = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    const collaboratorUserId = existingUser ? existingUser.id : null;
+
+    await c.env.DB.prepare(
+      `INSERT INTO vault_collaborators (
+        id, owner_id, collaborator_user_id, collaborator_email, role, status, invite_token, created_at, accepted_at
+      ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, NULL)`
+    )
+      .bind(id, ownerId, collaboratorUserId, email, role, inviteToken, now)
+      .run();
+
+    return c.json(
+      {
+        id,
+        owner_id: ownerId,
+        collaborator_user_id: collaboratorUserId,
+        collaborator_email: email,
+        role,
+        status: "pending",
+        invite_token: inviteToken,
+        invite_link: `https://mark.obel.workers.dev/join?token=${inviteToken}`,
+        created_at: now,
+      },
+      201
+    );
+  } catch (err: any) {
+    console.error("[Invite Collaborator Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to invite collaborator" }, 500);
+  }
+});
+
+// Revoke or remove a collaborator (owner only)
+agentRouter.delete("/collaborators/:id", requireScope("shares:manage"), requireVaultRole(["owner"]), async (c) => {
+  try {
+    const ownerId = c.get("userId");
+    const id = c.req.param("id");
+
+    await c.env.DB.prepare(
+      "DELETE FROM vault_collaborators WHERE id = ? AND owner_id = ?"
+    )
+      .bind(id, ownerId)
+      .run();
+
+    return c.json({ success: true, id });
+  } catch (err: any) {
+    console.error("[Delete Collaborator Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to remove collaborator" }, 500);
+  }
+});
+
+// Accept a collaborator invitation
+agentRouter.post("/collaborators/accept", async (c) => {
+  try {
+    const userId = c.get("userId");
+    const body = await c.req.json();
+    const inviteToken = (body.inviteToken || body.token || "").trim();
+
+    if (!inviteToken) {
+      return c.json({ error: "Invite token is required" }, 400);
+    }
+
+    const collabRow: any = await c.env.DB.prepare(
+      "SELECT * FROM vault_collaborators WHERE invite_token = ? AND status = 'pending'"
+    )
+      .bind(inviteToken)
+      .first();
+
+    if (!collabRow) {
+      return c.json({ error: "Invalid or expired invitation token" }, 404);
+    }
+
+    const now = new Date().toISOString();
+    await c.env.DB.prepare(
+      "UPDATE vault_collaborators SET status = 'accepted', collaborator_user_id = ?, accepted_at = ? WHERE id = ?"
+    )
+      .bind(userId, now, collabRow.id)
+      .run();
+
+    return c.json({
+      success: true,
+      vault_id: collabRow.owner_id,
+      role: collabRow.role,
+      status: "accepted",
+      accepted_at: now,
+    });
+  } catch (err: any) {
+    console.error("[Accept Invite Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to accept invitation" }, 500);
+  }
+});
+
+// List vaults shared with current user
+agentRouter.get("/collaborators/shared-vaults", async (c) => {
+  try {
+    const userId = c.get("userId");
+    const { results } = await c.env.DB.prepare(
+      `SELECT c.id, c.owner_id, u.name as owner_name, u.email as owner_email, c.role, c.created_at, c.accepted_at
+       FROM vault_collaborators c
+       JOIN users u ON u.id = c.owner_id
+       WHERE (c.collaborator_user_id = ? OR c.collaborator_email = (SELECT email FROM users WHERE id = ?))
+       AND c.status = 'accepted'`
+    )
+      .bind(userId, userId)
+      .all();
+
+    return c.json({ shared_vaults: results || [] });
+  } catch (err: any) {
+    console.error("[List Shared Vaults Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to list shared vaults" }, 500);
   }
 });

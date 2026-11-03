@@ -287,7 +287,7 @@ describe("Markbel MCP Client & Server Architecture", () => {
       expect(server).toBeDefined();
     });
 
-    it("registers all 12 official Markbel MCP tools", () => {
+    it("registers all 14 official Markbel MCP tools", () => {
       const client = new MarkbelClient({ token: "mb_pat_dummy" });
       const server = createMarkbelServer(client);
 
@@ -308,12 +308,44 @@ describe("Markbel MCP Client & Server Architecture", () => {
         "markbel_set_rule",
         "markbel_get_settings",
         "markbel_update_settings",
+        "markbel_list_collaborators",
+        "markbel_invite_collaborator",
       ];
 
       for (const toolName of expectedToolNames) {
         expect(registeredTools[toolName]).toBeDefined();
       }
-      expect(Object.keys(registeredTools).length).toBe(12);
+      expect(Object.keys(registeredTools).length).toBe(14);
+    });
+
+    it("listCollaborators and inviteCollaborator format API requests correctly", async () => {
+      let capturedUrl = "";
+      let capturedMethod = "";
+      let capturedBody: any = null;
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+        capturedUrl = url;
+        capturedMethod = init.method || "GET";
+        if (init.body) {
+          capturedBody = JSON.parse(init.body as string);
+        }
+        return new Response(JSON.stringify({ collaborators: [] }), { status: 200 });
+      });
+
+      const client = new MarkbelClient({
+        token: "mb_pat_test",
+        fetchFn: mockFetch as any,
+      });
+
+      await client.listCollaborators();
+      expect(capturedUrl).toBe("https://mark.obel.workers.dev/api/agent/v1/collaborators");
+      expect(capturedMethod).toBe("GET");
+
+      await client.inviteCollaborator({ email: "agent@markbel.dev", role: "editor" });
+      expect(capturedUrl).toBe("https://mark.obel.workers.dev/api/agent/v1/collaborators");
+      expect(capturedMethod).toBe("POST");
+      expect(capturedBody.email).toBe("agent@markbel.dev");
+      expect(capturedBody.role).toBe("editor");
     });
   });
 });

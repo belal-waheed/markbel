@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     notified_at TEXT DEFAULT NULL,
     is_archived INTEGER DEFAULT 0,
     archive_group TEXT DEFAULT '',
+    actor_type TEXT DEFAULT 'user',
+    actor_name TEXT DEFAULT '',
     version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -64,6 +66,8 @@ CREATE TABLE IF NOT EXISTS sync_changes (
     operation TEXT NOT NULL,
     entity_version INTEGER NOT NULL,
     client_change_id TEXT NOT NULL,
+    actor_type TEXT DEFAULT 'user',
+    actor_name TEXT DEFAULT '',
     record_json TEXT,
     changed_at TEXT NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -114,6 +118,20 @@ CREATE TABLE IF NOT EXISTS user_settings (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Vault Collaborators Table (Full Vault Peer Sharing & Permissions)
+CREATE TABLE IF NOT EXISTS vault_collaborators (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    collaborator_user_id TEXT DEFAULT NULL,
+    collaborator_email TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'viewer', -- 'viewer' | 'editor'
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'accepted'
+    invite_token TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL,
+    accepted_at TEXT DEFAULT NULL,
+    FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, is_archived, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_group ON bookmarks(user_id, group_name);
@@ -125,4 +143,7 @@ CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_lookup ON api_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_vault_collab_owner ON vault_collaborators(owner_id);
+CREATE INDEX IF NOT EXISTS idx_vault_collab_user ON vault_collaborators(collaborator_user_id);
+CREATE INDEX IF NOT EXISTS idx_vault_collab_token ON vault_collaborators(invite_token);
 

@@ -40,6 +40,8 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
     const readAt = record.readAt || record.read_at || "";
     const remindAt = record.remindAt || record.remind_at || "";
     const archiveGroup = record.archiveGroup || record.archive_group || "";
+    const actorType = record.actorType || record.actor_type || "user";
+    const actorName = record.actorName || record.actor_name || "";
     const createdAt = record.createdAt || record.created_at || "";
     const updatedAt = record.updatedAt || record.updated_at || "";
     const deletedAt = record.deletedAt || record.deleted_at || null;
@@ -67,6 +69,8 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
       remindAt,
       isArchived,
       archiveGroup,
+      actorType,
+      actorName,
       createdAt,
       updatedAt,
       deletedAt,
@@ -85,6 +89,8 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
       remind_at: remindAt,
       is_archived: isArchived ? 1 : 0,
       archive_group: archiveGroup,
+      actor_type: actorType,
+      actor_name: actorName,
       created_at: createdAt,
       updated_at: updatedAt,
       deleted_at: deletedAt,

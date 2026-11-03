@@ -287,6 +287,24 @@ export interface AgentVaultStats {
   latestSyncSequence: number;
 }
 
+export interface VaultCollaborator {
+  id: string;
+  owner_id: string;
+  collaborator_user_id: string | null;
+  collaborator_email: string;
+  role: 'viewer' | 'editor';
+  status: 'pending' | 'accepted';
+  invite_token: string;
+  invite_link?: string;
+  created_at: string;
+  accepted_at?: string | null;
+}
+
+export interface InviteCollaboratorRequest {
+  email: string;
+  role?: 'viewer' | 'editor';
+}
+
 export const agentApi = {
   async searchBookmarks(params: AgentBookmarkSearchParams = {}): Promise<AgentBookmarkSearchResponse> {
     const searchParams = new URLSearchParams();
@@ -346,6 +364,26 @@ export const agentApi = {
 
   async getStats(): Promise<AgentVaultStats> {
     return await api.get<AgentVaultStats>('/agent/v1/stats');
+  },
+
+  async listCollaborators(): Promise<{ collaborators: VaultCollaborator[] }> {
+    return await api.get<{ collaborators: VaultCollaborator[] }>('/agent/v1/collaborators');
+  },
+
+  async inviteCollaborator(data: InviteCollaboratorRequest): Promise<VaultCollaborator> {
+    return await api.post<VaultCollaborator>('/agent/v1/collaborators', data);
+  },
+
+  async deleteCollaborator(id: string): Promise<{ success: boolean; id: string }> {
+    return await api.delete<{ success: boolean; id: string }>(`/agent/v1/collaborators/${encodeURIComponent(id)}`);
+  },
+
+  async acceptCollaboratorInvite(inviteToken: string): Promise<{ success: boolean; vault_id: string; role: string; status: string }> {
+    return await api.post<{ success: boolean; vault_id: string; role: string; status: string }>('/agent/v1/collaborators/accept', { inviteToken });
+  },
+
+  async listSharedVaults(): Promise<{ shared_vaults: any[] }> {
+    return await api.get<{ shared_vaults: any[] }>('/agent/v1/collaborators/shared-vaults');
   },
 
   async getOpenApiSpec(): Promise<any> {

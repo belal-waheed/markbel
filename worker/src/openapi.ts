@@ -443,6 +443,156 @@ export const openApiSpec = {
         },
       },
     },
+    "/collaborators": {
+      get: {
+        summary: "List vault collaborators",
+        description: "Returns active and pending peer collaborators for the vault.",
+        operationId: "listCollaborators",
+        responses: {
+          "200": {
+            description: "List of collaborators",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    collaborators: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Collaborator" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Invite a vault collaborator",
+        description: "Invites a peer collaborator by email with viewer or editor role.",
+        operationId: "inviteCollaborator",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  email: { type: "string", format: "email" },
+                  role: { type: "string", enum: ["viewer", "editor"], default: "viewer" },
+                },
+                required: ["email"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Collaborator invitation created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Collaborator" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/collaborators/{id}": {
+      delete: {
+        summary: "Revoke or remove collaborator",
+        description: "Removes an active or pending collaborator from the vault.",
+        operationId: "removeCollaborator",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Collaborator removed successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    id: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/collaborators/accept": {
+      post: {
+        summary: "Accept collaborator invitation",
+        description: "Accepts an invitation using the unique invite token.",
+        operationId: "acceptCollaboratorInvite",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  inviteToken: { type: "string" },
+                },
+                required: ["inviteToken"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Invitation accepted",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    vault_id: { type: "string" },
+                    role: { type: "string" },
+                    status: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/collaborators/shared-vaults": {
+      get: {
+        summary: "List shared vaults",
+        description: "Lists all vaults shared with the authenticated user.",
+        operationId: "listSharedVaults",
+        responses: {
+          "200": {
+            description: "List of shared vaults",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    shared_vaults: {
+                      type: "array",
+                      items: { type: "object" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/openapi.json": {
       get: {
         summary: "Get OpenAPI 3.1 specification",
@@ -562,6 +712,22 @@ export const openApiSpec = {
           latestSyncSequence: { type: "integer" },
         },
         required: ["totalBookmarks", "unreadCount", "archivedCount", "groupsCount", "latestSyncSequence"],
+      },
+      Collaborator: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          owner_id: { type: "string" },
+          collaborator_user_id: { type: ["string", "null"] },
+          collaborator_email: { type: "string" },
+          role: { type: "string", enum: ["viewer", "editor"] },
+          status: { type: "string", enum: ["pending", "accepted"] },
+          invite_token: { type: "string" },
+          invite_link: { type: "string" },
+          created_at: { type: "string" },
+          accepted_at: { type: ["string", "null"] },
+        },
+        required: ["id", "owner_id", "collaborator_email", "role", "status", "created_at"],
       },
     },
   },
