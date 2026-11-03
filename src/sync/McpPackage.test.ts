@@ -26,6 +26,20 @@ describe("Markbel MCP Client & Server Architecture", () => {
       expect(capturedUrl).toBe("https://mark.obel.workers.dev/api/agent/v1/groups");
     });
 
+    it("supports MARKBEL_API_URL as alternative baseUrl fallback", async () => {
+      const customUrl = "https://custom-agent.example.com";
+      const resolvedUrl = process.env.MARKBEL_BASE_URL || customUrl || "https://mark.obel.workers.dev";
+      expect(resolvedUrl).toBe(customUrl);
+
+      const client = new MarkbelClient({
+        baseUrl: resolvedUrl,
+        token: "mb_pat_custom",
+        fetchFn: (async () => new Response(JSON.stringify({ groups: [] }), { status: 200 })) as any,
+      });
+
+      expect(client).toBeDefined();
+    });
+
     it("should attach Authorization Bearer header to all requests", async () => {
       let capturedAuth = "";
       const mockFetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {

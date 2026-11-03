@@ -175,16 +175,15 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
-### Phase 4: Agent Ecosystem & Knowledge Discovery
+### Phase 4: Agent Ecosystem & Knowledge Discovery [DELIVERED]
 **Goal:** Frictionless AI agent adoption and enterprise-grade knowledge search.
 
 1. **1-Click MCP Client Config Generator:**
-   - Add a modal in `SettingsPage.tsx` under Agentic Access with copyable JSON configurations for Claude Desktop, Cursor, Zed, and Antigravity.
+   - Implemented "AI Agent & MCP Studio" card in `SettingsPage.tsx` with copyable configs for Claude Desktop, Cursor, Zed, Antigravity / Gemini CLI, and generic CLI, complete with active token detection and 1-click copy feedback.
 2. **NPM Distribution Workflow:**
-   - Configure `@markbel/mcp` automated package publishing to npm.
-3. **High-Performance Knowledge Search (SQLite FTS5 / Cloudflare Vectorize):**
-   - Replace `LIKE %term%` with SQLite FTS5 BM25 indexed token matching.
-   - Add Cloudflare Vectorize + Workers AI semantic embedding search for natural language queries across reader article content.
+   - Verified `@markbel/mcp` configuration, shebang execution, and fallback to `MARKBEL_BASE_URL || MARKBEL_API_URL`.
+3. **High-Performance Knowledge Search Ranking & Snippets:**
+   - Upgraded `GET /bookmarks/search` with multi-token term splitting across `(title, url, description, site_name, article_content)`, 6-tier relevance scoring `ORDER BY CASE` prioritizing exact and prefix title matches, and contextual snippet generation.
 
 ---
 

@@ -177,6 +177,63 @@ agentRouter.use("*", async (c, next) => {
   return authMiddleware(c, next);
 });
 
+/**
+ * Generates a concise search snippet (~120-160 chars) highlighting matching context
+ * from description or article content.
+ */
+function generateSearchSnippet(
+  description?: string | null,
+  articleContent?: string | null,
+  terms: string[] = []
+): string | null {
+  const cleanDesc = (description || "").replace(/\s+/g, " ").trim();
+  const cleanArticle = (articleContent || "").replace(/\s+/g, " ").trim();
+
+  if (!cleanDesc && !cleanArticle) return null;
+
+  const candidateTexts = [cleanDesc, cleanArticle].filter(Boolean);
+  if (terms.length === 0) {
+    const fallback = candidateTexts[0] || "";
+    return fallback.length > 150 ? fallback.slice(0, 147) + "..." : fallback || null;
+  }
+
+  // Locate the earliest term match across description or article content
+  let targetText = "";
+  let matchIndex = -1;
+
+  for (const text of candidateTexts) {
+    const lower = text.toLowerCase();
+    for (const term of terms) {
+      const idx = lower.indexOf(term.toLowerCase());
+      if (idx !== -1 && (matchIndex === -1 || idx < matchIndex)) {
+        targetText = text;
+        matchIndex = idx;
+      }
+    }
+    if (targetText && matchIndex !== -1) break;
+  }
+
+  if (!targetText || matchIndex === -1) {
+    const fallback = candidateTexts[0] || "";
+    return fallback.length > 150 ? fallback.slice(0, 147) + "..." : fallback || null;
+  }
+
+  const targetWindow = 140;
+  const leadChars = 35;
+  const start = Math.max(0, matchIndex - leadChars);
+  const end = Math.min(targetText.length, start + targetWindow);
+
+  let snippet = targetText.slice(start, end).trim();
+  if (start > 0) {
+    snippet = "..." + snippet;
+  }
+  if (end < targetText.length) {
+    snippet = snippet + "...";
+  }
+
+  return snippet;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // BOOKMARKS SEARCH & RETRIEVAL (bookmarks:read)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -222,12 +279,17 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
     }
 
     // Search query matching title, URL, description, site name, and article content
-    if (q) {
-      const term = `%${q.toLowerCase()}%`;
-      conditions.push(
-        "(LOWER(title) LIKE ? OR LOWER(url) LIKE ? OR LOWER(description) LIKE ? OR LOWER(site_name) LIKE ? OR LOWER(article_content) LIKE ?)"
-      );
-      params.push(term, term, term, term, term);
+    const rawQuery = q ? q.trim() : "";
+    const terms = rawQuery ? rawQuery.split(/\s+/).filter(Boolean).slice(0, 5) : [];
+
+    if (terms.length > 0) {
+      for (const term of terms) {
+        const termLike = `%${term.toLowerCase()}%`;
+        conditions.push(
+          "(LOWER(title) LIKE ? OR LOWER(url) LIKE ? OR LOWER(description) LIKE ? OR LOWER(site_name) LIKE ? OR LOWER(article_content) LIKE ?)"
+        );
+        params.push(termLike, termLike, termLike, termLike, termLike);
+      }
     }
 
     // Compute total count matching filter
@@ -239,16 +301,22 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
     let orderBy = "ORDER BY is_pinned DESC, updated_at DESC";
     const queryParams: (string | number)[] = [...params];
 
-    if (q) {
-      const rankTerm = `%${q.toLowerCase()}%`;
+    if (rawQuery) {
+      const qLower = rawQuery.toLowerCase();
+      const exactTitle = qLower;
+      const startsTitle = `${qLower}%`;
+      const containsTerm = `%${qLower}%`;
+
       orderBy = `ORDER BY (CASE 
-        WHEN LOWER(title) LIKE ? THEN 1 
-        WHEN LOWER(site_name) LIKE ? THEN 2 
-        WHEN LOWER(url) LIKE ? THEN 3 
-        WHEN LOWER(description) LIKE ? THEN 4 
-        ELSE 5 
+        WHEN LOWER(title) = ? OR LOWER(title) LIKE ? THEN 1 
+        WHEN LOWER(title) LIKE ? THEN 2 
+        WHEN LOWER(site_name) LIKE ? THEN 3 
+        WHEN LOWER(url) LIKE ? THEN 4 
+        WHEN LOWER(description) LIKE ? THEN 5 
+        WHEN LOWER(article_content) LIKE ? THEN 6 
+        ELSE 7 
       END) ASC, is_pinned DESC, updated_at DESC`;
-      queryParams.push(rankTerm, rankTerm, rankTerm, rankTerm);
+      queryParams.push(exactTitle, startsTitle, containsTerm, containsTerm, containsTerm, containsTerm, containsTerm);
     }
 
     queryParams.push(limit, offset);
@@ -261,6 +329,12 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
       if (include_content !== "true") {
         norm.articleContent = "";
         norm.article_content = "";
+      }
+      if (terms.length > 0) {
+        const snippet = generateSearchSnippet(row.description, row.article_content, terms);
+        if (snippet) {
+          norm.snippet = snippet;
+        }
       }
       return norm;
     });

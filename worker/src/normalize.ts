@@ -47,6 +47,7 @@ export interface NormalizedBookmarkRecord {
   updated_at: string;
   deletedAt: string | null;
   deleted_at: string | null;
+  snippet?: string;
   [key: string]: unknown;
 }
 
@@ -63,6 +64,7 @@ export interface NormalizedGroupRecord {
   updated_at: string;
   deletedAt: string | null;
   deleted_at: string | null;
+  snippet?: string;
   [key: string]: unknown;
 }
 

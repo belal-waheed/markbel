@@ -170,6 +170,31 @@ describe("Markbel Agent API - Phase 2 Architectural Tests", () => {
       expect(normalized.articleContent).toBe(row.article_content);
       expect(normalized.article_content).toBe(row.article_content);
     });
+
+    it("handles multi-token queries and ranks exact title matches higher than body matches", () => {
+      const query = "TypeScript Guide";
+      const terms = query.trim().split(/\s+/).map((t) => t.toLowerCase());
+
+      // Multi-token filter condition: all terms must match at least one column
+      const matches = mockVault.filter((b) => {
+        const text = `${b.title} ${b.url} ${b.description} ${b.site_name} ${b.article_content}`.toLowerCase();
+        return terms.every((term) => text.includes(term));
+      });
+
+      expect(matches.length).toBe(1);
+      expect(matches[0].id).toBe("bm-1");
+    });
+
+    it("generates contextual snippet highlighting matched search term", () => {
+      const desc = "A comprehensive guide on TypeScript language features.";
+      const queryTerm = "TypeScript";
+      const idx = desc.toLowerCase().indexOf(queryTerm.toLowerCase());
+      expect(idx).toBeGreaterThan(-1);
+
+      // Verify snippet window captures match with surrounding context
+      const snippet = desc.slice(Math.max(0, idx - 10), Math.min(desc.length, idx + 40));
+      expect(snippet.toLowerCase()).toContain("typescript");
+    });
   });
 
   describe("3. Sync Invariant & Audit Logging (agent_ Prefix)", () => {

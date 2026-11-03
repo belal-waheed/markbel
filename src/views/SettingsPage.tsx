@@ -4,12 +4,14 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  Bot,
   Camera,
   Check,
   CheckCircle,
   Clock,
   Code,
   Copy,
+  Cpu,
   Eye,
   EyeOff,
   FileText,
@@ -30,6 +32,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Tag,
+  Terminal,
   Trash2,
   User as UserIcon,
   Video,
@@ -183,6 +186,114 @@ const TOKEN_SCOPES_CONFIG = [
   },
 ];
 
+const MCP_CLIENTS = [
+  {
+    id: "claude",
+    name: "Claude Desktop",
+    configFile: "claude_desktop_config.json",
+    pathHint: "Mac: ~/Library/Application Support/Claude/claude_desktop_config.json | Win: %APPDATA%\\Claude\\claude_desktop_config.json",
+    getConfig: (tok: string) =>
+      JSON.stringify(
+        {
+          mcpServers: {
+            markbel: {
+              command: "npx",
+              args: ["-y", "@markbel/mcp"],
+              env: {
+                MARKBEL_API_TOKEN: tok,
+                MARKBEL_BASE_URL: "https://mark.obel.workers.dev",
+              },
+            },
+          },
+        },
+        null,
+        2
+      ),
+  },
+  {
+    id: "cursor",
+    name: "Cursor IDE",
+    configFile: ".cursor/mcp.json",
+    pathHint: "Workspace root: .cursor/mcp.json or Cursor Settings > Features > MCP",
+    getConfig: (tok: string) =>
+      JSON.stringify(
+        {
+          mcpServers: {
+            markbel: {
+              command: "npx",
+              args: ["-y", "@markbel/mcp"],
+              env: {
+                MARKBEL_API_TOKEN: tok,
+                MARKBEL_BASE_URL: "https://mark.obel.workers.dev",
+              },
+            },
+          },
+        },
+        null,
+        2
+      ),
+  },
+  {
+    id: "zed",
+    name: "Zed Editor",
+    configFile: "settings.json",
+    pathHint: "~/.config/zed/settings.json or Command Palette > Zed: Open Settings",
+    getConfig: (tok: string) =>
+      JSON.stringify(
+        {
+          context_servers: {
+            markbel: {
+              command: {
+                env: {
+                  MARKBEL_API_TOKEN: tok,
+                  MARKBEL_BASE_URL: "https://mark.obel.workers.dev",
+                },
+                path: "npx",
+                args: ["-y", "@markbel/mcp"],
+              },
+            },
+          },
+        },
+        null,
+        2
+      ),
+  },
+  {
+    id: "antigravity",
+    name: "Antigravity / Gemini CLI",
+    configFile: "mcp_config.json",
+    pathHint: "~/.gemini/antigravity/mcp_config.json or workspace .gemini/mcp_config.json",
+    getConfig: (tok: string) =>
+      JSON.stringify(
+        {
+          mcpServers: {
+            markbel: {
+              command: "npx",
+              args: ["-y", "@markbel/mcp"],
+              env: {
+                MARKBEL_API_TOKEN: tok,
+                MARKBEL_BASE_URL: "https://mark.obel.workers.dev",
+              },
+            },
+          },
+        },
+        null,
+        2
+      ),
+  },
+  {
+    id: "cli",
+    name: "Generic CLI",
+    configFile: "Terminal / Shell",
+    pathHint: "Run directly in bash, zsh, or PowerShell",
+    getConfig: (tok: string) => `# Stdio mode (Direct process stdio pipe)
+MARKBEL_API_TOKEN="${tok}" npx -y @markbel/mcp
+
+# SSE mode (Local HTTP background daemon on port 3000)
+PORT=3000 MARKBEL_API_TOKEN="${tok}" npx -y @markbel/mcp --sse`,
+  },
+];
+
 export default function SettingsPage() {
   const { user, token, isGuest, logout } = useAuth();
   const isGuestMode = isGuest || !token || !user;
@@ -276,6 +387,25 @@ export default function SettingsPage() {
     "bookmarks:read",
     "bookmarks:write",
   ]);
+
+  // AI Agent & MCP Studio State
+  const [selectedMcpClient, setSelectedMcpClient] = useState<string>("claude");
+  const [mcpTokenInput, setMcpTokenInput] = useState("");
+  const [copiedMcpConfig, setCopiedMcpConfig] = useState(false);
+
+  const activeMcpToken = mcpTokenInput.trim() || newlyCreatedToken?.token || "mb_pat_YOUR_TOKEN";
+
+  const handleCopyMcpConfig = async () => {
+    const currentClient = MCP_CLIENTS.find((c) => c.id === selectedMcpClient) || MCP_CLIENTS[0];
+    const configText = currentClient.getConfig(activeMcpToken);
+    try {
+      await navigator.clipboard.writeText(configText);
+      setCopiedMcpConfig(true);
+      setTimeout(() => setCopiedMcpConfig(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy MCP configuration:", err);
+    }
+  };
 
   const loadTokens = async () => {
     if (isGuestMode) return;
@@ -2032,6 +2162,174 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+      </section>
+
+      {/* AI Agent & MCP Studio Card */}
+      <section className="studio-card p-4 sm:p-6 relative space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--color-border-default)] pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text-primary)] tracking-wide">
+                AI Agent & MCP Studio
+              </h3>
+              <p className="text-[11px] text-[var(--color-text-muted)]">
+                Connect Markbel to Claude Desktop, Cursor, Zed, Antigravity, or custom agents via Model Context Protocol.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              Protocol v1.32+
+            </span>
+          </div>
+        </div>
+
+        {/* Client Selection Tabs */}
+        <div className="flex flex-wrap gap-1.5 border-b border-[var(--color-border-default)] pb-3">
+          {MCP_CLIENTS.map((client) => {
+            const isActive = selectedMcpClient === client.id;
+            return (
+              <button
+                key={client.id}
+                type="button"
+                onClick={() => setSelectedMcpClient(client.id)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isActive
+                    ? "bg-[var(--color-accent)] text-white shadow-sm"
+                    : "bg-[var(--color-bg-element)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-default)]"
+                }`}
+              >
+                {client.id === "cli" ? <Terminal className="w-3.5 h-3.5" /> : <Cpu className="w-3.5 h-3.5" />}
+                <span>{client.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Token Selection & Target Path Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1.5">
+            <label className="font-semibold text-[var(--color-text-primary)] block">
+              Injected API Token
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={mcpTokenInput}
+                onChange={(e) => setMcpTokenInput(e.target.value)}
+                placeholder={newlyCreatedToken?.token || "mb_pat_YOUR_TOKEN"}
+                className="w-full px-3 py-1.5 bg-[var(--color-bg-base)] border border-[var(--color-border-default)] rounded text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]"
+              />
+              {newlyCreatedToken && (
+                <button
+                  type="button"
+                  onClick={() => setMcpTokenInput(newlyCreatedToken.token)}
+                  className="px-2.5 py-1.5 bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 rounded font-semibold text-[11px] whitespace-nowrap hover:bg-[var(--color-accent)]/20 cursor-pointer"
+                  title="Use newly created token"
+                >
+                  Use New Token
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-[var(--color-text-muted)]">
+              {newlyCreatedToken
+                ? "Auto-detected newly created token from current session."
+                : tokens.length > 0
+                ? "Enter your saved token secret or leave placeholder."
+                : "Generate a token in API Access Tokens above to inject."}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-semibold text-[var(--color-text-primary)] block">
+              Configuration Target
+            </label>
+            <div className="px-3 py-1.5 bg-[var(--color-bg-element)] border border-[var(--color-border-default)] rounded text-xs font-mono text-[var(--color-text-primary)] truncate">
+              {MCP_CLIENTS.find((c) => c.id === selectedMcpClient)?.configFile}
+            </div>
+            <p className="text-[10px] text-[var(--color-text-muted)] truncate">
+              {MCP_CLIENTS.find((c) => c.id === selectedMcpClient)?.pathHint}
+            </p>
+          </div>
+        </div>
+
+        {/* Configuration Code Block */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-[var(--color-text-primary)]">
+              Configuration Snippet
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyMcpConfig}
+              className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                copiedMcpConfig
+                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                  : "bg-[var(--color-accent)] text-white hover:opacity-90"
+              }`}
+            >
+              {copiedMcpConfig ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Configuration</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="relative">
+            <pre className="bg-[var(--color-bg-base)] border border-[var(--color-border-default)] rounded-lg p-3.5 text-xs font-mono text-[var(--color-text-primary)] overflow-x-auto whitespace-pre leading-relaxed select-all">
+              {MCP_CLIENTS.find((c) => c.id === selectedMcpClient)?.getConfig(activeMcpToken)}
+            </pre>
+          </div>
+        </div>
+
+        {/* Available MCP Tools Reference */}
+        <div className="p-3 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[var(--color-text-primary)] tracking-wide">
+              Supported Agent MCP Tools (14 Available)
+            </span>
+            <span className="text-[10px] text-[var(--color-text-muted)] font-mono">
+              @markbel/mcp
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_search</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Multi-token search with relevance ranking & snippets</span>
+            </div>
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_get_bookmark</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Retrieve full bookmark metadata & article markdown</span>
+            </div>
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_create_bookmark</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Save new URLs with automatic group categorization</span>
+            </div>
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_batch_mutate</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Atomic multi-record bookmark updates & archiving</span>
+            </div>
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_list_groups</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Explore vault categories & bookmark counts</span>
+            </div>
+            <div className="p-2 rounded bg-[var(--color-bg-base)] border border-[var(--color-border-default)]">
+              <span className="font-mono font-semibold text-[var(--color-accent)] block">markbel_get_stats</span>
+              <span className="text-[var(--color-text-muted)] text-[10px]">Vault overview, read vs unread counts, archives</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Vault Collaboration & Shared Access Card */}

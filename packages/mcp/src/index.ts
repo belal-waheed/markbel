@@ -27,7 +27,7 @@ export function createMarkbelServer(client: MarkbelClient): McpServer {
  * Main server startup function.
  */
 export async function main(): Promise<void> {
-  const baseUrl = process.env.MARKBEL_BASE_URL || "https://mark.obel.workers.dev";
+  const baseUrl = process.env.MARKBEL_BASE_URL || process.env.MARKBEL_API_URL || "https://mark.obel.workers.dev";
   const token = process.env.MARKBEL_API_TOKEN;
 
   if (!token) {
