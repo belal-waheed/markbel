@@ -24,7 +24,8 @@
     "build:extension:firefox": "vite build --config vite.config.extension.ts --mode firefox",
     "extension:zip": "npm run build:extension && node scripts/zip-extension.cjs",
     "extension:zip:firefox": "npm run build:extension:firefox && node scripts/zip-extension-firefox.cjs",
-    "build:extension:all": "npm run extension:zip && npm run extension:zip:firefox"
+    "build:extension:all": "npm run extension:zip && npm run extension:zip:firefox",
+    "build:mcp": "npm --prefix packages/mcp run build"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
