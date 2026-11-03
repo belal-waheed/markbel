@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "vite",
-    "dev:backend": "tsx watch api/index.ts",
+    "dev:backend": "wrangler dev worker/src/index.ts --port 8787",
     "build": "vite build && tsc --project tsconfig.api.json",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.api.json --noEmit",
     "test": "vitest run",

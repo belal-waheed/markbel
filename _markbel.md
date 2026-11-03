@@ -235,6 +235,24 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
+### Modernization Phase 4: Cloudflare Worker Modularization & Backend Unification [DELIVERED]
+**Goal:** Decompose the 3,067-line monolithic Worker entrypoint into modular Hono sub-routers and unify local dev on `wrangler dev`.
+
+1. **Modular Sub-Router Architecture:**
+   - Shrunk `worker/src/index.ts` from 3,067 lines down to 70 lines (97.7% reduction).
+   - Extracted dedicated Hono sub-routers under `worker/src/routes/`:
+     - `auth.ts` (Signup, Login, User profile, Password reset/change, API tokens).
+     - `sync.ts` (Delta sync mutations push, sequence cursor pull, LWW conflict handling).
+     - `media.ts` (Multi-platform metadata scraper, magic-byte MIME sniffing, SVG handling, image proxy).
+     - `notifications.ts` (VAPID key delivery, device registration, notification test/dispatch cron).
+     - `share.ts` (Web Share Target handlers).
+     - `agent.ts` (Agent API v1 & MCP tools).
+2. **Unified Local Dev Environment:**
+   - Updated `package.json` `"dev:backend"` to `"wrangler dev worker/src/index.ts --port 8787"`.
+   - Updated `vite.config.ts` `/api` proxy target to `http://localhost:8787`, standardizing local dev 1:1 with Cloudflare Workers Edge.
+
+---
+
 ## 4. Verification Seams & Quality Gates
 
 Each milestone must pass the strict Markbel release pipeline:
