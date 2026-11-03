@@ -215,6 +215,26 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
+### Modernization Phase 3: Monolithic Component Deconstruction (`SettingsPage.tsx`) [DELIVERED]
+**Goal:** Eliminate the 3,074-line God Component and establish a clean, modular settings feature architecture.
+
+1. **Card Slicing & Component Extraction:**
+   - Sliced `SettingsPage.tsx` down from 3,074 lines to 356 lines (88.4% reduction).
+   - Created 8 modular cards in `src/components/settings/`:
+     - `AccountProfileCard.tsx` (User profile, password change, account deletion danger zone).
+     - `AppearanceCard.tsx` (Color scheme, theme tokens, high-contrast switch).
+     - `NavigationPreferencesCard.tsx` (Mobile category scroller, pinned category matrix).
+     - `SmartGroupsCard.tsx` (Sandbox heuristics tester, preset library, compound rule builder, JSON editor modal).
+     - `ApiTokensCard.tsx` (Token creation modal, listing table, scoped permissions, token revocation).
+     - `McpStudioCard.tsx` (1-click AI assistant tabs, token interpolation, copyable snippets, agent tool list).
+     - `VaultCollaborationCard.tsx` (Shared vaults selector, collaborator invite modal, member role management).
+     - `DataBackupCard.tsx` (JSON/HTML Netscape bookmark export, file import parser with auto-batching, thumbnail cache purge).
+     - `LogoutModal.tsx` & `settingsConstants.tsx`.
+2. **Settings Component Test Suite:**
+   - Added `src/components/settings/SettingsComponents.test.tsx` (10 tests) covering client snippet interpolation, scope mapping, and operator configs.
+
+---
+
 ## 4. Verification Seams & Quality Gates
 
 Each milestone must pass the strict Markbel release pipeline:
