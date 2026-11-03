@@ -38,7 +38,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
   const detectedPlatform = useMemo(() => detectPlatform(), [])
 
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false)
-  const [extensionModalTab, setExtensionModalTab] = useState<'chrome' | 'edge' | 'firefox'>('firefox')
+  const [extensionModalTab, setExtensionModalTab] = useState<'chrome' | 'firefox'>('chrome')
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false)
 
   const handleLaunch = () => {
@@ -59,7 +59,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
     navigate('/app')
   }
 
-  const handleOpenExtensionModal = (tab: 'chrome' | 'edge' | 'firefox') => {
+  const handleOpenExtensionModal = (tab: 'chrome' | 'firefox') => {
     setExtensionModalTab(tab)
     setIsExtensionModalOpen(true)
   }

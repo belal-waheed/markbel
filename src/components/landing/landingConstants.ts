@@ -21,10 +21,7 @@ export function detectPlatform(customUA?: string): PlatformInfo {
   if (/Firefox|FxiOS/i.test(ua)) {
     return { type: 'firefox', name: 'Firefox Add-on', label: 'Mozilla Firefox' }
   }
-  if (/Edg\//i.test(ua)) {
-    return { type: 'chrome', name: 'Edge Add-on', label: 'Microsoft Edge' }
-  }
-  if (/Chrome|CriOS/i.test(ua) && !/OPR/i.test(ua)) {
+  if (/Edg\//i.test(ua) || (/Chrome|CriOS/i.test(ua) && !/OPR/i.test(ua))) {
     return { type: 'chrome', name: 'Browser Extension', label: 'Chromium Browser' }
   }
   return { type: 'desktop', name: 'Web PWA', label: 'Desktop Browser' }

@@ -7,6 +7,7 @@ import { mediaRouter, isSafePublicUrl, isSignedCdnExpired, sniffImageMimeType } 
 import { notificationsRouter } from "./routes/notifications";
 import { shareRouter } from "./routes/share";
 import { agentRouter } from "./routes/agent";
+import { collaboratorsRouter } from "./routes/collaborators";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -49,6 +50,7 @@ app.get("/api/health", (c) => {
 // SUB-ROUTER MOUNT POINTS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.route("/api/agent/v1", agentRouter);
+app.route("/api/agent/v1", collaboratorsRouter);
 app.route("/", authRouter);
 app.route("/", syncRouter);
 app.route("/", mediaRouter);

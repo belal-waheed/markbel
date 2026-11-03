@@ -1,0 +1,198 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  extractMetadata,
+  synthesizeMetadataFromUrl,
+  cleanText,
+  decodeHtmlEntities,
+} from "../../worker/src/lib/metadataScraper";
+
+describe("Metadata Scraper & Platform Adapters Suite (Modular Worker Engine)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("1. YouTube Adapter URL Forms", () => {
+    it("handles standard youtube.com/watch?v= format", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "Never Gonna Give You Up",
+            author_name: "Rick Astley",
+            thumbnail_url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Never Gonna Give You Up");
+      expect(result?.description).toBe("By Rick Astley on YouTube");
+      expect(result?.image).toContain("dQw4w9WgXcQ");
+    });
+
+    it("handles youtube.com/shorts/ format", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "Quick Coding Tip",
+            author_name: "TechCreator",
+            thumbnail_url: "https://i.ytimg.com/vi/short123/hqdefault.jpg",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://www.youtube.com/shorts/short123");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Quick Coding Tip");
+      expect(result?.description).toBe("By TechCreator on YouTube");
+      expect(result?.image).toContain("short123");
+    });
+
+    it("handles youtu.be shortlink format", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "Shortlink Video",
+            author_name: "ChannelName",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://youtu.be/dQw4w9WgXcQ");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Shortlink Video");
+      expect(result?.image).toBe("https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
+    });
+
+    it("handles youtube.com/embed/ format", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "Embedded Player",
+            author_name: "EmbedChannel",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://www.youtube.com/embed/dQw4w9WgXcQ");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Embedded Player");
+      expect(result?.image).toBe("https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
+    });
+
+    it("handles youtube.com/playlist format", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "TypeScript Deep Dive Playlist",
+            author_name: "Instructor",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://www.youtube.com/playlist?list=PL1234567890");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("TypeScript Deep Dive Playlist");
+      expect(result?.description).toBe("By Instructor on YouTube");
+    });
+  });
+
+  describe("2. GitHub Repository Adapter", () => {
+    it("extracts repository details and opengraph preview asset", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce(async () => {
+        return new Response(
+          JSON.stringify({
+            description: "The library for web and native user interfaces.",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://github.com/facebook/react");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("facebook/react: The library for web and native user interfaces.");
+      expect(result?.description).toBe("The library for web and native user interfaces.");
+      expect(result?.image).toBe("https://opengraph.githubassets.com/1/facebook/react");
+    });
+  });
+
+  describe("3. Wikipedia Article Adapter", () => {
+    it("extracts summary and original image using REST API", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce(async () => {
+        return new Response(
+          JSON.stringify({
+            title: "React (software)",
+            extract: "React is a free and open-source front-end JavaScript library.",
+            originalimage: {
+              source: "https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const url = new URL("https://en.wikipedia.org/wiki/React_(software)");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("React (software)");
+      expect(result?.description).toContain("React is a free and open-source front-end JavaScript library.");
+      expect(result?.image).toBe("https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg");
+    });
+  });
+
+  describe("4. Fallback URL Metadata Synthesis", () => {
+    it("synthesizes clean titles from path segments when scraping is unavailable", () => {
+      const url = new URL("https://developer.mozilla.org/en-US/docs/Web/API");
+      const synth = synthesizeMetadataFromUrl(url);
+
+      expect(synth.title).toContain("En US - Docs - Web - API");
+      expect(synth.title).toContain("Developer");
+      expect(synth.description).toContain("developer.mozilla.org");
+      expect(synth.image).toBe("https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=128");
+    });
+
+    it("synthesizes root domain titles for top-level URLs", () => {
+      const url = new URL("https://example.com");
+      const synth = synthesizeMetadataFromUrl(url);
+
+      expect(synth.title).toBe("Example");
+      expect(synth.description).toBe("Saved link from example.com");
+      expect(synth.image).toBe("https://www.google.com/s2/favicons?domain=example.com&sz=128");
+    });
+  });
+
+  describe("5. Text Cleaning & HTML Entity Decoding", () => {
+    it("decodes HTML entities properly", () => {
+      expect(decodeHtmlEntities("&amp; &quot; &lt; &gt; &#39; &#x27; &#x2F; &mdash;")).toBe(
+        '& " < > \' \' / —'
+      );
+    });
+
+    it("cleans excessive whitespace and decodes entities in cleanText", () => {
+      expect(cleanText("  Hello &amp;    World \n\t  ")).toBe("Hello & World");
+      expect(cleanText("")).toBe("");
+    });
+  });
+});

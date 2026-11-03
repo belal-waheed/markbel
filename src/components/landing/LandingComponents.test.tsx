@@ -93,8 +93,8 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
 
       // Assert
       expect(platform.type).toBe('chrome')
-      expect(platform.name).toBe('Edge Add-on')
-      expect(platform.label).toBe('Microsoft Edge')
+      expect(platform.name).toBe('Browser Extension')
+      expect(platform.label).toBe('Chromium Browser')
     })
 
     it('detects Google Chrome / Chromium accurately from desktop user agent string', () => {
@@ -401,6 +401,11 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
         'https://github.com/belal-waheed/markbel/releases/latest/download/markbel-extension.zip'
       )
       expect(html).toContain('https://github.com/belal-waheed/markbel/releases/latest')
+      expect(html).toContain('Browser Extension')
+      expect(html).toContain('Android App')
+      expect(html).toContain('Web PWA &amp; Guest Vault')
+      expect(html).not.toContain('Microsoft Edge Add-ons Store')
+      expect(html).not.toContain('molmflphbifkekgnobnflblphdefpjfc')
     })
 
     it('invokes modal callback with appropriate browser tab identifier', () => {

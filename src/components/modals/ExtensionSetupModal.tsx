@@ -21,15 +21,15 @@ import {
 interface ExtensionSetupModalProps {
   isOpen: boolean
   onClose: () => void
-  initialTab?: 'chrome' | 'edge' | 'firefox'
+  initialTab?: 'chrome' | 'firefox'
 }
 
 export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
   isOpen,
   onClose,
-  initialTab = 'firefox'
+  initialTab = 'chrome'
 }) => {
-  const [activeTab, setActiveTab] = useState<'chrome' | 'edge' | 'firefox'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'chrome' | 'firefox'>(initialTab)
   const [activeStep, setActiveStep] = useState<number>(1)
   const [copiedUrl, setCopiedUrl] = useState(false)
 
@@ -92,6 +92,22 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
         <div className="flex border-b border-[var(--color-border-default)] bg-[var(--color-bg-main)] px-6 pt-3 gap-2 overflow-x-auto">
           <button
             onClick={() => {
+              setActiveTab('chrome')
+              setActiveStep(1)
+            }}
+            className={`pb-3 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'chrome'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <span>Google Chrome & Brave</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]">
+              Chromium MV3
+            </span>
+          </button>
+          <button
+            onClick={() => {
               setActiveTab('firefox')
               setActiveStep(1)
             }}
@@ -106,75 +122,11 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
               Gecko MV3
             </span>
           </button>
-          <button
-            onClick={() => {
-              setActiveTab('edge')
-              setActiveStep(1)
-            }}
-            className={`pb-3 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'edge'
-                ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            <span>Microsoft Edge</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
-              1-Click Store
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('chrome')
-              setActiveStep(1)
-            }}
-            className={`pb-3 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'chrome'
-                ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            <span>Google Chrome & Brave</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]">
-              3 Steps
-            </span>
-          </button>
         </div>
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === 'edge' ? (
-            /* Microsoft Edge 1-Click Guide */
-            <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-700 dark:text-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                    Official Microsoft Edge Add-ons Store
-                  </h3>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                    Markbel is officially verified and published on Microsoft Edge Add-ons. You do not need developer mode or manual extraction.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <a
-                  href="https://microsoftedge.microsoft.com/addons/detail/markbel-%E2%80%94-quick-bookmarks/molmflphbifkekgnobnflblphdefpjfc"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full btn-primary py-3 px-5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Install from Edge Add-ons Store</span>
-                </a>
-                <p className="text-center text-[11px] text-[var(--color-text-muted)]">
-                  Click "Get" on the Edge Store page, and Markbel will instantly install into your toolbar.
-                </p>
-              </div>
-            </div>
-          ) : activeTab === 'firefox' ? (
+          {activeTab === 'firefox' ? (
             /* Firefox & Firefox Developer Edition 3-Step Walkthrough */
             <div>
               {/* Stepper Progress Bar */}
