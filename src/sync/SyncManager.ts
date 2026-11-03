@@ -162,7 +162,7 @@ export class SyncManager {
   // -------------------------------------------------------------
   // Sync Engine
   // -------------------------------------------------------------
-  async sync(isForce = false) {
+  async sync(isForce = false, options?: { headers?: Record<string, string> }) {
     if (this.isPaused && !isForce) return;
     if (this.isSyncing || (!this.isLeader && !isForce)) {
       // If we are a follower tab and a sync is requested, notify the leader tab
@@ -220,7 +220,11 @@ export class SyncManager {
           }))
         };
 
-        const result = await this.apiClient.post('/api/sync/mutations', pushPayload, { 'Authorization': `Bearer ${token}` }, this.abortController.signal);
+        const pushHeaders: Record<string, string> = {
+          'Authorization': `Bearer ${token}`,
+          ...(options?.headers || {})
+        };
+        const result = await this.apiClient.post('/api/sync/mutations', pushPayload, pushHeaders, this.abortController.signal);
 
         // Remove redundant compacted outbox items only AFTER apiClient.post succeeds
         if (toDeleteFromDb.length > 0) {
@@ -261,6 +265,7 @@ export class SyncManager {
           {
             'Authorization': `Bearer ${token}`,
             'If-None-Match': `W/"cursor-${cursor}"`,
+            ...(options?.headers || {})
           },
           this.abortController.signal
         );

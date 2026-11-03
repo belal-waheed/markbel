@@ -198,7 +198,8 @@ label {
 input[type="text"],
 input[type="email"],
 input[type="password"],
-textarea {
+textarea,
+select {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -212,7 +213,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }

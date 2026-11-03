@@ -50,6 +50,15 @@ export interface ExtensionSession {
   isAuthenticated: boolean;
 }
 
+export interface SharedVault {
+  id: string;
+  owner_id: string;
+  owner_name?: string;
+  owner_email?: string;
+  role: 'viewer' | 'editor';
+  created_at: string;
+}
+
 export interface SaveBookmarkParams {
   url: string;
   title: string;
@@ -60,6 +69,7 @@ export interface SaveBookmarkParams {
   group?: string;
   isPinned?: boolean;
   contentType?: string;
+  targetVaultOwnerId?: string;
 }
 
 /**
@@ -244,6 +254,48 @@ export async function verifySession(): Promise<AuthUser | null> {
 }
 
 /**
+ * Lists vaults shared with current user from backend (/api/agent/v1/collaborators/shared-vaults)
+ */
+export async function listSharedVaults(): Promise<SharedVault[]> {
+  const session = await getSession();
+  if (!session.token) {
+    return [];
+  }
+
+  const base = await getApiBase();
+  const targetUrl = `${base}/agent/v1/collaborators/shared-vaults`;
+
+  try {
+    const res = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (res.status === 401) {
+      await clearSession();
+      return [];
+    }
+
+    if (!res.ok) {
+      throw new Error(`Failed to list shared vaults: ${res.status}`);
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (data && Array.isArray(data.shared_vaults)) {
+      return data.shared_vaults;
+    }
+    return [];
+  } catch (err) {
+    console.warn('[Markbel Extension] Error listing shared vaults:', err);
+    return [];
+  }
+}
+
+/**
  * Submits a new bookmark mutation to the backend delta sync engine (/api/sync/push)
  */
 export async function saveBookmark({
@@ -255,7 +307,8 @@ export async function saveBookmark({
   siteName = '',
   group = 'Unsorted',
   isPinned = false,
-  contentType
+  contentType,
+  targetVaultOwnerId
 }: SaveBookmarkParams): Promise<{ success: boolean; bookmarkId: string }> {
   const session = await getSession();
   if (!session.token) {
@@ -263,11 +316,12 @@ export async function saveBookmark({
   }
 
   const bookmarkId = crypto.randomUUID();
+  const effectiveUserId = targetVaultOwnerId || session.user?.id || 'local-user';
 
   // 1. Create locally in Dexie database (Outbox pattern)
   await bookmarkRepository.create({
     id: bookmarkId,
-    userId: session.user?.id || 'local-user',
+    userId: effectiveUserId,
     url: url.trim(),
     title: (title || url).trim(),
     description: (description || '').trim(),
@@ -277,13 +331,22 @@ export async function saveBookmark({
     group: group || 'Unsorted',
     contentType: contentType as any,
     isRead: false,
-    isPinned: Boolean(isPinned)
+    isPinned: Boolean(isPinned),
+    ...(targetVaultOwnerId ? { actor_type: 'collaborator' } : {})
   });
+
+  const syncHeaders: Record<string, string> = {};
+  if (targetVaultOwnerId) {
+    syncHeaders['X-Vault-Owner'] = targetVaultOwnerId;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.set({ activeVaultOwnerId: targetVaultOwnerId });
+    }
+  }
 
   // 2. Direct sync race (up to 2500ms) to ensure mutations reach Cloudflare D1 before popup closes
   try {
     await Promise.race([
-      syncManager.sync(true),
+      syncManager.sync(true, { headers: syncHeaders }),
       new Promise((res) => setTimeout(res, 2500))
     ]);
   } catch (err: any) {

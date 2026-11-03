@@ -25,6 +25,7 @@ export interface LocalBookmark {
   notifiedAt?: string;
   isArchived?: boolean;
   archiveGroup?: string;
+  actor_type?: 'owner' | 'collaborator' | string;
   version: number;
   createdAt: string;
   updatedAt: string;

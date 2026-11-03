@@ -795,7 +795,11 @@ const SyncMutationsPayloadSchema = z.object({
 });
 
 app.post("/api/sync/mutations", authMiddleware, async (c) => {
-  const userId = c.get("userId");
+  const vaultRole = c.get("vaultRole");
+  if (vaultRole === "viewer") {
+    return c.json({ error: "Forbidden: viewer role cannot mutate shared vault" }, 403);
+  }
+  const userId = c.get("vaultOwnerId") || c.get("userId");
 
   let body: unknown;
   try {
@@ -1351,7 +1355,7 @@ app.post("/api/sync/mutations", authMiddleware, async (c) => {
 });
 
 app.get("/api/sync/pull", authMiddleware, async (c) => {
-  const userId = c.get("userId");
+  const userId = c.get("vaultOwnerId") || c.get("userId");
   const cursor = parseInt(c.req.query("cursor") || "0", 10);
   const limit = Math.min(parseInt(c.req.query("limit") || "100", 10), 500);
   const entityType = c.req.query("entity");

@@ -11,11 +11,21 @@ async function getAuthHeaders(extraHeaders?: any): Promise<Record<string, string
   let token: string | null = null;
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    const data = (await chrome.storage.local.get('authToken')) as { authToken?: string };
+    const data = (await chrome.storage.local.get(['authToken', 'activeVaultOwnerId'])) as {
+      authToken?: string;
+      activeVaultOwnerId?: string;
+    };
     token = typeof data?.authToken === 'string' ? data.authToken : null;
+    if (data?.activeVaultOwnerId && !headers['X-Vault-Owner']) {
+      headers['X-Vault-Owner'] = data.activeVaultOwnerId;
+    }
   }
   if (!token && typeof window !== 'undefined' && window.localStorage) {
     token = localStorage.getItem('markbel_token');
+    const activeVault = localStorage.getItem('markbel_active_vault_owner_id');
+    if (activeVault && !headers['X-Vault-Owner']) {
+      headers['X-Vault-Owner'] = activeVault;
+    }
   }
 
   if (token && !headers['Authorization']) {

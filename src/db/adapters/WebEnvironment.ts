@@ -66,15 +66,56 @@ export class WebEnvironment implements ConnectivityProvider, LifecycleProvider {
   }
 
   async acquireLeaderLock(lockName: string, acquire: (release: () => void) => Promise<void>): Promise<void> {
-    if (typeof navigator === 'undefined' || !('locks' in navigator)) {
+    if (typeof navigator === 'undefined' || !('locks' in navigator) || !navigator.locks) {
       await acquire(() => {});
       return;
     }
-    
-    await navigator.locks.request(lockName, (lock) => {
-      return new Promise<void>((resolve) => {
-        acquire(() => resolve());
-      });
-    });
+
+    const abortController = new AbortController();
+    const handleTeardown = () => {
+      try {
+        abortController.abort();
+      } catch {}
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleTeardown);
+      window.addEventListener('pagehide', handleTeardown);
+    }
+
+    try {
+      await navigator.locks.request(
+        lockName,
+        { signal: abortController.signal },
+        async () => {
+          return new Promise<void>((resolve) => {
+            const onAbort = () => {
+              resolve();
+            };
+            abortController.signal.addEventListener('abort', onAbort, { once: true });
+
+            acquire(() => {
+              abortController.signal.removeEventListener('abort', onAbort);
+              resolve();
+            });
+          });
+        }
+      );
+    } catch (err: unknown) {
+      const isAbortError =
+        (err instanceof Error && err.name === 'AbortError') ||
+        (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') ||
+        (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError');
+
+      if (isAbortError) {
+        return;
+      }
+      throw err;
+    } finally {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleTeardown);
+        window.removeEventListener('pagehide', handleTeardown);
+      }
+    }
   }
 }

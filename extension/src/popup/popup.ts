@@ -12,7 +12,9 @@ import {
   getApiBase,
   syncSessionFromActiveVaultTab,
   checkHostPermission,
-  requestHostPermission
+  requestHostPermission,
+  listSharedVaults,
+  SharedVault
 } from '../api';
 import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
@@ -52,6 +54,8 @@ const inputDesc = document.getElementById('input-desc') as HTMLTextAreaElement;
 const inputCustomGroup = document.getElementById('input-custom-group') as HTMLInputElement;
 const togglePin = document.getElementById('toggle-pin') as HTMLInputElement;
 const chipsContainer = document.getElementById('group-chips-container') as HTMLElement;
+const vaultSelectorContainer = document.getElementById('vault-selector-container') as HTMLElement | null;
+const selectVault = document.getElementById('select-vault') as HTMLSelectElement | null;
 const btnSaveSubmit = document.getElementById('btn-save-submit') as HTMLButtonElement;
 const btnSaveText = document.getElementById('btn-save-text') as HTMLElement;
 const saveStatusMsg = document.getElementById('save-status-msg') as HTMLElement;
@@ -71,6 +75,8 @@ const searchResultsList = document.getElementById('search-results-list') as HTML
 let currentMode: 'save' | 'search' = 'save';
 let currentMeta: ExtractedPageMetadata | null = null;
 let selectedGroup = 'Unsorted';
+let editorVaults: SharedVault[] = [];
+let activeVaultOwnerId = '';
 let searchCatalog: SearchBookmarkItem[] = [];
 let activeSearchGroup = 'All';
 let selectedResultIndex = 0;
@@ -118,6 +124,7 @@ async function init(): Promise<void> {
 
   if (isAuthenticated) {
     await loadActiveTabData();
+    await loadSharedVaults();
 
     // Check if active tab URL already exists in vault
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
@@ -465,6 +472,51 @@ async function loadDynamicGroupChips(targetGroup: string): Promise<void> {
   }
 }
 
+/**
+ * Load Shared Vaults where user has Editor permission
+ */
+async function loadSharedVaults(): Promise<void> {
+  try {
+    const vaults = await listSharedVaults();
+    editorVaults = vaults.filter((v) => v.role === 'editor');
+
+    if (editorVaults.length > 0 && vaultSelectorContainer && selectVault) {
+      vaultSelectorContainer.classList.remove('hidden');
+
+      const stored = await chrome.storage.local.get(['activeVaultOwnerId']).catch(() => ({}));
+      activeVaultOwnerId = (stored?.activeVaultOwnerId as string) || '';
+
+      selectVault.innerHTML = '<option value="">Personal Vault</option>';
+      for (const vault of editorVaults) {
+        const opt = document.createElement('option');
+        opt.value = vault.owner_id;
+        const ownerDisplay = vault.owner_name || vault.owner_email || vault.owner_id;
+        opt.textContent = `${ownerDisplay}'s Vault`;
+        selectVault.appendChild(opt);
+      }
+
+      if (activeVaultOwnerId && editorVaults.some((v) => v.owner_id === activeVaultOwnerId)) {
+        selectVault.value = activeVaultOwnerId;
+      } else {
+        selectVault.value = '';
+        activeVaultOwnerId = '';
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          await chrome.storage.local.remove(['activeVaultOwnerId']).catch(() => {});
+        }
+      }
+    } else if (vaultSelectorContainer) {
+      vaultSelectorContainer.classList.add('hidden');
+      activeVaultOwnerId = '';
+      if (selectVault) {
+        selectVault.innerHTML = '<option value="">Personal Vault</option>';
+        selectVault.value = '';
+      }
+    }
+  } catch (err) {
+    console.warn('[Markbel Popup] Failed to load shared vaults:', err);
+  }
+}
+
 function selectGroup(groupName: string): void {
   selectedGroup = groupName;
   let matchedChip = false;
@@ -622,6 +674,7 @@ function setupEventHandlers(): void {
           if (session) {
             showView('save');
             await loadActiveTabData();
+            await loadSharedVaults();
           }
         }
       } finally {
@@ -645,6 +698,7 @@ function setupEventHandlers(): void {
           if (session) {
             showView('save');
             await loadActiveTabData();
+            await loadSharedVaults();
             return;
           }
         }
@@ -687,6 +741,7 @@ function setupEventHandlers(): void {
       await login(inputEmail.value.trim(), inputPassword.value);
       showView('save');
       await loadActiveTabData();
+      await loadSharedVaults();
     } catch (err: any) {
       authError.textContent = err?.message || 'Login failed';
       authError.classList.remove('hidden');
@@ -695,6 +750,18 @@ function setupEventHandlers(): void {
       btnLoginSubmit.textContent = 'Sign In';
     }
   });
+
+  // Vault Selector (Shared Vaults)
+  if (selectVault) {
+    selectVault.addEventListener('change', async () => {
+      activeVaultOwnerId = selectVault.value;
+      if (activeVaultOwnerId) {
+        await chrome.storage.local.set({ activeVaultOwnerId }).catch(() => {});
+      } else {
+        await chrome.storage.local.remove(['activeVaultOwnerId']).catch(() => {});
+      }
+    });
+  }
 
   // Bookmark Save Form
   formSave.addEventListener('submit', async (e) => {
@@ -718,11 +785,18 @@ function setupEventHandlers(): void {
         favicon: currentMeta?.favicon || '',
         siteName: currentMeta?.siteName || '',
         group: finalGroup,
-        isPinned
+        isPinned,
+        targetVaultOwnerId: activeVaultOwnerId || undefined
       });
 
       // Show Success confirmation HUD
-      successGroupLabel.textContent = `Assigned to "${finalGroup}"`;
+      if (activeVaultOwnerId) {
+        const vaultObj = editorVaults.find((v) => v.owner_id === activeVaultOwnerId);
+        const vaultName = vaultObj ? (vaultObj.owner_name || vaultObj.owner_email || 'Shared') : 'Shared';
+        successGroupLabel.textContent = `Assigned to "${finalGroup}" in ${vaultName}'s Vault`;
+      } else {
+        successGroupLabel.textContent = `Assigned to "${finalGroup}"`;
+      }
       showView('success');
 
       // Auto-dismiss HUD after 1.2s
