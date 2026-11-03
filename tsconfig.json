@@ -30,7 +30,6 @@
   },
   "include": [
     "src",
-    "api",
     "vite.config.ts"
   ],
   "exclude": ["node_modules", "dist"]

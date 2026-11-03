@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import * as cheerio from "cheerio";
 import { sniffImageMimeType } from "../../../src/lib/mediaHeuristics";
+import { isSafePublicUrl } from "../../../src/lib/urlSafety";
 import type { Bindings, Variables } from "../types";
 
 export const mediaRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -309,74 +310,6 @@ async function fetchAnimeMetadataFromAniList(
   return null;
 }
 
-/**
- * Validates whether a target URL is safe to fetch (blocks SSRF, loopbacks, link-local metadata, and private CIDR ranges).
- */
-export function isSafePublicUrl(urlStr: string): boolean {
-  try {
-    const parsed = new URL(urlStr);
-    const protocol = parsed.protocol.toLowerCase();
-    if (protocol !== "http:" && protocol !== "https:") {
-      return false;
-    }
-
-    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-
-    // Block localhost, loopback, and zero addresses
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "0.0.0.0" ||
-      hostname === "::1" ||
-      hostname === "0:0:0:0:0:0:0:0" ||
-      hostname.endsWith(".localhost") ||
-      hostname.endsWith(".local") ||
-      hostname.endsWith(".internal")
-    ) {
-      return false;
-    }
-
-    // Block cloud metadata services (AWS, GCP, Azure, DigitalOcean)
-    if (hostname === "169.254.169.254" || hostname === "metadata.google.internal") {
-      return false;
-    }
-
-    // Check IPv4 private and link-local ranges
-    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    const ipMatch = hostname.match(ipv4Regex);
-    if (ipMatch) {
-      const octets = [
-        parseInt(ipMatch[1], 10),
-        parseInt(ipMatch[2], 10),
-        parseInt(ipMatch[3], 10),
-        parseInt(ipMatch[4], 10),
-      ];
-
-      // 10.0.0.0/8
-      if (octets[0] === 10) return false;
-      // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
-      if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return false;
-      // 192.168.0.0/16
-      if (octets[0] === 192 && octets[1] === 168) return false;
-      // 127.0.0.0/8 (Loopback)
-      if (octets[0] === 127) return false;
-      // 169.254.0.0/16 (Link-local)
-      if (octets[0] === 169 && octets[1] === 254) return false;
-      // 0.0.0.0/8
-      if (octets[0] === 0) return false;
-    }
-
-    // Block IPv6 private ranges (fc00::/7, fe80::/10)
-    if (hostname.startsWith("fc") || hostname.startsWith("fd") || hostname.startsWith("fe80:")) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 const ALLOWED_IMAGE_MIMES = new Set([
   "image/jpeg",
   "image/png",
@@ -390,7 +323,7 @@ const ALLOWED_IMAGE_MIMES = new Set([
   "binary/octet-stream",
 ]);
 
-export { sniffImageMimeType };
+export { isSafePublicUrl, sniffImageMimeType };
 
 export function isSignedCdnExpired(url: URL): boolean {
   if (url.hostname.endsWith(".cdninstagram.com") || url.hostname.endsWith(".fbcdn.net")) {
