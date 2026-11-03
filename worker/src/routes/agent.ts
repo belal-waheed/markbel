@@ -1,10 +1,162 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { Bindings, Variables } from "../types";
 import { authMiddleware, requireScope, requireVaultRole } from "../middleware/auth";
-import { normalizeSyncRecord } from "../normalize";
+import { normalizeSyncRecord, NormalizedBookmarkRecord } from "../normalize";
 import { openApiSpec } from "../openapi";
 import { extractInstantMediaMetadata } from "../../../src/lib/mediaHeuristics";
-import { resolveSmartGroup } from "../../../src/lib/smartGroups";
+import { resolveSmartGroup, type CompoundSmartGroupRule, type CustomGroupRule } from "../../../src/lib/smartGroups";
+
+// Domain & Database Row Interfaces
+interface BookmarkDbRow extends Record<string, unknown> {
+  id: string;
+  user_id: string;
+  title: string;
+  url: string;
+  description: string;
+  image: string;
+  favicon: string;
+  site_name: string;
+  author: string;
+  published_at: string;
+  content_type: string;
+  reading_time: number;
+  word_count: number;
+  canonical_url: string;
+  article_content: string;
+  group_name: string;
+  is_read: number;
+  read_at: string;
+  is_pinned: number;
+  remind_at: string;
+  is_archived: number;
+  archive_group: string;
+  actor_type: string;
+  actor_name: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+interface GroupDbRow {
+  id: string;
+  name: string;
+  color: string;
+  bookmarkCount?: number;
+}
+
+interface CountDbRow {
+  total?: number;
+  count?: number;
+}
+
+interface UserSettingsDbRow {
+  rules_json?: string;
+  preferences_json?: string;
+}
+
+interface CollaboratorDbRow {
+  id: string;
+  owner_id: string;
+  collaborator_user_id: string | null;
+  collaborator_email: string;
+  role: string;
+  status: string;
+  invite_token: string;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+interface SharedVaultDbRow {
+  id: string;
+  owner_id: string;
+  owner_name?: string;
+  owner_email?: string;
+  role: string;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+interface MaxSeqDbRow {
+  max_seq?: number;
+}
+
+interface UserDbRow {
+  id: string;
+  email?: string;
+  name?: string;
+}
+
+// Zod Input Validation Schemas
+const searchParamsSchema = z.object({
+  q: z.string().max(250).optional().default(""),
+  group: z.string().max(100).optional().default(""),
+  is_read: z.enum(["true", "false"]).optional(),
+  is_archived: z.enum(["true", "false", "all"]).optional().default("false"),
+  is_pinned: z.enum(["true", "false"]).optional(),
+  include_content: z.enum(["true", "false"]).optional().default("false"),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const createBookmarkSchema = z.object({
+  url: z.string().url().max(2048),
+  title: z.string().max(500).optional(),
+  description: z.string().max(4000).optional(),
+  group: z.string().max(100).optional(),
+  isPinned: z.boolean().optional(),
+  remindAt: z.string().max(100).optional(),
+});
+
+const updateBookmarkSchema = z.object({
+  title: z.string().max(500).optional(),
+  description: z.string().max(4000).optional(),
+  group: z.string().max(100).optional(),
+  isRead: z.boolean().optional(),
+  isPinned: z.boolean().optional(),
+  remindAt: z.string().max(100).optional(),
+  isArchived: z.boolean().optional(),
+});
+
+const batchOperationsSchema = z.object({
+  operations: z
+    .array(
+      z.object({
+        action: z.enum(["update", "archive", "delete"]),
+        id: z.string().min(1).max(100),
+        data: updateBookmarkSchema.optional(),
+      })
+    )
+    .min(1)
+    .max(100),
+});
+
+const ruleConditionSchema = z.object({
+  field: z.string().max(50),
+  operator: z.string().max(50),
+  value: z.string().max(200),
+});
+
+const ruleItemSchema = z.object({
+  id: z.string().optional(),
+  group: z.string().min(1).max(100),
+  conditions: z.array(ruleConditionSchema).max(20),
+  matchType: z.enum(["all", "any"]).optional(),
+});
+
+const rulesPayloadSchema = z.object({
+  rules: z.array(ruleItemSchema).max(100),
+});
+
+const inviteCollaboratorSchema = z.object({
+  email: z.string().email().max(255),
+  role: z.enum(["viewer", "editor"]).optional().default("viewer"),
+});
+
+const acceptCollaboratorSchema = z.object({
+  inviteToken: z.string().min(1).max(100),
+});
 
 export const agentRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -25,23 +177,6 @@ agentRouter.use("*", async (c, next) => {
   return authMiddleware(c, next);
 });
 
-// Helper: Ensure user_settings table exists
-async function ensureUserSettingsTable(db: D1Database): Promise<void> {
-  try {
-    await db.prepare(
-      `CREATE TABLE IF NOT EXISTS user_settings (
-        user_id TEXT PRIMARY KEY,
-        rules_json TEXT DEFAULT '[]',
-        preferences_json TEXT DEFAULT '{}',
-        updated_at TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-      )`
-    ).run();
-  } catch (err: any) {
-    console.error("[user_settings table init]:", err?.message || err);
-  }
-}
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // BOOKMARKS SEARCH & RETRIEVAL (bookmarks:read)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -49,39 +184,34 @@ async function ensureUserSettingsTable(db: D1Database): Promise<void> {
 agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
-    const q = c.req.query("q")?.trim() || "";
-    const group = c.req.query("group")?.trim() || "";
-    const isReadParam = c.req.query("is_read");
-    const isArchivedParam = c.req.query("is_archived") || "false";
-    const isPinnedParam = c.req.query("is_pinned");
-    const includeContent = c.req.query("include_content") === "true";
+    const queryResult = searchParamsSchema.safeParse(c.req.query());
+    if (!queryResult.success) {
+      return c.json({ error: "Invalid search query parameters", details: queryResult.error.format() }, 400);
+    }
 
-    const rawLimit = parseInt(c.req.query("limit") || "20", 10);
-    const limit = Math.min(Math.max(isNaN(rawLimit) ? 20 : rawLimit, 1), 100);
-    const rawOffset = parseInt(c.req.query("offset") || "0", 10);
-    const offset = Math.max(isNaN(rawOffset) ? 0 : rawOffset, 0);
+    const { q, group, is_read, is_archived, is_pinned, include_content, limit, offset } = queryResult.data;
 
     const conditions: string[] = ["user_id = ?", "deleted_at IS NULL"];
-    const params: any[] = [userId];
+    const params: (string | number)[] = [userId];
 
     // Archive filter
-    if (isArchivedParam === "true") {
+    if (is_archived === "true") {
       conditions.push("is_archived = 1");
-    } else if (isArchivedParam !== "all") {
+    } else if (is_archived !== "all") {
       conditions.push("is_archived = 0");
     }
 
     // Read filter
-    if (isReadParam === "true") {
+    if (is_read === "true") {
       conditions.push("is_read = 1");
-    } else if (isReadParam === "false") {
+    } else if (is_read === "false") {
       conditions.push("is_read = 0");
     }
 
     // Pinned filter
-    if (isPinnedParam === "true") {
+    if (is_pinned === "true") {
       conditions.push("is_pinned = 1");
-    } else if (isPinnedParam === "false") {
+    } else if (is_pinned === "false") {
       conditions.push("is_pinned = 0");
     }
 
@@ -102,12 +232,12 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
 
     // Compute total count matching filter
     const countSql = `SELECT COUNT(*) as total FROM bookmarks WHERE ${conditions.join(" AND ")}`;
-    const countRow: any = await c.env.DB.prepare(countSql).bind(...params).first();
+    const countRow = await c.env.DB.prepare(countSql).bind(...params).first<CountDbRow>();
     const total = Number(countRow?.total || 0);
 
     // Multi-attribute relevance ranking when search query is present
     let orderBy = "ORDER BY is_pinned DESC, updated_at DESC";
-    const queryParams = [...params];
+    const queryParams: (string | number)[] = [...params];
 
     if (q) {
       const rankTerm = `%${q.toLowerCase()}%`;
@@ -124,11 +254,11 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
     queryParams.push(limit, offset);
 
     const selectSql = `SELECT * FROM bookmarks WHERE ${conditions.join(" AND ")} ${orderBy} LIMIT ? OFFSET ?`;
-    const { results } = await c.env.DB.prepare(selectSql).bind(...queryParams).all();
+    const { results } = await c.env.DB.prepare(selectSql).bind(...queryParams).all<BookmarkDbRow>();
 
-    const items = (results || []).map((row: any) => {
+    const items = (results || []).map((row) => {
       const norm = normalizeSyncRecord(row, "bookmark");
-      if (!includeContent) {
+      if (include_content !== "true") {
         norm.articleContent = "";
         norm.article_content = "";
       }
@@ -141,9 +271,10 @@ agentRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) =
       limit,
       offset,
     });
-  } catch (err: any) {
-    console.error("[Agent Search Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to search bookmarks" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to search bookmarks";
+    console.error("[Agent Search Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -152,11 +283,11 @@ agentRouter.get("/bookmarks/:id", requireScope("bookmarks:read"), async (c) => {
     const userId = c.get("vaultOwnerId") || c.get("userId");
     const id = c.req.param("id");
 
-    const row: any = await c.env.DB.prepare(
+    const row = await c.env.DB.prepare(
       "SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
     )
       .bind(id, userId)
-      .first();
+      .first<BookmarkDbRow>();
 
     if (!row) {
       return c.json({ error: "Bookmark not found" }, 404);
@@ -164,8 +295,9 @@ agentRouter.get("/bookmarks/:id", requireScope("bookmarks:read"), async (c) => {
 
     const bookmark = normalizeSyncRecord(row, "bookmark");
     return c.json(bookmark);
-  } catch (err: any) {
-    return c.json({ error: err.message || "Failed to retrieve bookmark" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to retrieve bookmark";
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -178,20 +310,21 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), requireVaultRole
     const userId = c.get("vaultOwnerId") || c.get("userId");
     const actorType = c.get("actorType") || "agent";
     const actorName = c.get("actorName") || "Agent";
-    const body = await c.req.json();
-
-    const rawUrl = (body.url || "").trim();
-    if (!rawUrl) {
-      return c.json({ error: "URL is required" }, 400);
-    }
-
-    let cleanUrl = rawUrl;
+    
+    let rawBody: unknown;
     try {
-      const parsed = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
-      cleanUrl = parsed.toString();
+      rawBody = await c.req.json();
     } catch {
-      return c.json({ error: "Invalid URL format" }, 400);
+      return c.json({ error: "Invalid JSON request body" }, 400);
     }
+
+    const parseResult = createBookmarkSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid bookmark input", details: parseResult.error.format() }, 400);
+    }
+
+    const body = parseResult.data;
+    const cleanUrl = body.url;
 
     // Extract instant media heuristics for title, description, image, and site name
     const instant = extractInstantMediaMetadata(cleanUrl);
@@ -225,17 +358,16 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), requireVaultRole
         "SELECT name FROM groups WHERE user_id = ? AND deleted_at IS NULL"
       )
         .bind(userId)
-        .all();
-      const groupNames = (userGroups || []).map((g: any) => g.name);
+        .all<GroupDbRow>();
+      const groupNames = (userGroups || []).map((g) => g.name);
 
-      let customRules: any[] = [];
+      let customRules: (CompoundSmartGroupRule | CustomGroupRule)[] = [];
       try {
-        await ensureUserSettingsTable(c.env.DB);
-        const settingsRow: any = await c.env.DB.prepare(
+        const settingsRow = await c.env.DB.prepare(
           "SELECT rules_json FROM user_settings WHERE user_id = ?"
         )
           .bind(userId)
-          .first();
+          .first<UserSettingsDbRow>();
         if (settingsRow && settingsRow.rules_json) {
           customRules = JSON.parse(settingsRow.rules_json);
         }
@@ -251,7 +383,7 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), requireVaultRole
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const isPinned = Boolean(body.isPinned);
-    const remindAt = body.remindAt ? String(body.remindAt).trim() : "";
+    const remindAt = body.remindAt ? body.remindAt.trim() : "";
     const version = 1;
     const clientChangeId = `agent_${crypto.randomUUID()}`;
 
@@ -335,9 +467,10 @@ agentRouter.post("/bookmarks", requireScope("bookmarks:write"), requireVaultRole
     ]);
 
     return c.json(normalized, 201);
-  } catch (err: any) {
-    console.error("[Agent Create Bookmark Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to create bookmark" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to create bookmark";
+    console.error("[Agent Create Bookmark Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -347,13 +480,26 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), requireVaul
     const actorType = c.get("actorType") || "agent";
     const actorName = c.get("actorName") || "Agent";
     const id = c.req.param("id");
-    const body = await c.req.json();
 
-    const current: any = await c.env.DB.prepare(
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
+    }
+
+    const parseResult = updateBookmarkSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid bookmark update input", details: parseResult.error.format() }, 400);
+    }
+
+    const body = parseResult.data;
+
+    const current = await c.env.DB.prepare(
       "SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
     )
       .bind(id, userId)
-      .first();
+      .first<BookmarkDbRow>();
 
     if (!current) {
       return c.json({ error: "Bookmark not found" }, 404);
@@ -363,16 +509,16 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), requireVaul
     const newVersion = (current.version || 0) + 1;
     const clientChangeId = `agent_${crypto.randomUUID()}`;
 
-    const title = body.title !== undefined ? String(body.title).trim() : current.title;
-    const description = body.description !== undefined ? String(body.description).trim() : current.description;
-    const groupName = body.group !== undefined ? String(body.group).trim() : current.group_name;
+    const title = body.title !== undefined ? body.title.trim() : current.title;
+    const description = body.description !== undefined ? body.description.trim() : current.description;
+    const groupName = body.group !== undefined ? body.group.trim() : current.group_name;
     const isRead = body.isRead !== undefined ? (body.isRead ? 1 : 0) : current.is_read;
     const readAt = body.isRead !== undefined ? (body.isRead ? (current.read_at || now) : "") : current.read_at;
     const isPinned = body.isPinned !== undefined ? (body.isPinned ? 1 : 0) : current.is_pinned;
-    const remindAt = body.remindAt !== undefined ? String(body.remindAt).trim() : current.remind_at;
+    const remindAt = body.remindAt !== undefined ? body.remindAt.trim() : current.remind_at;
     const isArchived = body.isArchived !== undefined ? (body.isArchived ? 1 : 0) : current.is_archived;
 
-    const updatedRow = {
+    const updatedRow: BookmarkDbRow = {
       ...current,
       title,
       description,
@@ -422,9 +568,10 @@ agentRouter.patch("/bookmarks/:id", requireScope("bookmarks:write"), requireVaul
     ]);
 
     return c.json(normalized);
-  } catch (err: any) {
-    console.error("[Agent Update Bookmark Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to update bookmark" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update bookmark";
+    console.error("[Agent Update Bookmark Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -435,11 +582,11 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), requireVau
     const actorName = c.get("actorName") || "Agent";
     const id = c.req.param("id");
 
-    const current: any = await c.env.DB.prepare(
+    const current = await c.env.DB.prepare(
       "SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
     )
       .bind(id, userId)
-      .first();
+      .first<BookmarkDbRow>();
 
     if (!current) {
       return c.json({ error: "Bookmark not found" }, 404);
@@ -449,7 +596,7 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), requireVau
     const newVersion = (current.version || 0) + 1;
     const clientChangeId = `agent_${crypto.randomUUID()}`;
 
-    const deletedRow = {
+    const deletedRow: BookmarkDbRow = {
       ...current,
       actor_type: actorType,
       actor_name: actorName,
@@ -474,9 +621,10 @@ agentRouter.delete("/bookmarks/:id", requireScope("bookmarks:write"), requireVau
     ]);
 
     return c.json({ success: true, id });
-  } catch (err: any) {
-    console.error("[Agent Delete Bookmark Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to delete bookmark" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to delete bookmark";
+    console.error("[Agent Delete Bookmark Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -485,17 +633,21 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
     const userId = c.get("vaultOwnerId") || c.get("userId");
     const actorType = c.get("actorType") || "agent";
     const actorName = c.get("actorName") || "Agent";
-    const body = await c.req.json();
 
-    if (!body || !Array.isArray(body.operations) || body.operations.length === 0) {
-      return c.json({ error: "Invalid operations: expected a non-empty array" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
     }
 
-    if (body.operations.length > 100) {
-      return c.json({ error: "Batch operations limit exceeded (maximum 100)" }, 400);
+    const parseResult = batchOperationsSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid batch operations payload", details: parseResult.error.format() }, 400);
     }
 
-    const ids = Array.from(new Set(body.operations.map((op: any) => op?.id).filter(Boolean)));
+    const { operations } = parseResult.data;
+    const ids = Array.from(new Set(operations.map((op) => op.id).filter(Boolean)));
     if (ids.length === 0) {
       return c.json({ error: "No valid bookmark IDs in operations" }, 400);
     }
@@ -505,14 +657,14 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
       `SELECT * FROM bookmarks WHERE user_id = ? AND id IN (${placeholders}) AND deleted_at IS NULL`
     )
       .bind(userId, ...ids)
-      .all();
+      .all<BookmarkDbRow>();
 
-    const existingMap = new Map((existingRows || []).map((r: any) => [r.id, r]));
+    const existingMap = new Map<string, BookmarkDbRow>((existingRows || []).map((r) => [r.id, r]));
     const statements: D1PreparedStatement[] = [];
     const now = new Date().toISOString();
     let processedCount = 0;
 
-    for (const op of body.operations) {
+    for (const op of operations) {
       const { action, id, data = {} } = op;
       const current = existingMap.get(id);
       if (!current) continue;
@@ -521,16 +673,16 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
       const clientChangeId = `agent_${crypto.randomUUID()}`;
 
       if (action === "update") {
-        const title = data.title !== undefined ? String(data.title).trim() : current.title;
-        const description = data.description !== undefined ? String(data.description).trim() : current.description;
-        const groupName = data.group !== undefined ? String(data.group).trim() : current.group_name;
+        const title = data.title !== undefined ? data.title.trim() : current.title;
+        const description = data.description !== undefined ? data.description.trim() : current.description;
+        const groupName = data.group !== undefined ? data.group.trim() : current.group_name;
         const isRead = data.isRead !== undefined ? (data.isRead ? 1 : 0) : current.is_read;
         const readAt = data.isRead !== undefined ? (data.isRead ? (current.read_at || now) : "") : current.read_at;
         const isPinned = data.isPinned !== undefined ? (data.isPinned ? 1 : 0) : current.is_pinned;
-        const remindAt = data.remindAt !== undefined ? String(data.remindAt).trim() : current.remind_at;
+        const remindAt = data.remindAt !== undefined ? data.remindAt.trim() : current.remind_at;
         const isArchived = data.isArchived !== undefined ? (data.isArchived ? 1 : 0) : current.is_archived;
 
-        const updatedRow = {
+        const updatedRow: BookmarkDbRow = {
           ...current,
           title,
           description,
@@ -580,7 +732,7 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
         );
         processedCount++;
       } else if (action === "archive") {
-        const updatedRow = {
+        const updatedRow: BookmarkDbRow = {
           ...current,
           is_archived: 1,
           actor_type: actorType,
@@ -605,7 +757,7 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
         );
         processedCount++;
       } else if (action === "delete") {
-        const deletedRow = {
+        const deletedRow: BookmarkDbRow = {
           ...current,
           deleted_at: now,
           actor_type: actorType,
@@ -637,9 +789,10 @@ agentRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), requireVau
     }
 
     return c.json({ success: true, processed: processedCount });
-  } catch (err: any) {
-    console.error("[Agent Batch Bookmarks Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to process batch operations" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to process batch operations";
+    console.error("[Agent Batch Bookmarks Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -663,9 +816,9 @@ agentRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
        ORDER BY g.name ASC`
     )
       .bind(userId)
-      .all();
+      .all<GroupDbRow>();
 
-    const groups = (results || []).map((row: any) => ({
+    const groups = (results || []).map((row) => ({
       id: row.id,
       name: row.name,
       color: row.color,
@@ -673,9 +826,10 @@ agentRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
     }));
 
     return c.json({ groups });
-  } catch (err: any) {
-    console.error("[Agent Groups Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to retrieve groups" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to retrieve groups";
+    console.error("[Agent Groups Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -686,15 +840,14 @@ agentRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
 agentRouter.get("/rules", requireScope("groups:manage"), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
-    await ensureUserSettingsTable(c.env.DB);
 
-    const row: any = await c.env.DB.prepare(
+    const row = await c.env.DB.prepare(
       "SELECT rules_json FROM user_settings WHERE user_id = ?"
     )
       .bind(userId)
-      .first();
+      .first<UserSettingsDbRow>();
 
-    let rules: any[] = [];
+    let rules: unknown[] = [];
     if (row && row.rules_json) {
       try {
         rules = JSON.parse(row.rules_json);
@@ -704,24 +857,32 @@ agentRouter.get("/rules", requireScope("groups:manage"), async (c) => {
     }
 
     return c.json({ rules });
-  } catch (err: any) {
-    console.error("[Agent Get Rules Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to retrieve rules" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to retrieve rules";
+    console.error("[Agent Get Rules Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
 agentRouter.put("/rules", requireScope("groups:manage"), requireVaultRole(["owner", "editor"]), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
-    const body = await c.req.json();
 
-    if (!body || !Array.isArray(body.rules)) {
-      return c.json({ error: "Invalid rules: expected an array under 'rules' property" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
     }
 
-    await ensureUserSettingsTable(c.env.DB);
+    const parseResult = rulesPayloadSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid rules payload", details: parseResult.error.format() }, 400);
+    }
+
+    const { rules } = parseResult.data;
     const now = new Date().toISOString();
-    const rulesJson = JSON.stringify(body.rules);
+    const rulesJson = JSON.stringify(rules);
 
     await c.env.DB.prepare(
       `INSERT INTO user_settings (user_id, rules_json, preferences_json, updated_at)
@@ -731,10 +892,11 @@ agentRouter.put("/rules", requireScope("groups:manage"), requireVaultRole(["owne
       .bind(userId, rulesJson, now)
       .run();
 
-    return c.json({ success: true, rules: body.rules });
-  } catch (err: any) {
-    console.error("[Agent Put Rules Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to save rules" }, 500);
+    return c.json({ success: true, rules });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to save rules";
+    console.error("[Agent Put Rules Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -745,15 +907,14 @@ agentRouter.put("/rules", requireScope("groups:manage"), requireVaultRole(["owne
 agentRouter.get("/settings", requireScope("settings:manage"), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
-    await ensureUserSettingsTable(c.env.DB);
 
-    const row: any = await c.env.DB.prepare(
+    const row = await c.env.DB.prepare(
       "SELECT preferences_json FROM user_settings WHERE user_id = ?"
     )
       .bind(userId)
-      .first();
+      .first<UserSettingsDbRow>();
 
-    let settings: Record<string, any> = {};
+    let settings: Record<string, unknown> = {};
     if (row && row.preferences_json) {
       try {
         settings = JSON.parse(row.preferences_json);
@@ -763,25 +924,34 @@ agentRouter.get("/settings", requireScope("settings:manage"), async (c) => {
     }
 
     return c.json({ settings });
-  } catch (err: any) {
-    console.error("[Agent Get Settings Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to retrieve settings" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to retrieve settings";
+    console.error("[Agent Get Settings Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
 agentRouter.patch("/settings", requireScope("settings:manage"), requireVaultRole(["owner"]), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
-    const body = await c.req.json();
 
-    if (!body || typeof body !== "object") {
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
+    }
+
+    if (!rawBody || typeof rawBody !== "object") {
       return c.json({ error: "Invalid settings payload" }, 400);
     }
+
+    const payloadObj = rawBody as Record<string, unknown>;
 
     // Protection of master credentials: password and email changes prohibited via agent settings endpoint
     const forbiddenKeys = ["password", "password_hash", "passwordHash", "email", "token", "role", "user_id", "userId"];
     for (const key of forbiddenKeys) {
-      if (body[key] !== undefined || (body.settings && body.settings[key] !== undefined)) {
+      if (payloadObj[key] !== undefined || (typeof payloadObj.settings === "object" && payloadObj.settings !== null && (payloadObj.settings as Record<string, unknown>)[key] !== undefined)) {
         return c.json(
           { error: `Modifying master account field '${key}' via settings endpoint is strictly prohibited` },
           400
@@ -789,15 +959,13 @@ agentRouter.patch("/settings", requireScope("settings:manage"), requireVaultRole
       }
     }
 
-    await ensureUserSettingsTable(c.env.DB);
-
-    const row: any = await c.env.DB.prepare(
+    const row = await c.env.DB.prepare(
       "SELECT preferences_json FROM user_settings WHERE user_id = ?"
     )
       .bind(userId)
-      .first();
+      .first<UserSettingsDbRow>();
 
-    let currentSettings: Record<string, any> = {};
+    let currentSettings: Record<string, unknown> = {};
     if (row && row.preferences_json) {
       try {
         currentSettings = JSON.parse(row.preferences_json);
@@ -806,8 +974,8 @@ agentRouter.patch("/settings", requireScope("settings:manage"), requireVaultRole
       }
     }
 
-    const inputSettings = body.settings && typeof body.settings === "object" ? body.settings : body;
-    const mergedSettings = { ...currentSettings, ...inputSettings };
+    const inputSettings = payloadObj.settings && typeof payloadObj.settings === "object" ? (payloadObj.settings as Record<string, unknown>) : payloadObj;
+    const mergedSettings: Record<string, unknown> = { ...currentSettings, ...inputSettings };
 
     // Clean any accidental credential properties
     for (const key of forbiddenKeys) {
@@ -824,9 +992,10 @@ agentRouter.patch("/settings", requireScope("settings:manage"), requireVaultRole
       .run();
 
     return c.json({ success: true, settings: mergedSettings });
-  } catch (err: any) {
-    console.error("[Agent Patch Settings Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to update settings" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update settings";
+    console.error("[Agent Patch Settings Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -838,22 +1007,28 @@ agentRouter.get("/stats", requireScope("bookmarks:read"), async (c) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
 
-    const [totalRes, unreadRes, archivedRes, groupsRes, syncRes]: any[] = await c.env.DB.batch([
-      c.env.DB.prepare("SELECT COUNT(*) as count FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
+    const batchResults = await c.env.DB.batch([
+      c.env.DB.prepare("SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
       c.env.DB.prepare(
-        "SELECT COUNT(*) as count FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL AND is_archived = 0 AND is_read = 0"
+        "SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL AND is_archived = 0 AND is_read = 0"
       ).bind(userId),
       c.env.DB.prepare(
-        "SELECT COUNT(*) as count FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL AND is_archived = 1"
+        "SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL AND is_archived = 1"
       ).bind(userId),
-      c.env.DB.prepare("SELECT COUNT(*) as count FROM groups WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
+      c.env.DB.prepare("SELECT COUNT(*) as total FROM groups WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
       c.env.DB.prepare("SELECT MAX(sequence) as max_seq FROM sync_changes WHERE user_id = ?").bind(userId),
     ]);
 
-    const totalBookmarks = Number(totalRes.results?.[0]?.count || 0);
-    const unreadCount = Number(unreadRes.results?.[0]?.count || 0);
-    const archivedCount = Number(archivedRes.results?.[0]?.count || 0);
-    const groupsCount = Number(groupsRes.results?.[0]?.count || 0);
+    const totalRes = batchResults[0] as D1Result<CountDbRow>;
+    const unreadRes = batchResults[1] as D1Result<CountDbRow>;
+    const archivedRes = batchResults[2] as D1Result<CountDbRow>;
+    const groupsRes = batchResults[3] as D1Result<CountDbRow>;
+    const syncRes = batchResults[4] as D1Result<MaxSeqDbRow>;
+
+    const totalBookmarks = Number(totalRes.results?.[0]?.total || 0);
+    const unreadCount = Number(unreadRes.results?.[0]?.total || 0);
+    const archivedCount = Number(archivedRes.results?.[0]?.total || 0);
+    const groupsCount = Number(groupsRes.results?.[0]?.total || 0);
     const latestSyncSequence = Number(syncRes.results?.[0]?.max_seq || 0);
 
     return c.json({
@@ -863,9 +1038,10 @@ agentRouter.get("/stats", requireScope("bookmarks:read"), async (c) => {
       groupsCount,
       latestSyncSequence,
     });
-  } catch (err: any) {
-    console.error("[Agent Stats Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to retrieve stats" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to retrieve stats";
+    console.error("[Agent Stats Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -882,12 +1058,13 @@ agentRouter.get("/collaborators", requireScope("shares:manage"), async (c) => {
        FROM vault_collaborators WHERE owner_id = ? ORDER BY created_at DESC`
     )
       .bind(ownerId)
-      .all();
+      .all<CollaboratorDbRow>();
 
     return c.json({ collaborators: results || [] });
-  } catch (err: any) {
-    console.error("[List Collaborators Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to list collaborators" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to list collaborators";
+    console.error("[List Collaborators Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -895,26 +1072,33 @@ agentRouter.get("/collaborators", requireScope("shares:manage"), async (c) => {
 agentRouter.post("/collaborators", requireScope("shares:manage"), requireVaultRole(["owner"]), async (c) => {
   try {
     const ownerId = c.get("userId");
-    const body = await c.req.json();
-    const email = (body.email || "").trim().toLowerCase();
-    const role = body.role === "editor" ? "editor" : "viewer";
 
-    if (!email || !email.includes("@")) {
-      return c.json({ error: "Valid email address is required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
     }
 
+    const parseResult = inviteCollaboratorSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid collaborator invitation", details: parseResult.error.format() }, 400);
+    }
+
+    const { email, role } = parseResult.data;
+
     // Check if user is inviting themselves
-    const ownerUser: any = await c.env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(ownerId).first();
-    if (ownerUser && ownerUser.email?.toLowerCase() === email) {
+    const ownerUser = await c.env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(ownerId).first<UserDbRow>();
+    if (ownerUser && ownerUser.email?.toLowerCase() === email.toLowerCase()) {
       return c.json({ error: "Cannot invite vault owner as collaborator" }, 400);
     }
 
     // Check if invitation already exists
-    const existing: any = await c.env.DB.prepare(
+    const existing = await c.env.DB.prepare(
       "SELECT id FROM vault_collaborators WHERE owner_id = ? AND collaborator_email = ?"
     )
       .bind(ownerId, email)
-      .first();
+      .first<CollaboratorDbRow>();
 
     if (existing) {
       return c.json({ error: "Collaborator or invitation already exists for this email" }, 409);
@@ -927,7 +1111,7 @@ agentRouter.post("/collaborators", requireScope("shares:manage"), requireVaultRo
     const now = new Date().toISOString();
 
     // Check if the invited email belongs to an existing registered user
-    const existingUser: any = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    const existingUser = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<UserDbRow>();
     const collaboratorUserId = existingUser ? existingUser.id : null;
 
     await c.env.DB.prepare(
@@ -952,9 +1136,10 @@ agentRouter.post("/collaborators", requireScope("shares:manage"), requireVaultRo
       },
       201
     );
-  } catch (err: any) {
-    console.error("[Invite Collaborator Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to invite collaborator" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to invite collaborator";
+    console.error("[Invite Collaborator Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -971,9 +1156,10 @@ agentRouter.delete("/collaborators/:id", requireScope("shares:manage"), requireV
       .run();
 
     return c.json({ success: true, id });
-  } catch (err: any) {
-    console.error("[Delete Collaborator Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to remove collaborator" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to remove collaborator";
+    console.error("[Delete Collaborator Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -981,18 +1167,26 @@ agentRouter.delete("/collaborators/:id", requireScope("shares:manage"), requireV
 agentRouter.post("/collaborators/accept", async (c) => {
   try {
     const userId = c.get("userId");
-    const body = await c.req.json();
-    const inviteToken = (body.inviteToken || body.token || "").trim();
 
-    if (!inviteToken) {
-      return c.json({ error: "Invite token is required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
     }
 
-    const collabRow: any = await c.env.DB.prepare(
+    const parseResult = acceptCollaboratorSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: "Invalid invite token", details: parseResult.error.format() }, 400);
+    }
+
+    const { inviteToken } = parseResult.data;
+
+    const collabRow = await c.env.DB.prepare(
       "SELECT * FROM vault_collaborators WHERE invite_token = ? AND status = 'pending'"
     )
       .bind(inviteToken)
-      .first();
+      .first<CollaboratorDbRow>();
 
     if (!collabRow) {
       return c.json({ error: "Invalid or expired invitation token" }, 404);
@@ -1012,9 +1206,10 @@ agentRouter.post("/collaborators/accept", async (c) => {
       status: "accepted",
       accepted_at: now,
     });
-  } catch (err: any) {
-    console.error("[Accept Invite Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to accept invitation" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to accept invitation";
+    console.error("[Accept Invite Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });
 
@@ -1030,11 +1225,12 @@ agentRouter.get("/collaborators/shared-vaults", async (c) => {
        AND c.status = 'accepted'`
     )
       .bind(userId, userId)
-      .all();
+      .all<SharedVaultDbRow>();
 
     return c.json({ shared_vaults: results || [] });
-  } catch (err: any) {
-    console.error("[List Shared Vaults Error]:", err?.message || err);
-    return c.json({ error: err.message || "Failed to list shared vaults" }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to list shared vaults";
+    console.error("[List Shared Vaults Error]:", message);
+    return c.json({ error: message }, 500);
   }
 });

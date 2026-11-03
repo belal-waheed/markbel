@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MarkbelClient } from "../client.js";
 
+function getErrorMessage(prefix: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${prefix}: ${msg}`;
+}
+
 export function registerSearchTools(server: McpServer, client: MarkbelClient): void {
   // 1. markbel_search
   server.tool(
@@ -31,13 +36,13 @@ export function registerSearchTools(server: McpServer, client: MarkbelClient): v
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Search error: ${err?.message || err}`,
+              text: getErrorMessage("Search error", err),
             },
           ],
         };
@@ -63,13 +68,13 @@ export function registerSearchTools(server: McpServer, client: MarkbelClient): v
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Get bookmark error: ${err?.message || err}`,
+              text: getErrorMessage("Get bookmark error", err),
             },
           ],
         };
@@ -92,13 +97,13 @@ export function registerSearchTools(server: McpServer, client: MarkbelClient): v
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Get stats error: ${err?.message || err}`,
+              text: getErrorMessage("Get stats error", err),
             },
           ],
         };

@@ -157,16 +157,18 @@ export class MarkbelClient {
         ...options,
         headers,
       });
-    } catch (err: any) {
-      throw new Error(`Failed to connect to Markbel API at ${this.baseUrl}: ${err?.message || err}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to connect to Markbel API at ${this.baseUrl}: ${msg}`);
     }
 
     if (!res.ok) {
       let errorMessage = `HTTP ${res.status} ${res.statusText}`;
       try {
-        const errorBody: any = await res.json();
-        if (errorBody && typeof errorBody === "object" && (errorBody.error || errorBody.message)) {
-          errorMessage = errorBody.error || errorBody.message;
+        const errorBody = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        if (errorBody && typeof errorBody === "object") {
+          const errText = typeof errorBody.error === "string" ? errorBody.error : typeof errorBody.message === "string" ? errorBody.message : "";
+          if (errText) errorMessage = errText;
         }
       } catch {
         const text = await res.text().catch(() => "");

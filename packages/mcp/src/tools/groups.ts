@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MarkbelClient } from "../client.js";
+import type { MarkbelClient, RuleItem } from "../client.js";
+
+function getErrorMessage(prefix: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${prefix}: ${msg}`;
+}
 
 export function registerGroupTools(server: McpServer, client: MarkbelClient): void {
   // 1. markbel_list_groups
@@ -18,13 +23,13 @@ export function registerGroupTools(server: McpServer, client: MarkbelClient): vo
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `List groups error: ${err?.message || err}`,
+              text: getErrorMessage("List groups error", err),
             },
           ],
         };
@@ -47,13 +52,13 @@ export function registerGroupTools(server: McpServer, client: MarkbelClient): vo
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Get rules error: ${err?.message || err}`,
+              text: getErrorMessage("Get rules error", err),
             },
           ],
         };
@@ -87,7 +92,7 @@ export function registerGroupTools(server: McpServer, client: MarkbelClient): vo
     },
     async (args) => {
       try {
-        const res = await client.setRule(args.rules as any);
+        const res = await client.setRule(args.rules as RuleItem[]);
         return {
           content: [
             {
@@ -96,13 +101,13 @@ export function registerGroupTools(server: McpServer, client: MarkbelClient): vo
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Set rule error: ${err?.message || err}`,
+              text: getErrorMessage("Set rule error", err),
             },
           ],
         };

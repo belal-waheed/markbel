@@ -1,15 +1,16 @@
 import { Capacitor } from '@capacitor/core'
+import type { CompoundSmartGroupRule, CustomGroupRule } from './smartGroups'
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   data?: T
   error?: string
 }
 
 export class ApiError extends Error {
   status: number
-  data?: any
+  data?: unknown
 
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
@@ -71,7 +72,7 @@ export const api = {
     return data as T
   },
 
-  async post<T>(path: string, body: any): Promise<T> {
+  async post<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(resolveApiUrl(path), {
       method: 'POST',
       headers: getHeaders(),
@@ -84,7 +85,7 @@ export const api = {
     return data as T
   },
 
-  async put<T>(path: string, body: any): Promise<T> {
+  async put<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(resolveApiUrl(path), {
       method: 'PUT',
       headers: getHeaders(),
@@ -97,7 +98,7 @@ export const api = {
     return data as T
   },
 
-  async patch<T>(path: string, body?: any): Promise<T> {
+  async patch<T>(path: string, body?: unknown): Promise<T> {
     const res = await fetch(resolveApiUrl(path), {
       method: 'PATCH',
       headers: getHeaders(),
@@ -110,7 +111,7 @@ export const api = {
     return data as T
   },
 
-  async delete<T>(path: string, body?: any): Promise<T> {
+  async delete<T>(path: string, body?: unknown): Promise<T> {
     const opts: RequestInit = {
       method: 'DELETE',
       headers: getHeaders()
@@ -142,13 +143,13 @@ export const api = {
     searchBookmarks(params?: AgentBookmarkSearchParams): Promise<AgentBookmarkSearchResponse> {
       return agentApi.searchBookmarks(params);
     },
-    getBookmark(id: string): Promise<any> {
+    getBookmark(id: string): Promise<AgentBookmark> {
       return agentApi.getBookmark(id);
     },
-    createBookmark(data: AgentCreateBookmarkRequest): Promise<any> {
+    createBookmark(data: AgentCreateBookmarkRequest): Promise<AgentBookmark> {
       return agentApi.createBookmark(data);
     },
-    updateBookmark(id: string, data: AgentUpdateBookmarkRequest): Promise<any> {
+    updateBookmark(id: string, data: AgentUpdateBookmarkRequest): Promise<AgentBookmark> {
       return agentApi.updateBookmark(id, data);
     },
     deleteBookmark(id: string): Promise<{ success: boolean; id: string }> {
@@ -160,22 +161,22 @@ export const api = {
     getGroups(): Promise<{ groups: AgentGroup[] }> {
       return agentApi.getGroups();
     },
-    getRules(): Promise<{ rules: any[] }> {
+    getRules(): Promise<{ rules: AgentRuleItem[] }> {
       return agentApi.getRules();
     },
-    saveRules(rules: any[]): Promise<{ success: boolean; rules: any[] }> {
+    saveRules(rules: AgentRuleItem[]): Promise<{ success: boolean; rules: AgentRuleItem[] }> {
       return agentApi.saveRules(rules);
     },
-    getSettings(): Promise<{ settings: Record<string, any> }> {
+    getSettings(): Promise<{ settings: Record<string, unknown> }> {
       return agentApi.getSettings();
     },
-    updateSettings(settings: Record<string, any>): Promise<{ success: boolean; settings: Record<string, any> }> {
+    updateSettings(settings: Record<string, unknown>): Promise<{ success: boolean; settings: Record<string, unknown> }> {
       return agentApi.updateSettings(settings);
     },
     getStats(): Promise<AgentVaultStats> {
       return agentApi.getStats();
     },
-    getOpenApiSpec(): Promise<any> {
+    getOpenApiSpec(): Promise<OpenApiDocument> {
       return agentApi.getOpenApiSpec();
     }
   }
@@ -235,8 +236,53 @@ export interface AgentBookmarkSearchParams {
   offset?: number;
 }
 
+export interface AgentBookmark {
+  id: string;
+  userId?: string;
+  title: string;
+  url: string;
+  description?: string;
+  image?: string;
+  favicon?: string;
+  siteName?: string;
+  author?: string;
+  publishedAt?: string;
+  contentType?: string;
+  readingTime?: number;
+  wordCount?: number;
+  canonicalUrl?: string;
+  articleContent?: string;
+  group: string;
+  isRead?: boolean;
+  readAt?: string;
+  isPinned?: boolean;
+  remindAt?: string;
+  isArchived?: boolean;
+  archiveGroup?: string;
+  actor_type?: string;
+  actor_name?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export type AgentRuleItem = CompoundSmartGroupRule | CustomGroupRule;
+
+export type OpenApiDocument = Record<string, unknown>;
+
+export interface SharedVault {
+  id: string;
+  owner_id: string;
+  owner_name?: string;
+  owner_email?: string;
+  role: 'viewer' | 'editor';
+  created_at: string;
+  accepted_at?: string | null;
+}
+
 export interface AgentBookmarkSearchResponse {
-  items: any[];
+  items: AgentBookmark[];
   total: number;
   limit: number;
   offset: number;
@@ -322,16 +368,16 @@ export const agentApi = {
     return await api.get<AgentBookmarkSearchResponse>(endpoint);
   },
 
-  async getBookmark(id: string): Promise<any> {
-    return await api.get<any>(`/agent/v1/bookmarks/${encodeURIComponent(id)}`);
+  async getBookmark(id: string): Promise<AgentBookmark> {
+    return await api.get<AgentBookmark>(`/agent/v1/bookmarks/${encodeURIComponent(id)}`);
   },
 
-  async createBookmark(data: AgentCreateBookmarkRequest): Promise<any> {
-    return await api.post<any>('/agent/v1/bookmarks', data);
+  async createBookmark(data: AgentCreateBookmarkRequest): Promise<AgentBookmark> {
+    return await api.post<AgentBookmark>('/agent/v1/bookmarks', data);
   },
 
-  async updateBookmark(id: string, data: AgentUpdateBookmarkRequest): Promise<any> {
-    return await api.patch<any>(`/agent/v1/bookmarks/${encodeURIComponent(id)}`, data);
+  async updateBookmark(id: string, data: AgentUpdateBookmarkRequest): Promise<AgentBookmark> {
+    return await api.patch<AgentBookmark>(`/agent/v1/bookmarks/${encodeURIComponent(id)}`, data);
   },
 
   async deleteBookmark(id: string): Promise<{ success: boolean; id: string }> {
@@ -346,20 +392,20 @@ export const agentApi = {
     return await api.get<{ groups: AgentGroup[] }>('/agent/v1/groups');
   },
 
-  async getRules(): Promise<{ rules: any[] }> {
-    return await api.get<{ rules: any[] }>('/agent/v1/rules');
+  async getRules(): Promise<{ rules: AgentRuleItem[] }> {
+    return await api.get<{ rules: AgentRuleItem[] }>('/agent/v1/rules');
   },
 
-  async saveRules(rules: any[]): Promise<{ success: boolean; rules: any[] }> {
-    return await api.put<{ success: boolean; rules: any[] }>('/agent/v1/rules', { rules });
+  async saveRules(rules: AgentRuleItem[]): Promise<{ success: boolean; rules: AgentRuleItem[] }> {
+    return await api.put<{ success: boolean; rules: AgentRuleItem[] }>('/agent/v1/rules', { rules });
   },
 
-  async getSettings(): Promise<{ settings: Record<string, any> }> {
-    return await api.get<{ settings: Record<string, any> }>('/agent/v1/settings');
+  async getSettings(): Promise<{ settings: Record<string, unknown> }> {
+    return await api.get<{ settings: Record<string, unknown> }>('/agent/v1/settings');
   },
 
-  async updateSettings(settings: Record<string, any>): Promise<{ success: boolean; settings: Record<string, any> }> {
-    return await api.patch<{ success: boolean; settings: Record<string, any> }>('/agent/v1/settings', { settings });
+  async updateSettings(settings: Record<string, unknown>): Promise<{ success: boolean; settings: Record<string, unknown> }> {
+    return await api.patch<{ success: boolean; settings: Record<string, unknown> }>('/agent/v1/settings', { settings });
   },
 
   async getStats(): Promise<AgentVaultStats> {
@@ -382,12 +428,12 @@ export const agentApi = {
     return await api.post<{ success: boolean; vault_id: string; role: string; status: string }>('/agent/v1/collaborators/accept', { inviteToken });
   },
 
-  async listSharedVaults(): Promise<{ shared_vaults: any[] }> {
-    return await api.get<{ shared_vaults: any[] }>('/agent/v1/collaborators/shared-vaults');
+  async listSharedVaults(): Promise<{ shared_vaults: SharedVault[] }> {
+    return await api.get<{ shared_vaults: SharedVault[] }>('/agent/v1/collaborators/shared-vaults');
   },
 
-  async getOpenApiSpec(): Promise<any> {
-    return await api.get<any>('/agent/v1/openapi.json');
+  async getOpenApiSpec(): Promise<OpenApiDocument> {
+    return await api.get<OpenApiDocument>('/agent/v1/openapi.json');
   },
 };
 

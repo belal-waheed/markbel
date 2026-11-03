@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MarkbelClient } from "../client.js";
 
+function getErrorMessage(prefix: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${prefix}: ${msg}`;
+}
+
 export function registerSettingsTools(server: McpServer, client: MarkbelClient): void {
   // 1. markbel_get_settings
   server.tool(
@@ -18,13 +23,13 @@ export function registerSettingsTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Get settings error: ${err?.message || err}`,
+              text: getErrorMessage("Get settings error", err),
             },
           ],
         };
@@ -52,13 +57,13 @@ export function registerSettingsTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Update settings error: ${err?.message || err}`,
+              text: getErrorMessage("Update settings error", err),
             },
           ],
         };

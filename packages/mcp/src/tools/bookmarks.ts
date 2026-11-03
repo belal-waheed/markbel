@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MarkbelClient } from "../client.js";
+import type { MarkbelClient, BatchOperation } from "../client.js";
+
+function getErrorMessage(prefix: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${prefix}: ${msg}`;
+}
 
 export function registerBookmarkTools(server: McpServer, client: MarkbelClient): void {
   // 1. markbel_create_bookmark
@@ -26,13 +31,13 @@ export function registerBookmarkTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Create bookmark error: ${err?.message || err}`,
+              text: getErrorMessage("Create bookmark error", err),
             },
           ],
         };
@@ -66,13 +71,13 @@ export function registerBookmarkTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Update bookmark error: ${err?.message || err}`,
+              text: getErrorMessage("Update bookmark error", err),
             },
           ],
         };
@@ -98,13 +103,13 @@ export function registerBookmarkTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Delete bookmark error: ${err?.message || err}`,
+              text: getErrorMessage("Delete bookmark error", err),
             },
           ],
         };
@@ -142,7 +147,7 @@ export function registerBookmarkTools(server: McpServer, client: MarkbelClient):
     },
     async (args) => {
       try {
-        const res = await client.batchMutate(args.operations as any);
+        const res = await client.batchMutate(args.operations as BatchOperation[]);
         return {
           content: [
             {
@@ -151,13 +156,13 @@ export function registerBookmarkTools(server: McpServer, client: MarkbelClient):
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Batch mutate error: ${err?.message || err}`,
+              text: getErrorMessage("Batch mutate error", err),
             },
           ],
         };

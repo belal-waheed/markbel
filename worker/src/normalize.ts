@@ -1,53 +1,126 @@
-export function normalizeSyncRecord(record: any, entityType: string): any {
+export interface NormalizedBookmarkRecord {
+  id: string;
+  user_id: string;
+  userId?: string;
+  title: string;
+  url: string;
+  description: string;
+  image: string;
+  favicon: string;
+  siteName: string;
+  site_name: string;
+  author: string;
+  publishedAt: string;
+  published_at: string;
+  contentType: string;
+  content_type: string;
+  readingTime: number;
+  reading_time: number;
+  wordCount: number;
+  word_count: number;
+  canonicalUrl: string;
+  canonical_url: string;
+  articleContent: string;
+  article_content: string;
+  group: string;
+  group_name: string;
+  isRead: boolean;
+  is_read: number;
+  readAt: string;
+  read_at: string;
+  isPinned: boolean;
+  is_pinned: number;
+  remindAt: string;
+  remind_at: string;
+  isArchived: boolean;
+  is_archived: number;
+  archiveGroup: string;
+  archive_group: string;
+  actorType: string;
+  actor_type: string;
+  actorName: string;
+  actor_name: string;
+  version: number;
+  createdAt: string;
+  created_at: string;
+  updatedAt: string;
+  updated_at: string;
+  deletedAt: string | null;
+  deleted_at: string | null;
+  [key: string]: unknown;
+}
+
+export interface NormalizedGroupRecord {
+  id: string;
+  user_id: string;
+  userId: string;
+  name: string;
+  color: string;
+  version: number;
+  createdAt: string;
+  created_at: string;
+  updatedAt: string;
+  updated_at: string;
+  deletedAt: string | null;
+  deleted_at: string | null;
+  [key: string]: unknown;
+}
+
+export function normalizeSyncRecord(record: Record<string, unknown>, entityType: "bookmark"): NormalizedBookmarkRecord;
+export function normalizeSyncRecord(record: Record<string, unknown>, entityType: "group"): NormalizedGroupRecord;
+export function normalizeSyncRecord(record: Record<string, unknown>, entityType: string): Record<string, unknown>;
+export function normalizeSyncRecord(record: unknown, entityType: string): unknown {
   if (!record || typeof record !== "object") return record;
+  const raw = record as Record<string, unknown>;
 
   if (entityType === "bookmark") {
     const isRead =
-      record.isRead !== undefined
-        ? Boolean(record.isRead)
-        : record.is_read !== undefined
-        ? Boolean(record.is_read)
+      raw.isRead !== undefined
+        ? Boolean(raw.isRead)
+        : raw.is_read !== undefined
+        ? Boolean(raw.is_read)
         : false;
 
     const isPinned =
-      record.isPinned !== undefined
-        ? Boolean(record.isPinned)
-        : record.is_pinned !== undefined
-        ? Boolean(record.is_pinned)
+      raw.isPinned !== undefined
+        ? Boolean(raw.isPinned)
+        : raw.is_pinned !== undefined
+        ? Boolean(raw.is_pinned)
         : false;
 
     const isArchived =
-      record.isArchived !== undefined
-        ? Boolean(record.isArchived)
-        : record.is_archived !== undefined
-        ? Boolean(record.is_archived)
+      raw.isArchived !== undefined
+        ? Boolean(raw.isArchived)
+        : raw.is_archived !== undefined
+        ? Boolean(raw.is_archived)
         : false;
 
-    const title = record.title || "";
-    const url = record.url || "";
-    const description = record.description || "";
-    const image = record.image || "";
-    const favicon = record.favicon || "";
-    const siteName = record.siteName || record.site_name || "";
-    const author = record.author || "";
-    const publishedAt = record.publishedAt || record.published_at || "";
-    const contentType = record.contentType || record.content_type || "website";
-    const readingTime = record.readingTime ?? record.reading_time ?? 0;
-    const wordCount = record.wordCount ?? record.word_count ?? 0;
-    const canonicalUrl = record.canonicalUrl || record.canonical_url || "";
-    const articleContent = record.articleContent || record.article_content || "";
-    const group = record.group || record.group_name || "Unsorted";
-    const readAt = record.readAt || record.read_at || "";
-    const remindAt = record.remindAt || record.remind_at || "";
-    const archiveGroup = record.archiveGroup || record.archive_group || "";
-    const actorType = record.actorType || record.actor_type || "user";
-    const actorName = record.actorName || record.actor_name || "";
-    const createdAt = record.createdAt || record.created_at || "";
-    const updatedAt = record.updatedAt || record.updated_at || "";
-    const deletedAt = record.deletedAt || record.deleted_at || null;
+    const title = String(raw.title || "");
+    const url = String(raw.url || "");
+    const description = String(raw.description || "");
+    const image = String(raw.image || "");
+    const favicon = String(raw.favicon || "");
+    const siteName = String(raw.siteName || raw.site_name || "");
+    const author = String(raw.author || "");
+    const publishedAt = String(raw.publishedAt || raw.published_at || "");
+    const contentType = String(raw.contentType || raw.content_type || "website");
+    const readingTime = Number(raw.readingTime ?? raw.reading_time ?? 0);
+    const wordCount = Number(raw.wordCount ?? raw.word_count ?? 0);
+    const canonicalUrl = String(raw.canonicalUrl || raw.canonical_url || "");
+    const articleContent = String(raw.articleContent || raw.article_content || "");
+    const group = String(raw.group || raw.group_name || "Unsorted");
+    const readAt = String(raw.readAt || raw.read_at || "");
+    const remindAt = String(raw.remindAt || raw.remind_at || "");
+    const archiveGroup = String(raw.archiveGroup || raw.archive_group || "");
+    const actorType = String(raw.actorType || raw.actor_type || "user");
+    const actorName = String(raw.actorName || raw.actor_name || "");
+    const createdAt = String(raw.createdAt || raw.created_at || "");
+    const updatedAt = String(raw.updatedAt || raw.updated_at || "");
+    const deletedAt = raw.deletedAt ? String(raw.deletedAt) : raw.deleted_at ? String(raw.deleted_at) : null;
+    const version = Number(raw.version || 0);
 
     return {
-      ...record,
+      ...raw,
       // camelCase fields
       title,
       url,
@@ -71,6 +144,7 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
       archiveGroup,
       actorType,
       actorName,
+      version,
       createdAt,
       updatedAt,
       deletedAt,
@@ -98,12 +172,12 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
   }
 
   if (entityType === "group") {
-    const userId = record.user_id || record.userId || "";
-    const createdAt = record.createdAt || record.created_at || "";
-    const updatedAt = record.updatedAt || record.updated_at || "";
-    const deletedAt = record.deletedAt || record.deleted_at || null;
+    const userId = String(raw.user_id || raw.userId || "");
+    const createdAt = String(raw.createdAt || raw.created_at || "");
+    const updatedAt = String(raw.updatedAt || raw.updated_at || "");
+    const deletedAt = raw.deletedAt ? String(raw.deletedAt) : raw.deleted_at ? String(raw.deleted_at) : null;
     return {
-      ...record,
+      ...raw,
       userId,
       user_id: userId,
       createdAt,
@@ -115,5 +189,5 @@ export function normalizeSyncRecord(record: any, entityType: string): any {
     };
   }
 
-  return record;
+  return raw;
 }

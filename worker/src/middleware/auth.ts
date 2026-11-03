@@ -1,4 +1,27 @@
+import type { Context, Next, MiddlewareHandler } from "hono";
 import { verify } from "hono/jwt";
+import type { Bindings, Variables } from "../types";
+
+interface AuthJwtPayload {
+  id?: string;
+  userId?: string;
+  name?: string;
+  email?: string;
+}
+
+interface ApiTokenRow {
+  id: string;
+  user_id: string;
+  name: string;
+  scopes: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+interface VaultCollaboratorRow {
+  role: "owner" | "editor" | "viewer";
+}
 
 // Helper: Hash PAT token using SHA-256 (Edge Web Crypto)
 export async function hashPatToken(token: string): Promise<string> {
@@ -12,8 +35,10 @@ export async function hashPatToken(token: string): Promise<string> {
 }
 
 // Scope Verification Middleware
-export const requireScope = (requiredScope: string) => {
-  return async (c: any, next: any) => {
+export const requireScope = (
+  requiredScope: string
+): MiddlewareHandler<{ Bindings: Bindings; Variables: Variables }> => {
+  return async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
     const scopes: string[] = c.get("tokenScopes") || [];
     if (scopes.includes("*") || scopes.includes(requiredScope)) {
       return await next();
@@ -23,8 +48,10 @@ export const requireScope = (requiredScope: string) => {
 };
 
 // Vault Role Verification Middleware (Full Vault Collaboration)
-export const requireVaultRole = (allowedRoles: ("owner" | "editor" | "viewer")[]) => {
-  return async (c: any, next: any) => {
+export const requireVaultRole = (
+  allowedRoles: ("owner" | "editor" | "viewer")[]
+): MiddlewareHandler<{ Bindings: Bindings; Variables: Variables }> => {
+  return async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
     const role = c.get("vaultRole") || "owner";
     if (allowedRoles.includes(role)) {
       return await next();
@@ -34,7 +61,10 @@ export const requireVaultRole = (allowedRoles: ("owner" | "editor" | "viewer")[]
 };
 
 // Auth Middleware (Supports both JWT and Personal Access Tokens mb_pat_...)
-export const authMiddleware = async (c: any, next: any) => {
+export const authMiddleware: MiddlewareHandler<{ Bindings: Bindings; Variables: Variables }> = async (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  next: Next
+) => {
   const authHeader = c.req.header("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
@@ -46,11 +76,11 @@ export const authMiddleware = async (c: any, next: any) => {
     try {
       const tokenHash = await hashPatToken(token);
       const now = new Date().toISOString();
-      const tokenRow: any = await c.env.DB.prepare(
-        "SELECT * FROM api_tokens WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?)"
+      const tokenRow = await c.env.DB.prepare(
+        "SELECT id, user_id, name, scopes, expires_at, last_used_at, created_at FROM api_tokens WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?)"
       )
         .bind(tokenHash, now)
-        .first();
+        .first<ApiTokenRow>();
 
       if (!tokenRow) {
         return c.json({ error: "Invalid or expired API token" }, 401);
@@ -85,35 +115,41 @@ export const authMiddleware = async (c: any, next: any) => {
       c.set("vaultRole", "owner");
 
       return await next();
-    } catch (err: any) {
-      console.error("[PAT Auth Error]:", err?.message || err);
-      return c.json({ error: "Invalid or expired API token", details: err?.message }, 401);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Authentication error";
+      console.error("[PAT Auth Error]:", message);
+      return c.json({ error: "Invalid or expired API token" }, 401);
     }
   }
 
   // Standard User JWT Authentication
   const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
   try {
-    const payload = await verify(token, secret, "HS256");
-    const currentUserId = (payload as any).id || (payload as any).userId;
+    const rawPayload = await verify(token, secret, "HS256");
+    const payload = rawPayload as unknown as AuthJwtPayload;
+    const currentUserId = payload.id || payload.userId;
+    if (!currentUserId) {
+      return c.json({ error: "Invalid token payload: missing user identifier" }, 401);
+    }
+
     c.set("userId", currentUserId);
     c.set("tokenScopes", ["*"]);
     c.set("authType", "jwt");
     c.set("actorType", "user");
-    c.set("actorName", (payload as any).name || (payload as any).email || "User");
+    c.set("actorName", payload.name || payload.email || "User");
     c.set("vaultOwnerId", currentUserId);
     c.set("vaultRole", "owner");
 
     // Optional Shared Vault Resolution via X-Vault-Owner header
     const requestedVaultOwner = c.req.header("X-Vault-Owner")?.trim();
     if (requestedVaultOwner && requestedVaultOwner !== currentUserId) {
-      const collabRow: any = await c.env.DB.prepare(
+      const collabRow = await c.env.DB.prepare(
         `SELECT role FROM vault_collaborators 
          WHERE owner_id = ? AND (collaborator_user_id = ? OR collaborator_email = (SELECT email FROM users WHERE id = ?)) 
          AND status = 'accepted'`
       )
         .bind(requestedVaultOwner, currentUserId, currentUserId)
-        .first();
+        .first<VaultCollaboratorRow>();
 
       if (collabRow) {
         c.set("vaultOwnerId", requestedVaultOwner);
@@ -125,8 +161,9 @@ export const authMiddleware = async (c: any, next: any) => {
     }
 
     return await next();
-  } catch (err: any) {
-    console.error("[JWT Verify Error]:", err?.message || err);
-    return c.json({ error: "Invalid or expired token", details: err?.message }, 401);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Authentication error";
+    console.error("[JWT Verify Error]:", message);
+    return c.json({ error: "Invalid or expired token" }, 401);
   }
 };

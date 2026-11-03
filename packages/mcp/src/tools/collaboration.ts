@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MarkbelClient } from "../client.js";
 
+function getErrorMessage(prefix: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${prefix}: ${msg}`;
+}
+
 export function registerCollaborationTools(server: McpServer, client: MarkbelClient): void {
   // 1. markbel_list_collaborators
   server.tool(
@@ -18,13 +23,13 @@ export function registerCollaborationTools(server: McpServer, client: MarkbelCli
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `List collaborators error: ${err?.message || err}`,
+              text: getErrorMessage("List collaborators error", err),
             },
           ],
         };
@@ -58,13 +63,13 @@ export function registerCollaborationTools(server: McpServer, client: MarkbelCli
             },
           ],
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         return {
           isError: true,
           content: [
             {
               type: "text",
-              text: `Invite collaborator error: ${err?.message || err}`,
+              text: getErrorMessage("Invite collaborator error", err),
             },
           ],
         };

@@ -284,9 +284,9 @@ export default function SettingsPage() {
     try {
       const data = await api.getTokens();
       setTokens(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Failed to load API tokens:", err);
-      setTokenError(err.message || "Failed to load API tokens");
+      setTokenError(err instanceof Error ? err.message : "Failed to load API tokens");
     } finally {
       setTokensLoading(false);
     }
@@ -336,8 +336,8 @@ export default function SettingsPage() {
       setIsRevealTokenOpen(true);
       setCopiedToken(false);
       await loadTokens();
-    } catch (err: any) {
-      setTokenError(err.message || "Failed to create token");
+    } catch (err: unknown) {
+      setTokenError(err instanceof Error ? err.message : "Failed to create token");
     } finally {
       setIsSubmittingToken(false);
     }
@@ -363,8 +363,8 @@ export default function SettingsPage() {
       setTokenToDelete(null);
       setNoticeMessage(`Token "${tokenToDelete.name}" revoked.`);
       setTimeout(() => setNoticeMessage(""), 3500);
-    } catch (err: any) {
-      setTokenError(err.message || "Failed to revoke token");
+    } catch (err: unknown) {
+      setTokenError(err instanceof Error ? err.message : "Failed to revoke token");
     } finally {
       setIsDeletingToken(false);
     }
@@ -389,9 +389,9 @@ export default function SettingsPage() {
     try {
       const res = await agentApi.listCollaborators();
       setCollaborators(res.collaborators || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Failed to load collaborators:", err);
-      setCollabError(err?.message || "Failed to load collaborators");
+      setCollabError(err instanceof Error ? err.message : "Failed to load collaborators");
     } finally {
       setCollabLoading(false);
     }
@@ -416,8 +416,8 @@ export default function SettingsPage() {
       setNoticeMessage("Collaborator invitation dispatched!");
       setTimeout(() => setNoticeMessage(""), 3500);
       await loadCollaborators();
-    } catch (err: any) {
-      setCollabError(err?.message || "Failed to invite collaborator");
+    } catch (err: unknown) {
+      setCollabError(err instanceof Error ? err.message : "Failed to invite collaborator");
     } finally {
       setIsSubmittingCollab(false);
     }
@@ -432,8 +432,8 @@ export default function SettingsPage() {
       setCollabToDelete(null);
       setNoticeMessage("Collaborator removed.");
       setTimeout(() => setNoticeMessage(""), 3500);
-    } catch (err: any) {
-      setCollabError(err?.message || "Failed to remove collaborator");
+    } catch (err: unknown) {
+      setCollabError(err instanceof Error ? err.message : "Failed to remove collaborator");
     } finally {
       setIsDeletingCollab(false);
     }
@@ -557,8 +557,9 @@ export default function SettingsPage() {
       await refreshGroupsAndRules();
       setNoticeMessage(`Preset "${installed.name}" installed and group "${installed.group}" activated.`);
       setTimeout(() => setNoticeMessage(""), 4000);
-    } catch (err: any) {
-      setRuleError("Failed to install preset: " + (err.message || String(err)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRuleError("Failed to install preset: " + msg);
     } finally {
       setRulesLoading(false);
     }
@@ -572,8 +573,9 @@ export default function SettingsPage() {
       await refreshGroupsAndRules();
       setNoticeMessage("Preset rule removed.");
       setTimeout(() => setNoticeMessage(""), 4000);
-    } catch (err: any) {
-      setRuleError("Failed to remove preset: " + (err.message || String(err)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRuleError("Failed to remove preset: " + msg);
     } finally {
       setRulesLoading(false);
     }
@@ -700,8 +702,9 @@ export default function SettingsPage() {
       ]);
       setNoticeMessage(`Rule "${trimmedName}" created and active.`);
       setTimeout(() => setNoticeMessage(""), 4000);
-    } catch (err: any) {
-      setRuleError("Failed to save rule: " + (err.message || String(err)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRuleError("Failed to save rule: " + msg);
     } finally {
       setRulesLoading(false);
     }
@@ -715,8 +718,9 @@ export default function SettingsPage() {
       setCustomRules(updated);
       setNoticeMessage("Auto-categorization rule removed.");
       setTimeout(() => setNoticeMessage(""), 4000);
-    } catch (err: any) {
-      alert("Failed to delete rule: " + (err.message || String(err)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert("Failed to delete rule: " + msg);
     } finally {
       setRulesLoading(false);
     }
@@ -759,8 +763,8 @@ export default function SettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => setPasswordSuccess(""), 5000);
-    } catch (err: any) {
-      setPasswordError(err.message || "Failed to update password. Please check your current password.");
+    } catch (err: unknown) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to update password. Please check your current password.");
     } finally {
       setPasswordLoading(false);
     }
@@ -798,8 +802,9 @@ export default function SettingsPage() {
         setNoticeMessage("Push notifications successfully enabled on this device!");
         setTimeout(() => setNoticeMessage(""), 4000);
       }
-    } catch (err: any) {
-      alert("Failed to enable push: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert("Failed to enable push: " + msg);
     } finally {
       setPushLoading(false);
     }
@@ -818,8 +823,9 @@ export default function SettingsPage() {
           setTimeout(() => setNoticeMessage(""), 4000);
         }
       }
-    } catch (err: any) {
-      alert("Failed to unsubscribe: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert("Failed to unsubscribe: " + msg);
     } finally {
       setPushLoading(false);
     }
@@ -844,8 +850,9 @@ export default function SettingsPage() {
       await api.post("/notifications/test", {});
       setNoticeMessage("Test push notification dispatched!");
       setTimeout(() => setNoticeMessage(""), 4000);
-    } catch (err: any) {
-      alert("Failed to send test push: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert("Failed to send test push: " + msg);
     } finally {
       setPushLoading(false);
     }
