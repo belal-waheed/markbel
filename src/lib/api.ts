@@ -124,7 +124,59 @@ export const api = {
       throw new ApiError(data.error || `Request failed with status ${res.status}`, res.status, data)
     }
     return data as T
+  },
+
+  async getTokens(): Promise<ApiToken[]> {
+    return getTokens();
+  },
+
+  async createToken(data: CreateTokenRequest): Promise<CreateTokenResponse> {
+    return createToken(data);
+  },
+
+  async deleteToken(id: string): Promise<{ success: boolean }> {
+    return deleteToken(id);
   }
 }
+
+export interface ApiToken {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateTokenRequest {
+  name: string;
+  scopes: string[];
+  expiresInDays?: number | null;
+}
+
+export interface CreateTokenResponse {
+  id: string;
+  name: string;
+  token: string;
+  tokenPrefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export async function getTokens(): Promise<ApiToken[]> {
+  const res = await api.get<ApiToken[] | { tokens: ApiToken[] }>('/tokens');
+  return Array.isArray(res) ? res : (res.tokens || []);
+}
+
+export async function createToken(data: CreateTokenRequest): Promise<CreateTokenResponse> {
+  return await api.post<CreateTokenResponse>('/tokens', data);
+}
+
+export async function deleteToken(id: string): Promise<{ success: boolean }> {
+  return await api.delete<{ success: boolean }>(`/tokens/${encodeURIComponent(id)}`);
+}
+
 
 

@@ -26,6 +26,8 @@ export type Bindings = {
 
 type Variables = {
   userId: string;
+  tokenScopes?: string[];
+  authType?: 'jwt' | 'pat';
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -127,19 +129,90 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return computedHashHex === hashHex;
 }
 
-// Auth Middleware
+// Helper: Hash PAT token using SHA-256 (Edge Web Crypto)
+async function hashPatToken(token: string): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token)
+  );
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Scope Verification Middleware
+const requireScope = (requiredScope: string) => {
+  return async (c: any, next: any) => {
+    const scopes: string[] = c.get("tokenScopes") || [];
+    if (scopes.includes("*") || scopes.includes(requiredScope) || scopes.includes("tokens:manage")) {
+      return await next();
+    }
+    return c.json({ error: `Forbidden: requires '${requiredScope}' scope` }, 403);
+  };
+};
+
+// Auth Middleware (Supports both JWT and Personal Access Tokens mb_pat_...)
 const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header("Authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
     return c.json({ error: "Missing authorization token" }, 401);
   }
 
+  // Personal Access Token (PAT) authentication
+  if (token.startsWith("mb_pat_")) {
+    try {
+      const tokenHash = await hashPatToken(token);
+      const now = new Date().toISOString();
+      const tokenRow: any = await c.env.DB.prepare(
+        "SELECT * FROM api_tokens WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?)"
+      )
+        .bind(tokenHash, now)
+        .first();
+
+      if (!tokenRow) {
+        return c.json({ error: "Invalid or expired API token" }, 401);
+      }
+
+      // Update last_used_at timestamp
+      const updatePromise = c.env.DB.prepare(
+        "UPDATE api_tokens SET last_used_at = ? WHERE id = ?"
+      )
+        .bind(now, tokenRow.id)
+        .run();
+
+      if (c.executionCtx && typeof c.executionCtx.waitUntil === "function") {
+        c.executionCtx.waitUntil(updatePromise);
+      } else {
+        await updatePromise;
+      }
+
+      let scopes: string[] = [];
+      try {
+        scopes = JSON.parse(tokenRow.scopes);
+      } catch {
+        scopes = [];
+      }
+
+      c.set("userId", tokenRow.user_id);
+      c.set("tokenScopes", scopes);
+      c.set("authType", "pat");
+
+      return await next();
+    } catch (err: any) {
+      console.error("[PAT Auth Error]:", err?.message || err);
+      return c.json({ error: "Invalid or expired API token", details: err?.message }, 401);
+    }
+  }
+
+  // Standard User JWT Authentication
   const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
   try {
     const payload = await verify(token, secret, "HS256");
-    c.set("userId", (payload as any).id);
-    await next();
+    c.set("userId", (payload as any).id || (payload as any).userId);
+    c.set("tokenScopes", ["*"]);
+    c.set("authType", "jwt");
+    return await next();
   } catch (err: any) {
     console.error("[JWT Verify Error]:", err?.message || err);
     return c.json({ error: "Invalid or expired token", details: err?.message }, 401);
@@ -535,6 +608,140 @@ app.post("/api/auth/reset-password", async (c) => {
     return c.json({ success: true, message: "Password reset successfully. You can now sign in." });
   } catch (err: any) {
     return c.json({ error: err.message || "Internal server error" }, 500);
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PERSONAL ACCESS TOKEN (PAT) MANAGEMENT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const ALLOWED_TOKEN_SCOPES = [
+  "bookmarks:read",
+  "bookmarks:write",
+  "groups:manage",
+  "shares:manage",
+  "settings:manage",
+  "tokens:manage",
+];
+
+const createTokenSchema = z.object({
+  name: z.string().trim().min(1, "Token name is required").max(100),
+  scopes: z.array(z.string()).min(1, "At least one scope must be selected"),
+  expiresInDays: z.number().int().min(1).nullable().optional(),
+});
+
+function generatePatSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let randomStr = "";
+  for (let i = 0; i < bytes.length; i++) {
+    randomStr += alphabet[bytes[i] % alphabet.length];
+  }
+  return `mb_pat_${randomStr}`;
+}
+
+const handleCreateToken = async (c: any) => {
+  try {
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = createTokenSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.issues[0]?.message || "Invalid token payload" }, 400);
+    }
+
+    const { name, scopes, expiresInDays } = parsed.data;
+    const invalidScope = scopes.find((s) => !ALLOWED_TOKEN_SCOPES.includes(s));
+    if (invalidScope) {
+      return c.json({ error: `Invalid scope: ${invalidScope}` }, 400);
+    }
+
+    const id = crypto.randomUUID();
+    const token = generatePatSecret();
+    const tokenHash = await hashPatToken(token);
+    const tokenPrefix = `${token.slice(0, 14)}...`;
+    const now = new Date();
+    const createdAt = now.toISOString();
+    const expiresAt =
+      expiresInDays && expiresInDays > 0
+        ? new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+    await c.env.DB.prepare(
+      "INSERT INTO api_tokens (id, user_id, name, token_hash, token_prefix, scopes, expires_at, last_used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)"
+    )
+      .bind(id, userId, name, tokenHash, tokenPrefix, JSON.stringify(scopes), expiresAt, createdAt)
+      .run();
+
+    return c.json(
+      {
+        id,
+        name,
+        token, // Plaintext token returned ONLY once
+        tokenPrefix,
+        scopes,
+        expiresAt,
+        createdAt,
+      },
+      201
+    );
+  } catch (err: any) {
+    console.error("[Create Token Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to create API token" }, 500);
+  }
+};
+
+app.post("/api/tokens", authMiddleware, requireScope("tokens:manage"), handleCreateToken);
+app.post("/api/tokens/create", authMiddleware, requireScope("tokens:manage"), handleCreateToken);
+
+app.get("/api/tokens", authMiddleware, requireScope("tokens:manage"), async (c) => {
+  try {
+    const userId = c.get("userId");
+    const { results } = await c.env.DB.prepare(
+      "SELECT id, name, token_prefix, scopes, expires_at, last_used_at, created_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC"
+    )
+      .bind(userId)
+      .all();
+
+    const tokens = (results || []).map((row: any) => {
+      let parsedScopes: string[] = [];
+      try {
+        parsedScopes = JSON.parse(row.scopes);
+      } catch {
+        parsedScopes = [];
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        tokenPrefix: row.token_prefix,
+        scopes: parsedScopes,
+        expiresAt: row.expires_at,
+        lastUsedAt: row.last_used_at,
+        createdAt: row.created_at,
+      };
+    });
+
+    return c.json(tokens);
+  } catch (err: any) {
+    console.error("[Get Tokens Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to list API tokens" }, 500);
+  }
+});
+
+app.delete("/api/tokens/:id", authMiddleware, requireScope("tokens:manage"), async (c) => {
+  try {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+
+    await c.env.DB.prepare(
+      "DELETE FROM api_tokens WHERE id = ? AND user_id = ?"
+    )
+      .bind(id, userId)
+      .run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error("[Delete Token Error]:", err?.message || err);
+    return c.json({ error: err.message || "Failed to delete API token" }, 500);
   }
 });
 

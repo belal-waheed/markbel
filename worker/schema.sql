@@ -91,6 +91,20 @@ CREATE TABLE IF NOT EXISTS password_resets (
     attempts INTEGER NOT NULL DEFAULT 0
 );
 
+-- API Access Tokens Table (Personal Access Tokens & Agent Integrations)
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    token_prefix TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    expires_at TEXT DEFAULT NULL,
+    last_used_at TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, is_archived, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_group ON bookmarks(user_id, group_name);
@@ -100,4 +114,6 @@ CREATE INDEX IF NOT EXISTS idx_sync_changes_client_id ON sync_changes(client_cha
 CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_lookup ON api_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
 
