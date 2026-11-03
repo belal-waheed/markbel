@@ -6,11 +6,33 @@ import { getCachedThumbnail, saveCachedThumbnail } from "@/db/db";
 
 export type ImageStage = "DIRECT" | "PROXY" | "FAVICON" | "PLACEHOLDER";
 
-const inFlightCaptures = new Set<string>();
+export const inFlightCaptures = new Set<string>();
+
+/**
+ * Creates an AbortSignal with timeout, falling back to setTimeout for environments lacking AbortSignal.timeout
+ */
+export function createTimeoutSignal(ms: number): { signal: AbortSignal; cleanup: () => void } {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return { signal: AbortSignal.timeout(ms), cleanup: () => {} };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    try {
+      controller.abort(new DOMException("TimeoutError", "TimeoutError"));
+    } catch {
+      controller.abort();
+    }
+  }, ms);
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timer),
+  };
+}
 
 /**
  * Attempts to capture a remote image thumbnail as a Blob and persist it in Dexie.
  * Checks CORS direct fetch first, then falls back to image proxy before failing gracefully.
+ * Protected with explicit 6000ms timeout on both direct and proxy fetches.
  */
 export async function captureAndCacheThumbnail(
   url: string,
@@ -26,15 +48,21 @@ export async function captureAndCacheThumbnail(
     let blob: Blob | null = null;
     let contentType = "image/jpeg";
 
-    // 1. Direct fetch with CORS mode
+    // 1. Direct fetch with CORS mode and 6s timeout protection
+    const directTimeout = createTimeoutSignal(6000);
     try {
-      const res = await fetch(url, { mode: "cors" });
+      const res = await fetch(url, { mode: "cors", signal: directTimeout.signal });
       if (res.ok) {
-        blob = await res.blob();
-        contentType = res.headers.get("content-type") || blob.type || "image/jpeg";
+        const candidate = await res.blob();
+        if (candidate && candidate.size > 0) {
+          blob = candidate;
+          contentType = res.headers.get("content-type") || candidate.type || "image/jpeg";
+        }
       }
     } catch {
-      // Direct CORS fetch failed or blocked
+      // Direct CORS fetch failed, timed out, or blocked
+    } finally {
+      directTimeout.cleanup();
     }
 
     // 2. Fall back to proxy if direct fetch failed, returned non-200, or empty blob
@@ -43,18 +71,24 @@ export async function captureAndCacheThumbnail(
         ? `${proxyBaseUrl.replace(/\/$/, "")}/api/proxy/image?url=${encodeURIComponent(url)}`
         : resolveApiUrl(`/api/proxy/image?url=${encodeURIComponent(url)}`);
 
+      const proxyTimeout = createTimeoutSignal(6000);
       try {
-        const proxyRes = await fetch(proxyUrl);
+        const proxyRes = await fetch(proxyUrl, { signal: proxyTimeout.signal });
         if (proxyRes.ok) {
-          blob = await proxyRes.blob();
-          contentType = proxyRes.headers.get("content-type") || blob.type || "image/jpeg";
+          const candidate = await proxyRes.blob();
+          if (candidate && candidate.size > 0) {
+            blob = candidate;
+            contentType = proxyRes.headers.get("content-type") || candidate.type || "image/jpeg";
+          }
         }
       } catch {
-        // Proxy fetch failed
+        // Proxy fetch failed or timed out
+      } finally {
+        proxyTimeout.cleanup();
       }
     }
 
-    // 3. Persist valid blob to Dexie
+    // 3. Persist valid blob to Dexie only if non-empty
     if (blob && blob.size > 0) {
       await saveCachedThumbnail(url, blob, contentType);
     }
@@ -143,7 +177,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
       getCachedThumbnail(cleanUrl)
         .then((cached) => {
           if (isCancelled) return;
-          if (cached?.blob && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+          if (cached?.blob && cached.blob.size > 0 && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
             const objectUrl = URL.createObjectURL(cached.blob);
             setAndTrackBlobUrl(objectUrl);
             setIsLoaded(true);
@@ -220,7 +254,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
     if (cleanUrl && !blobUrlRef.current) {
       try {
         const cached = await getCachedThumbnail(cleanUrl);
-        if (cached?.blob && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+        if (cached?.blob && cached.blob.size > 0 && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
           const objectUrl = URL.createObjectURL(cached.blob);
           setAndTrackBlobUrl(objectUrl);
           setIsLoaded(true);

@@ -24,6 +24,7 @@ export class SyncManager {
   private abortController: AbortController | null = null;
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private isPaused: boolean = false;
+  private hasQueuedSync: boolean = false;
   
   private unsubOnline: Unsubscribe | null = null;
   private unsubForeground: Unsubscribe | null = null;
@@ -54,7 +55,11 @@ export class SyncManager {
         this.channel.onmessage = (event) => {
           if (event.data?.type === 'SYNC_REQUESTED') {
             if (this.isLeader) {
-              this.sync(false);
+              if (this.isSyncing) {
+                this.hasQueuedSync = true;
+              } else {
+                this.sync(false);
+              }
             }
           } else if (event.data?.type === 'SYNC_COMPLETED') {
             this.setState(this.state, { timestamp: event.data?.timestamp });
@@ -70,6 +75,10 @@ export class SyncManager {
 
   public get currentState() {
     return this.state;
+  }
+
+  public get queuedSyncStatus(): boolean {
+    return this.hasQueuedSync;
   }
 
   subscribe(listener: SyncEventListener) {
@@ -160,11 +169,38 @@ export class SyncManager {
   }
 
   // -------------------------------------------------------------
+  // Stale Processing Outbox Recovery
+  // -------------------------------------------------------------
+  public async recoverStaleProcessingChanges(): Promise<number> {
+    try {
+      if (typeof (this.storage as any).recoverStaleProcessingChanges === 'function') {
+        return await (this.storage as any).recoverStaleProcessingChanges();
+      }
+      if (typeof (this.storage as any).getProcessingChanges === 'function') {
+        const stuck = await (this.storage as any).getProcessingChanges(1000);
+        for (const item of stuck) {
+          await this.storage.updatePendingChangeStatus(item.id, {
+            status: 'pending',
+            lastError: 'Recovered from stale processing state'
+          });
+        }
+        return stuck.length;
+      }
+    } catch (err) {
+      console.warn('[SyncManager] Failed to recover stale processing changes:', err);
+    }
+    return 0;
+  }
+
+  // -------------------------------------------------------------
   // Sync Engine
   // -------------------------------------------------------------
   async sync(isForce = false, options?: { headers?: Record<string, string> }) {
     if (this.isPaused && !isForce) return;
     if (this.isSyncing || (!this.isLeader && !isForce)) {
+      if (this.isSyncing && (this.isLeader || isForce)) {
+        this.hasQueuedSync = true;
+      }
       // If we are a follower tab and a sync is requested, notify the leader tab
       if (!this.isLeader && !isForce && this.channel) {
         try {
@@ -173,37 +209,61 @@ export class SyncManager {
       }
       return;
     }
-    
-    if (!(await this.connectivity.isOnline())) {
-      this.setState(SyncState.Offline);
-      return;
-    }
-
-    const token = await this.storage.getAuthToken();
-    if (!token) return;
 
     this.isSyncing = true;
     this.setState(SyncState.Syncing);
     this.abortController = new AbortController();
 
+    let inFlightPushBatch: SyncOutboxItem[] = [];
+
     try {
+      if (!(await this.connectivity.isOnline())) {
+        this.setState(SyncState.Offline);
+        return;
+      }
+
+      const token = await this.storage.getAuthToken();
+      if (!token) {
+        this.setState(SyncState.Idle);
+        return;
+      }
+
+      await this.recoverStaleProcessingChanges();
+
       const deviceId = await this.storage.getDeviceId();
       if (!deviceId) throw new Error("Device ID not found");
       
-      const pendingChanges = await this.storage.getPendingChanges(10000);
-      const { compacted: compactedBatch, toDeleteFromDb } = this.compactOutbox(pendingChanges);
-      const pushBatch = compactedBatch.slice(0, 100);
+      // --- PUSH PHASE (DRAINING LOOP) ---
+      let pushIteration = 0;
+      const maxPushIterations = 10;
+      let hasMoreToPush = true;
+      const pushStart = performance.now();
 
-      // If pending changes collapsed offline without needing server push or poison pills were pruned
-      if (pushBatch.length === 0 && toDeleteFromDb.length > 0) {
-        await this.storage.removePendingChanges(toDeleteFromDb);
-      }
+      while (hasMoreToPush && pushIteration < maxPushIterations) {
+        if (this.abortController?.signal?.aborted) {
+          throw new DOMException('Aborted', 'AbortError');
+        }
 
-      // --- PUSH PHASE ---
-      if (pushBatch.length > 0) {
-        const pushStart = performance.now();
+        const pendingChanges = await this.storage.getPendingChanges(10000);
+        const { compacted: compactedBatch, toDeleteFromDb } = this.compactOutbox(pendingChanges);
+        const pushBatch = compactedBatch.slice(0, 100);
+
+        // If pending changes collapsed offline without needing server push or poison pills were pruned
+        if (pushBatch.length === 0 && toDeleteFromDb.length > 0) {
+          await this.storage.removePendingChanges(toDeleteFromDb);
+        }
+
+        if (pushBatch.length === 0) {
+          hasMoreToPush = false;
+          break;
+        }
+
+        inFlightPushBatch = pushBatch;
         for (const item of pushBatch) {
-          await this.storage.updatePendingChangeStatus(item.id, { status: 'processing', attempts: item.attempts + 1 });
+          await this.storage.updatePendingChangeStatus(item.id, {
+            status: 'processing',
+            attempts: (item.attempts ?? 0) + 1
+          });
         }
 
         const pushPayload = {
@@ -224,7 +284,12 @@ export class SyncManager {
           'Authorization': `Bearer ${token}`,
           ...(options?.headers || {})
         };
-        const result = await this.apiClient.post('/api/sync/mutations', pushPayload, pushHeaders, this.abortController.signal);
+        const result = await this.apiClient.post(
+          '/api/sync/mutations',
+          pushPayload,
+          pushHeaders,
+          this.abortController.signal
+        );
 
         // Remove redundant compacted outbox items only AFTER apiClient.post succeeds
         if (toDeleteFromDb.length > 0) {
@@ -248,11 +313,22 @@ export class SyncManager {
             // Drop local change, server record will be pulled next step
             await this.storage.removePendingChanges([resItem.changeId]);
           } else {
-            await this.storage.updatePendingChangeStatus(resItem.changeId, { status: 'failed', lastError: resItem.reason || 'Unknown error' });
+            await this.storage.updatePendingChangeStatus(resItem.changeId, {
+              status: 'failed',
+              lastError: resItem.reason || 'Unknown error'
+            });
           }
         }
-        this.metrics.lastPushDurationMs = Math.round(performance.now() - pushStart);
+
+        inFlightPushBatch = [];
+        pushIteration++;
+
+        // Only continue draining if we filled a full batch of 100
+        if (pushBatch.length < 100) {
+          hasMoreToPush = false;
+        }
       }
+      this.metrics.lastPushDurationMs = Math.round(performance.now() - pushStart);
 
       // --- PULL PHASE ---
       let hasMore = true;
@@ -291,6 +367,18 @@ export class SyncManager {
       }
       
     } catch (err: any) {
+      if (inFlightPushBatch.length > 0) {
+        for (const item of inFlightPushBatch) {
+          try {
+            await this.storage.updatePendingChangeStatus(item.id, {
+              status: 'failed',
+              lastError: err?.message || 'Push aborted or failed'
+            });
+          } catch {}
+        }
+        inFlightPushBatch = [];
+      }
+
       if (err.name === 'AbortError') {
         console.log('Sync aborted');
       } else {
@@ -306,6 +394,14 @@ export class SyncManager {
     } finally {
       this.isSyncing = false;
       this.abortController = null;
+      if (this.hasQueuedSync && (this.isLeader || isForce) && !this.isPaused) {
+        this.hasQueuedSync = false;
+        setTimeout(() => {
+          if (!this.isSyncing) {
+            this.sync(false);
+          }
+        }, 0);
+      }
     }
   }
 
@@ -471,8 +567,9 @@ export class SyncManager {
     }, 100);
   }
 
-  private initLeader() {
+  private async initLeader() {
     this.setState(SyncState.Idle);
+    await this.recoverStaleProcessingChanges();
     this.sync();
     this.scheduleNextSync();
 
@@ -481,6 +578,7 @@ export class SyncManager {
   }
 
   public stop() {
+    this.hasQueuedSync = false;
     if (this.syncTimer) clearTimeout(this.syncTimer);
     if (this.abortController) this.abortController.abort();
     

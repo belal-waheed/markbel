@@ -23,6 +23,26 @@ export class WebSyncStorage implements SyncStorage {
     await db.syncOutbox.bulkDelete(ids);
   }
 
+  async getProcessingChanges(limit = 1000): Promise<SyncOutboxItem[]> {
+    const items = await db.syncOutbox
+      .filter(item => item.status === 'processing')
+      .toArray();
+    return items.slice(0, limit);
+  }
+
+  async recoverStaleProcessingChanges(): Promise<number> {
+    const items = await db.syncOutbox
+      .filter(item => item.status === 'processing')
+      .toArray();
+    for (const item of items) {
+      await db.syncOutbox.update(item.id, {
+        status: 'pending',
+        lastError: 'Recovered from stale processing state'
+      });
+    }
+    return items.length;
+  }
+
   async getCursor(): Promise<number> {
     const metadata = await db.syncMetadata.get('bookmark-sync');
     return metadata?.cursor || 0;

@@ -49,6 +49,9 @@ export interface SyncStorage {
   
   applyRemoteChanges(changes: RemoteChange[]): Promise<void>;
   transaction<T>(callback: () => Promise<T>): Promise<T>;
+  
+  getProcessingChanges?(limit?: number): Promise<SyncOutboxItem[]>;
+  recoverStaleProcessingChanges?(): Promise<number>;
 }
 
 export type Unsubscribe = () => void;
