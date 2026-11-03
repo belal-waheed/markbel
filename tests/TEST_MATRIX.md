@@ -75,6 +75,7 @@ All network resilience tests validate the system against 5 canonical network con
 
 | Test File | Test Suite Name | Target System | Coverage Scope |
 | :--- | :--- | :--- | :--- |
+| `src/sync/AuthSecurity.test.ts` | Auth Security & JWT Invariants Suite | `Worker Middleware` | JWT fail-fast on missing secret, cron authorization enforcement, atomic bulkUpdate batching |
 | `src/sync/NetworkDegradation.test.ts` | Network Degradation & Resilience Suite | `SyncManager` | High RTT latency (500-2000ms), push abort rollback, outbox draining (>150 items), HTTP 504 / 429 backoff, pull idempotency, concurrent mutations during push |
 | `src/components/BookmarkImageSlowNetwork.test.tsx` | BookmarkImage Slow-Network Suite | `BookmarkImage` | Stalled remote host (6s timeout), rapid mount/unmount memory cleanup, 0-byte corrupt blob rejection, concurrent deduplicated thumbnail requests |
 | `src/sync/WebLockResilience.test.ts` | Web Lock Resilience Suite | `SyncManager` | Web Lock contention during slow sync, follower tab `BroadcastChannel` queuing, lock acquisition timeout prevention |

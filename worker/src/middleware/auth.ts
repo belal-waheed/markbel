@@ -123,7 +123,10 @@ export const authMiddleware: MiddlewareHandler<{ Bindings: Bindings; Variables: 
   }
 
   // Standard User JWT Authentication
-  const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
+  const secret = c.env.JWT_SECRET;
+  if (!secret) {
+    return c.json({ error: "Server misconfiguration: JWT_SECRET binding is missing" }, 500);
+  }
   try {
     const rawPayload = await verify(token, secret, "HS256");
     const payload = rawPayload as unknown as AuthJwtPayload;

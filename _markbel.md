@@ -188,6 +188,21 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
+### Modernization Phase 1: Security Hardening & Atomic Batching [DELIVERED]
+**Goal:** Eliminate insecure JWT defaults, resolve N+1 transaction loops, and clean store permissions.
+
+1. **JWT Fail-Fast Invariant:**
+   - Enforced fail-fast HTTP 500 error on missing `JWT_SECRET` in `worker/src/middleware/auth.ts` and `worker/src/index.ts`, eliminating the insecure fallback string literal.
+   - Removed sandbox cron bypass in `worker/src/index.ts`, strictly requiring `CRON_SECRET` or `JWT_SECRET`.
+2. **N+1 Group Deletion Elimination:**
+   - Refactored `handleDeleteGroup` in `src/views/BookmarksPage.tsx` to execute atomic batching via `bookmarkRepository.bulkUpdate(groupBookmarkIds, { group: "Unsorted" })`.
+3. **Extension Production Manifest Hardening:**
+   - Stripped development localhost host permissions (`localhost:3001`) from `extension/manifest.json` and `extension/manifest.firefox.json` for web store review readiness.
+4. **Automated Security Verification:**
+   - Added test suite `src/sync/AuthSecurity.test.ts` (5 tests) verifying JWT fail-fast, cron rejection, and bulkUpdate batching.
+
+---
+
 ## 4. Verification Seams & Quality Gates
 
 Each milestone must pass the strict Markbel release pipeline:

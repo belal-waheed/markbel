@@ -472,8 +472,9 @@ export default function BookmarksPage() {
         await groupRepository.delete(existing.id);
       }
       const groupBookmarks = bookmarks.filter((b) => b.group === name);
-      for (const b of groupBookmarks) {
-        await bookmarkRepository.update(b.id, { group: "Unsorted" });
+      const groupBookmarkIds = groupBookmarks.map((b) => b.id);
+      if (groupBookmarkIds.length > 0) {
+        await bookmarkRepository.bulkUpdate(groupBookmarkIds, { group: "Unsorted" });
       }
       if (activeGroup === name) {
         setActiveGroup(null);

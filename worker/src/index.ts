@@ -180,7 +180,10 @@ app.post("/api/users/signup", async (c) => {
         .run();
     }
 
-    const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
+    const secret = c.env.JWT_SECRET;
+    if (!secret) {
+      return c.json({ error: "Server misconfiguration: JWT_SECRET binding is missing" }, 500);
+    }
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
     const token = await sign({ id, email: cleanEmail, exp }, secret, "HS256");
 
@@ -219,7 +222,10 @@ app.post("/api/users/login", async (c) => {
       return c.json({ error: "Invalid email or password" }, 401);
     }
 
-    const secret = c.env.JWT_SECRET || "markbel-production-jwt-secret-replace-with-secret";
+    const secret = c.env.JWT_SECRET;
+    if (!secret) {
+      return c.json({ error: "Server misconfiguration: JWT_SECRET binding is missing" }, 500);
+    }
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
     const token = await sign({ id: user.id, email: user.email, exp }, secret, "HS256");
 
@@ -2816,22 +2822,19 @@ app.post("/api/notifications/dispatch", async (c) => {
     c.req.header("Upstash-Signature") || c.req.header("upstash-signature");
   const secretParam = c.req.query("secret");
 
-  const expectedCronSecret = c.env.CRON_SECRET || c.env.JWT_SECRET || "markbel-cron-secret";
+  const expectedCronSecret = c.env.CRON_SECRET || c.env.JWT_SECRET;
   const expectedQStashToken = c.env.QSTASH_TOKEN;
 
   let isAuthorized = false;
 
-  if (secretParam && secretParam === expectedCronSecret) {
+  if (expectedCronSecret && secretParam && secretParam === expectedCronSecret) {
     isAuthorized = true;
   } else if (
     token &&
-    (token === expectedCronSecret || (expectedQStashToken && token === expectedQStashToken))
+    ((expectedCronSecret && token === expectedCronSecret) || (expectedQStashToken && token === expectedQStashToken))
   ) {
     isAuthorized = true;
   } else if (qstashSignature && (c.env.QSTASH_CURRENT_SIGNING_KEY || expectedQStashToken)) {
-    isAuthorized = true;
-  } else if (!c.env.CRON_SECRET && !c.env.QSTASH_CURRENT_SIGNING_KEY && !c.env.QSTASH_TOKEN) {
-    // Dev / local sandbox fallback
     isAuthorized = true;
   }
 

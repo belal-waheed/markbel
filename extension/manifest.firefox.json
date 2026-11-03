@@ -45,9 +45,7 @@
     }
   ],
   "host_permissions": [
-    "https://mark.obel.workers.dev/*",
-    "http://localhost:3001/*",
-    "http://127.0.0.1:3001/*"
+    "https://mark.obel.workers.dev/*"
   ],
   "commands": {
     "_execute_action": {
