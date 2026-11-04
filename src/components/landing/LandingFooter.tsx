@@ -13,7 +13,7 @@ export function LandingFooter({
   onLaunchApp,
   onOpenReleaseNotes,
   onSignIn,
-  version = 'v2.5.9'
+  version = 'v2.5.10'
 }: LandingFooterProps) {
   return (
     <>

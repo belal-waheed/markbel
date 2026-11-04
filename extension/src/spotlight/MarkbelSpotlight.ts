@@ -424,7 +424,8 @@ export class MarkbelSpotlight {
       }
     });
 
-    this.shadow.addEventListener('keydown', (e) => {
+    this.shadow.addEventListener('keydown', (event: Event) => {
+      const e = event as KeyboardEvent;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -465,7 +466,8 @@ export class MarkbelSpotlight {
       }
 
       if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-        const selText = this.shadow?.getSelection ? this.shadow.getSelection()?.toString() : '';
+        const shadowWithSel = this.shadow as unknown as { getSelection?: () => Selection | null };
+        const selText = shadowWithSel?.getSelection ? shadowWithSel.getSelection()?.toString() : '';
         if (selText && selText.trim()) return;
 
         if (this.filtered[this.selectedIndex]) {

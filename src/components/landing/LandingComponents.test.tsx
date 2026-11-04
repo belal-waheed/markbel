@@ -137,7 +137,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       const jsx = (
         <LandingTopBanner
           onOpenReleaseNotes={onOpenReleaseNotes}
-          version="v2.5.9"
+          version="v2.5.10"
         />
       )
 
@@ -145,14 +145,14 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       const html = renderCleanHtml(jsx)
 
       // Assert
-      expect(html).toContain('Markbel v2.5.9 is live')
-      expect(html).toContain('v2.5.9 Notes')
-      expect(html).toContain('Nested App Subroutes')
+      expect(html).toContain('Markbel v2.5.10 is live')
+      expect(html).toContain('v2.5.10 Notes')
+      expect(html).toContain('Modular Popup HUD Architecture')
 
       // Act: trigger onClick handler from React element tree
       const renderedTree = LandingTopBanner({
         onOpenReleaseNotes,
-        version: 'v2.5.9'
+        version: 'v2.5.10'
       })
       const buttonElement = findElementInTree(
         renderedTree,
@@ -537,7 +537,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
           onLaunchApp={onLaunchApp}
           onOpenReleaseNotes={onOpenReleaseNotes}
           onSignIn={onSignIn}
-          version="v2.5.9"
+          version="v2.5.10"
         />
       )
 
@@ -550,7 +550,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       expect(html).toContain('Star on GitHub')
       expect(html).toContain('MIT Licensed Open Source')
       expect(html).toContain('Sync Protocol')
-      expect(html).toContain('v2.5.9 Notes')
+      expect(html).toContain('v2.5.10 Notes')
     })
   })
 })

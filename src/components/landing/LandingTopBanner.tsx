@@ -8,7 +8,7 @@ export interface LandingTopBannerProps {
 
 export function LandingTopBanner({
   onOpenReleaseNotes,
-  version = 'v2.5.9'
+  version = 'v2.5.10'
 }: LandingTopBannerProps) {
   return (
     <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 sm:py-2.5 text-center text-xs text-[var(--color-text-muted)] font-medium select-none">
@@ -19,7 +19,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Nested App Subroutes (/app/*), Deep-Linkable URL Query State (?group=&amp;tab=&amp;q=) &amp; Contextual Vault Launcher
+            Modular Popup HUD Architecture, 0ms Local Dexie Quick Open &amp; Comprehensive Subsystem Tests
           </span>
         </div>
         <button
