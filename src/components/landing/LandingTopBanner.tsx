@@ -1,5 +1,6 @@
 import React from 'react'
 import { Sparkles } from 'lucide-react'
+import { CURRENT_RELEASE_VERSION } from './landingConstants.js'
 
 export interface LandingTopBannerProps {
   onOpenReleaseNotes: () => void
@@ -8,7 +9,7 @@ export interface LandingTopBannerProps {
 
 export function LandingTopBanner({
   onOpenReleaseNotes,
-  version = 'v2.5.14'
+  version = CURRENT_RELEASE_VERSION
 }: LandingTopBannerProps) {
   return (
     <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 sm:py-2.5 text-center text-xs text-[var(--color-text-muted)] font-medium select-none">

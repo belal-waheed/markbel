@@ -1,6 +1,7 @@
 import React from 'react'
 import { Zap, Github, Sparkles } from 'lucide-react'
 import MarkbelLogo from '../MarkbelLogo.js'
+import { CURRENT_RELEASE_VERSION } from './landingConstants.js'
 
 export interface LandingFooterProps {
   onLaunchApp: () => void
@@ -13,7 +14,7 @@ export function LandingFooter({
   onLaunchApp,
   onOpenReleaseNotes,
   onSignIn,
-  version = 'v2.5.10'
+  version = CURRENT_RELEASE_VERSION
 }: LandingFooterProps) {
   return (
     <>

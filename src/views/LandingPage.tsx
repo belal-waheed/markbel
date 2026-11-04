@@ -11,7 +11,8 @@ import {
   type PlatformInfo,
   type DemoBookmark,
   INITIAL_DEMO_BOOKMARKS,
-  FAQ_ITEMS
+  FAQ_ITEMS,
+  CURRENT_RELEASE_VERSION
 } from '../components/landing/landingConstants.js'
 import LandingTopBanner from '../components/landing/LandingTopBanner.js'
 import LandingNavbar from '../components/landing/LandingNavbar.js'
@@ -71,6 +72,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
     <div className="min-h-screen bg-[var(--color-bg-main)] text-[var(--color-text-primary)] font-sans antialiased selection:bg-[var(--color-accent)]/20 selection:text-inherit">
       {/* Top Banner / Announcement */}
       <LandingTopBanner
+        version={CURRENT_RELEASE_VERSION}
         onOpenReleaseNotes={() => setIsReleaseModalOpen(true)}
       />
 
@@ -111,6 +113,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
 
       {/* Pre-Footer & Global Footer */}
       <LandingFooter
+        version={CURRENT_RELEASE_VERSION}
         onLaunchApp={handleLaunch}
         onOpenReleaseNotes={() => setIsReleaseModalOpen(true)}
         onSignIn={handleSignIn}

@@ -537,7 +537,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
           onLaunchApp={onLaunchApp}
           onOpenReleaseNotes={onOpenReleaseNotes}
           onSignIn={onSignIn}
-          version="v2.5.10"
+          version="v2.5.14"
         />
       )
 
@@ -550,7 +550,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       expect(html).toContain('Star on GitHub')
       expect(html).toContain('MIT Licensed Open Source')
       expect(html).toContain('Sync Protocol')
-      expect(html).toContain('v2.5.10 Notes')
+      expect(html).toContain('v2.5.14 Notes')
     })
   })
 })
