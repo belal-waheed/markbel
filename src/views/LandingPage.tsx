@@ -36,6 +36,9 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
   const navigate = useNavigate()
   const { token } = useAuth()
   const detectedPlatform = useMemo(() => detectPlatform(), [])
+  const isReturningUser = Boolean(
+    token || (typeof window !== 'undefined' && localStorage.getItem('markbel_guest_initialized') === 'true')
+  )
 
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false)
   const [extensionModalTab, setExtensionModalTab] = useState<'chrome' | 'firefox'>('chrome')
@@ -74,6 +77,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
       {/* Sticky Navigation Bar */}
       <LandingNavbar
         token={token}
+        isReturningUser={isReturningUser}
         onLaunchApp={handleLaunch}
         onSignIn={handleSignIn}
       />
@@ -82,6 +86,7 @@ export default function LandingPage({ onLaunchApp }: LandingPageProps) {
       <HeroSection
         onLaunchApp={handleLaunch}
         detectedPlatform={detectedPlatform}
+        isReturningUser={isReturningUser}
       />
 
       {/* Interactive Product Canvas */}

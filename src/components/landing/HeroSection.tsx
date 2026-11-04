@@ -6,9 +6,10 @@ import type { PlatformInfo } from './landingConstants.js'
 export interface HeroSectionProps {
   onLaunchApp: () => void
   detectedPlatform?: PlatformInfo
+  isReturningUser?: boolean
 }
 
-export function HeroSection({ onLaunchApp, detectedPlatform }: HeroSectionProps) {
+export function HeroSection({ onLaunchApp, detectedPlatform, isReturningUser }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden pt-12 pb-16 sm:pt-20 sm:pb-24 border-b border-[var(--color-border-default)] bg-gradient-to-b from-[var(--color-bg-surface)] to-[var(--color-bg-main)]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
@@ -54,9 +55,10 @@ export function HeroSection({ onLaunchApp, detectedPlatform }: HeroSectionProps)
             type="button"
             onClick={onLaunchApp}
             className="w-full sm:w-auto btn-primary px-6 py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all cursor-pointer"
+            title={isReturningUser ? "Resume Vault" : "Launch Vault"}
           >
             <Zap className="w-4 h-4 fill-current" />
-            <span>Launch Vault (No Account Needed)</span>
+            <span>{isReturningUser ? "Open Your Vault" : "Launch Vault (No Account Needed)"}</span>
           </button>
 
           <a

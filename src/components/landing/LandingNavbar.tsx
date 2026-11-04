@@ -5,12 +5,14 @@ import MarkbelLogo from '../MarkbelLogo.js'
 
 export interface LandingNavbarProps {
   token?: string | null
+  isReturningUser?: boolean
   onLaunchApp: () => void
   onSignIn: () => void
 }
 
 export function LandingNavbar({
   token,
+  isReturningUser,
   onLaunchApp,
   onSignIn
 }: LandingNavbarProps) {
@@ -100,7 +102,7 @@ export function LandingNavbar({
                 onClick={onLaunchApp}
                 className="btn-primary px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 shadow-xs cursor-pointer"
               >
-                <span>Launch Vault</span>
+                <span>{isReturningUser ? 'Resume Vault' : 'Launch Vault'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </>
@@ -192,7 +194,7 @@ export function LandingNavbar({
                 }}
                 className="flex-1 btn-primary py-2.5 text-xs font-semibold rounded-lg text-center"
               >
-                Launch Vault
+                {isReturningUser ? 'Resume Vault' : 'Launch Vault'}
               </button>
             </div>
           </motion.div>

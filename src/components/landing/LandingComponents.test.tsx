@@ -137,7 +137,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       const jsx = (
         <LandingTopBanner
           onOpenReleaseNotes={onOpenReleaseNotes}
-          version="v2.5.8"
+          version="v2.5.9"
         />
       )
 
@@ -145,14 +145,14 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       const html = renderCleanHtml(jsx)
 
       // Assert
-      expect(html).toContain('Markbel v2.5.8 is live')
-      expect(html).toContain('v2.5.8 Notes')
-      expect(html).toContain('In-Page Spotlight Link Launcher')
+      expect(html).toContain('Markbel v2.5.9 is live')
+      expect(html).toContain('v2.5.9 Notes')
+      expect(html).toContain('Nested App Subroutes')
 
       // Act: trigger onClick handler from React element tree
       const renderedTree = LandingTopBanner({
         onOpenReleaseNotes,
-        version: 'v2.5.8'
+        version: 'v2.5.9'
       })
       const buttonElement = findElementInTree(
         renderedTree,
@@ -509,6 +509,24 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       expect(html).toContain('Enter Vault')
     })
 
+    it('renders LandingNavbar for returning guest user with Resume Vault CTA', () => {
+      // Arrange
+      const jsx = (
+        <LandingNavbar
+          token={null}
+          isReturningUser={true}
+          onLaunchApp={vi.fn()}
+          onSignIn={vi.fn()}
+        />
+      )
+
+      // Act
+      const html = renderCleanHtml(jsx)
+
+      // Assert
+      expect(html).toContain('Resume Vault')
+    })
+
     it('renders LandingFooter with GitHub, Sync Protocol and Release Notes links', () => {
       // Arrange
       const onLaunchApp = vi.fn()
@@ -519,7 +537,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
           onLaunchApp={onLaunchApp}
           onOpenReleaseNotes={onOpenReleaseNotes}
           onSignIn={onSignIn}
-          version="v2.5.8"
+          version="v2.5.9"
         />
       )
 
@@ -532,7 +550,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       expect(html).toContain('Star on GitHub')
       expect(html).toContain('MIT Licensed Open Source')
       expect(html).toContain('Sync Protocol')
-      expect(html).toContain('v2.5.8 Notes')
+      expect(html).toContain('v2.5.9 Notes')
     })
   })
 })

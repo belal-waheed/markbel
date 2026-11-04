@@ -44,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.8
+                  What's New in Markbel v2.5.9
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                In-Page Spotlight Command Palette (Alt+O), Dual-Mode Quick-Open HUD (Alt+B) &amp; Sub-Millisecond Search Catalog Engine
+                Nested App Subroutes (/app/*), Deep-Linkable URL Query State (?group=&amp;tab=&amp;q=) &amp; Contextual Vault Launcher
               </p>
             </div>
           </div>
@@ -66,6 +66,65 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature 1: Nested Subroutes & Clean Architecture */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Nested App Subroutes &amp; Legacy Aliases
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Deep Linking
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Modernized URL routing organizes the application shell and views cleanly under <code>/app</code>, <code>/app/archive</code>, and <code>/app/settings</code> with automatic backwards-compatible redirects for legacy URLs and graceful catch-all fallbacks.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>/app/* Nested Routes</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Transparent 301/302 Aliasing</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature 2: URL Query State Reflection */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Search className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Live URL Query State Reflection
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Shareable Filter States
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Active group filters (<code>?group=</code>), tab filters (<code>?tab=</code>), and search queries (<code>?q=</code>) are automatically reflected in the browser URL with debounced replace-navigation, enabling bookmarking, sharing, and native browser Back/Forward navigation.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                  <span>Browser Back/Forward Sync</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                  <span>Debounced URL Replace</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature 1: In-Page Spotlight Command Palette (Alt+O) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, LocalBookmark, initializeDefaultSmartGroups, autoOrganizeUnsortedBookmarks, deduplicateLocalGroups } from "../db/db";
@@ -127,21 +127,116 @@ export default function BookmarksPage() {
     };
   }, []);
 
-  // Filter & UI States (respect defaultView on cold boot)
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Filter & UI States (respect URL query params first, fallback to navigation preferences)
   const [activeGroup, setActiveGroup] = useState<string | null>(() => {
+    const param = searchParams.get("group");
+    if (param !== null) {
+      return param || null;
+    }
     const prefs = getNavigationPreferences();
     if (prefs.defaultView.startsWith("group:")) {
       return prefs.defaultView.slice(6);
     }
     return null;
   });
+
   const [currentTab, setCurrentTab] = useState<FilterTab>(() => {
+    const VALID_TABS: FilterTab[] = ["all", "unread", "pinned", "due"];
+    const param = searchParams.get("tab");
+    if (param && (VALID_TABS as readonly string[]).includes(param)) {
+      return param as FilterTab;
+    }
     const prefs = getNavigationPreferences();
     if (["unread", "pinned", "due"].includes(prefs.defaultView)) {
       return prefs.defaultView as FilterTab;
     }
     return "all";
   });
+
+  const [searchQuery, setSearchQuery] = useState<string>(() => searchParams.get("q") || "");
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
+
+  // Group & Tab Navigation Handlers (Push to history)
+  const handleGroupChange = useCallback((newGroup: string | null) => {
+    setActiveGroup(newGroup);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newGroup) {
+        next.set("group", newGroup);
+      } else {
+        next.delete("group");
+      }
+      return next;
+    });
+  }, [setSearchParams]);
+
+  const handleTabChange = useCallback((newTab: FilterTab) => {
+    setCurrentTab(newTab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newTab && newTab !== "all") {
+        next.set("tab", newTab);
+      } else {
+        next.delete("tab");
+      }
+      return next;
+    });
+  }, [setSearchParams]);
+
+  // Sync debounced search query to URL with replace: true (no spamming history entries)
+  useEffect(() => {
+    const urlQ = searchParams.get("q") || "";
+    const trimmed = debouncedSearchQuery.trim();
+    if (trimmed !== urlQ) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (trimmed) {
+          next.set("q", trimmed);
+        } else {
+          next.delete("q");
+        }
+        return next;
+      }, { replace: true });
+    }
+  }, [debouncedSearchQuery, searchParams, setSearchParams]);
+
+  // Synchronize state with browser Back/Forward navigation changes
+  useEffect(() => {
+    const VALID_TABS: FilterTab[] = ["all", "unread", "pinned", "due"];
+
+    // 1. Group sync
+    const urlGroup = searchParams.get("group");
+    if (urlGroup !== null) {
+      const resolved = urlGroup || null;
+      setActiveGroup((prev) => (prev !== resolved ? resolved : prev));
+    } else {
+      const prefs = getNavigationPreferences();
+      const fallback = prefs.defaultView.startsWith("group:")
+        ? prefs.defaultView.slice(6)
+        : null;
+      setActiveGroup((prev) => (prev !== fallback ? fallback : prev));
+    }
+
+    // 2. Tab sync
+    const urlTab = searchParams.get("tab");
+    if (urlTab && (VALID_TABS as readonly string[]).includes(urlTab)) {
+      const resolvedTab = urlTab as FilterTab;
+      setCurrentTab((prev) => (prev !== resolvedTab ? resolvedTab : prev));
+    } else {
+      const prefs = getNavigationPreferences();
+      const fallbackTab: FilterTab = ["unread", "pinned", "due"].includes(prefs.defaultView)
+        ? (prefs.defaultView as FilterTab)
+        : "all";
+      setCurrentTab((prev) => (prev !== fallbackTab ? fallbackTab : prev));
+    }
+
+    // 3. Search query sync
+    const urlQ = searchParams.get("q") || "";
+    setSearchQuery((prev) => (prev !== urlQ ? urlQ : prev));
+  }, [searchParams]);
+
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("markbel_view_mode") as ViewMode) || "grid";
@@ -157,8 +252,6 @@ export default function BookmarksPage() {
     }
   };
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pinnedCategoryNames, setPinnedCategoryNames] = useState<string[]>(() =>
@@ -519,7 +612,7 @@ export default function BookmarksPage() {
         await bookmarkRepository.bulkUpdate(groupBookmarkIds, { group: "Unsorted" });
       }
       if (activeGroup === name) {
-        setActiveGroup(null);
+        handleGroupChange(null);
       }
       syncManager.sync(true);
     }
@@ -544,7 +637,7 @@ export default function BookmarksPage() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         activeGroup={activeGroup}
-        setActiveGroup={setActiveGroup}
+        setActiveGroup={handleGroupChange}
         bookmarks={bookmarks}
         dbGroups={dbGroups}
         logout={logout}
@@ -646,7 +739,7 @@ export default function BookmarksPage() {
             {/* Filter Bar & Search */}
             <BookmarkFilterBar
               currentTab={currentTab}
-              onTabChange={setCurrentTab}
+              onTabChange={handleTabChange}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               viewMode={viewMode}
@@ -661,7 +754,7 @@ export default function BookmarksPage() {
                 <CategoryPillBar
                   groups={mergedGroups}
                   activeGroup={activeGroup}
-                  onSelectGroup={setActiveGroup}
+                  onSelectGroup={handleGroupChange}
                   pinnedCategoryNames={pinnedCategoryNames}
                   onTogglePin={handleToggleCategoryPin}
                   totalCount={bookmarks.length}

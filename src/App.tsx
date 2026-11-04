@@ -137,20 +137,28 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/landing" element={<Navigate to="/" replace />} />
-                <Route path="/app" element={<BookmarksPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/share" element={<ShareTargetPage />} />
-                <Route path="/archive" element={<ArchivePage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+
+                {/* Nested Subroutes under /app */}
+                <Route path="/app" element={<BookmarksPage />} />
+                <Route path="/app/archive" element={<ArchivePage />} />
+                <Route path="/app/settings" element={<SettingsPage />} />
                 <Route
-                  path="/sync-debug"
+                  path="/app/sync-debug"
                   element={
                     <ProtectedRoute>
                       <SyncDebugPage />
                     </ProtectedRoute>
                   }
                 />
-                {/* Silently redirect bad /app/* sub-routes to /app */}
+
+                {/* Backwards-Compatible Legacy Redirect Aliases */}
+                <Route path="/archive" element={<Navigate to="/app/archive" replace />} />
+                <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+                <Route path="/sync-debug" element={<Navigate to="/app/sync-debug" replace />} />
+
+                {/* Graceful Catch-All for unknown /app/* sub-routes */}
                 <Route path="/app/*" element={<Navigate to="/app" replace />} />
                 {/* Catch-all unknown routes redirect to landing page */}
                 <Route path="*" element={<Navigate to="/" replace />} />
