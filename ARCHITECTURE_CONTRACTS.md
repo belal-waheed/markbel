@@ -2,7 +2,7 @@
 
 **Audience:** AI Coding Agents (Antigravity, Gemini, Claude, Cursor) & Staff Software Engineers  
 **Status:** Canonical & Mandatory  
-**Version:** 2.5.16+  
+**Version:** 2.5.17+  
 **Last Updated:** November 2026  
 
 ---

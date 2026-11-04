@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Compound Dexie FTS Tokens, D1 SQLite Upsert Ingestion Guard, SSRF Link Prober &amp; MV3 Bidirectional Sync
+            Cross-Client Thumbnail Resilience, Repository Media Enrichment, Browser Sync Heuristics &amp; Database Self-Healing
           </span>
         </div>
         <button

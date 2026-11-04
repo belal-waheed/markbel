@@ -2,6 +2,7 @@ import React from 'react'
 import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check, ListVideo, BookOpen } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { extractHostname } from '../lib/smartGroups'
+import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
 
@@ -46,6 +47,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onDismissReminder,
   onSnoozeReminder
 }) => {
+  const instant = extractInstantMediaMetadata(b.url);
+  const effectiveImage = b.image || instant.image || '';
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // COMPACT LIST ROW VIEW
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -60,7 +64,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         {/* Left: Compact Square Thumbnail */}
         <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-lg overflow-hidden relative border border-[var(--color-border-default)] bg-[var(--color-bg-element)]">
           <BookmarkImage
-            src={b.image || ''}
+            src={effectiveImage}
             fallbackSrc={b.favicon || (b.url ? `https://www.google.com/s2/favicons?domain=${extractHostname(b.url)}&sz=128` : undefined)}
             alt={b.title}
             aspectRatioClass="aspect-square w-full h-full"
@@ -277,7 +281,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         {/* Image Thumbnail with Overlay Actions */}
         <div className="relative">
           <BookmarkImage
-            src={b.image || ''}
+            src={effectiveImage}
             fallbackSrc={b.favicon || (b.url ? `https://www.google.com/s2/favicons?domain=${extractHostname(b.url)}&sz=128` : undefined)}
             alt={b.title}
             aspectRatioClass="aspect-video"

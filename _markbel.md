@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.5.16  
+> **Status:** Production / v2.5.17  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -303,4 +303,11 @@ Each milestone must pass the strict Markbel release pipeline:
 - **Extension MV3 Service Worker & Native Bookmarks Sync:** Fixed `chrome.runtime.onMessage` to return `true` strictly for asynchronous messages; ensured `sync-alarm` initialization at top-level service worker scope; implemented persistent `browserNodeIdToUrlMap` in `chrome.storage.local` to enable deletion synchronization from native browser bookmark removes.
 - **PWA Quota & Mobile Dark Mode Theme:** Removed duplicate manifest link in `index.html`; added `navigator.storage.persist()` storage quota protection; dynamically synchronized native Capacitor `StatusBar` color and style to active dark/light mode state changes.
 - **Verification Gate:** 536/536 tests passing (`npm test`), 0 TypeScript errors (`npm run typecheck`), production assets deployed to `https://mark.obel.workers.dev`.
+
+### Cross-Client Media Resilience & Self-Healing Protocol (v2.5.17):
+- **Card Presentation Thumbnail Fallback:** Integrated `extractInstantMediaMetadata` in `src/components/BookmarkCard.tsx` (both List and Grid views) to compute `effectiveImage` fallback for zero-network deterministic platform thumbnails (YouTube, GitHub, etc.) when `b.image` is empty.
+- **Repository Media Mutation Enrichment:** Integrated heuristic enrichment in `BookmarkRepository.create` in `src/db/SyncRepository.ts` to enrich media metadata (`image`, `title`, `siteName`, `contentType`, `description`) before database and outbox persistence.
+- **Extension Native Browser Sync Enrichment:** Integrated instant media metadata extraction into `BrowserBookmarkSyncEngine` (`handleNativeCreated` and `importAllBrowserBookmarks`) in `extension/src/bookmarkSync.ts`.
+- **Database Self-Healing Sweep:** Added `repairMissingMediaThumbnails` in `src/db/db.ts` and scheduled automatic execution in an idle callback on launch in `src/main.tsx` to self-heal existing local IndexedDB records.
+- **Verification Gate:** 544/544 tests passing across 42 suites (`npm test`), 0 TypeScript errors (`npm run typecheck`), edge worker and web assets deployed to `https://mark.obel.workers.dev`.
 

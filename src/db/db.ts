@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { resolveSmartGroup, getCustomSmartGroupRules, DEFAULT_SMART_GROUPS } from '../lib/smartGroups.js';
+import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 
 export interface LocalBookmark {
   id: string;
@@ -653,6 +654,34 @@ export async function deleteArticleTokens(bookmarkId: string): Promise<void> {
     await db.articleTokens.where('bookmarkId').equals(bookmarkId).delete();
   } catch (err) {
     console.warn('[Dexie Delete Article Tokens Error]:', err);
+  }
+}
+
+/**
+ * Self-healing repair: scans active bookmarks lacking thumbnail images and backfills
+ * deterministic media metadata (YouTube, GitHub, etc.) without network requests.
+ */
+export async function repairMissingMediaThumbnails(): Promise<number> {
+  try {
+    const candidates = await db.bookmarks
+      .filter((b) => !b.deletedAt && !b.image)
+      .toArray();
+    let repaired = 0;
+    for (const b of candidates) {
+      const instant = extractInstantMediaMetadata(b.url);
+      if (instant.image) {
+        await db.bookmarks.update(b.id, {
+          image: instant.image,
+          ...(instant.siteName && !b.siteName ? { siteName: instant.siteName } : {}),
+          ...(instant.contentType && !b.contentType ? { contentType: instant.contentType } : {}),
+        });
+        repaired++;
+      }
+    }
+    return repaired;
+  } catch (err) {
+    console.debug('[Markbel DB] repairMissingMediaThumbnails notice:', err);
+    return 0;
   }
 }
 

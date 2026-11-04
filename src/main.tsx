@@ -3,9 +3,22 @@ import ReactDOM from 'react-dom/client'
 import App from './App.js'
 import './index.css'
 import { initializeNotifications } from './notifications/init.js'
+import { repairMissingMediaThumbnails } from './db/db.js'
 
 // Initialize local background services
 initializeNotifications();
+
+// Self-heal media thumbnails for existing bookmarks on application launch
+if (typeof window !== 'undefined') {
+  const runMediaRepair = () => {
+    repairMissingMediaThumbnails().catch(() => {});
+  };
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(runMediaRepair);
+  } else {
+    setTimeout(runMediaRepair, 1000);
+  }
+}
 
 // Request persistent storage quota to prevent browser evicting IndexedDB under storage pressure
 if (typeof navigator !== 'undefined' && navigator.storage?.persist) {

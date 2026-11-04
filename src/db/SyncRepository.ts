@@ -1,6 +1,7 @@
 import { db, LocalBookmark, LocalGroup, SyncOutboxItem } from './db';
 import { SyncOutboxItem as SharedSyncOutboxItem } from '@/sync';
 import { NotificationEventBus } from '@/notifications';
+import { extractInstantMediaMetadata } from '../lib/mediaHeuristics';
 
 export interface SyncRepository<T> {
   create(entity: Omit<T, 'version' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<T>;
@@ -31,8 +32,21 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
   async create(data: Omit<LocalBookmark, 'version' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<LocalBookmark> {
     const now = new Date().toISOString();
     
+    let candidateData = data;
+    if (!data.image || !data.title || data.title === data.url) {
+      const instant = extractInstantMediaMetadata(data.url);
+      candidateData = {
+        ...data,
+        image: data.image || instant.image || '',
+        title: (!data.title || data.title === data.url) && instant.title ? instant.title : (data.title || data.url),
+        siteName: data.siteName || instant.siteName || '',
+        contentType: data.contentType || instant.contentType || 'website',
+        description: data.description || instant.description || '',
+      };
+    }
+
     const bookmark: LocalBookmark = {
-      ...data,
+      ...candidateData,
       version: 0,
       createdAt: now,
       updatedAt: now,

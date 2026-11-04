@@ -8,6 +8,7 @@
 import { db, LocalBookmark } from '@/db/db';
 import { saveBookmark } from './api';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
+import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 
 export const MARKBEL_VAULT_FOLDER_TITLE = 'Markbel Vault';
 export const STORAGE_KEY_TWO_WAY_SYNC = 'twoWayBookmarksSyncEnabled';
@@ -226,10 +227,15 @@ export class BrowserBookmarkSyncEngine {
         ? folderGroup
         : resolveSmartGroup(bookmark.url, [], customRules);
 
+      const instant = extractInstantMediaMetadata(bookmark.url);
       await saveBookmark({
         url: bookmark.url,
-        title: bookmark.title || bookmark.url,
+        title: bookmark.title || instant.title || bookmark.url,
         group,
+        image: instant.image || '',
+        siteName: instant.siteName || '',
+        contentType: instant.contentType,
+        description: instant.description || '',
       });
     } catch (err) {
       console.error('[Markbel BookmarkSync] handleNativeCreated error:', err);
@@ -447,10 +453,15 @@ export class BrowserBookmarkSyncEngine {
       }
 
       const group = resolveSmartGroup(item.url, [], customRules);
+      const instant = extractInstantMediaMetadata(item.url);
       await saveBookmark({
         url: item.url,
-        title: item.title,
+        title: item.title && item.title !== item.url ? item.title : (instant.title || item.title || item.url),
         group,
+        image: instant.image || '',
+        siteName: instant.siteName || '',
+        contentType: instant.contentType,
+        description: instant.description || '',
       });
 
       existingUrlSet.add(normalized);
