@@ -124,6 +124,8 @@ export function sanitizeAndCleanUrl(rawUrl: string): { targetUrl: URL; cleanUrlS
     'wbraid',
     'gbraid',
     'igshid',
+    'igsh',
+    'si',
     'mc_cid',
     'mc_eid',
     'msclkid',
@@ -134,8 +136,15 @@ export function sanitizeAndCleanUrl(rawUrl: string): { targetUrl: URL; cleanUrlS
     'vero_id',
   ];
 
-  for (const param of TRACKING_PARAMS) {
-    targetUrl.searchParams.delete(param);
+  const keysToDelete: string[] = [];
+  for (const key of targetUrl.searchParams.keys()) {
+    if (key.startsWith('utm_') || TRACKING_PARAMS.includes(key)) {
+      keysToDelete.push(key);
+    }
+  }
+
+  for (const key of keysToDelete) {
+    targetUrl.searchParams.delete(key);
   }
 
   // Also remove YouTube tracking if present but keep video id

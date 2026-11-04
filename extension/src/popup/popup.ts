@@ -8,6 +8,7 @@ import {
   setupHostPermissionHandler,
   checkAndRenderHostPermissionBanner,
   resolveInitialMode,
+  checkIfUrlInVault,
   type PopupMode,
 } from './popupUtils';
 import { verifyAndSyncSession, initAuthView } from './popupAuth';
@@ -15,6 +16,7 @@ import { initSaveView, loadActiveTabData, loadSharedVaults } from './popupSaveVi
 import { initSearchView, activateSearchView } from './popupSearchView';
 import { getApiBase } from '../api';
 import { db } from '@/db/db';
+import { sanitizeAndCleanUrl } from '@/lib/urlSafety';
 
 let currentMode: PopupMode = 'save';
 
@@ -33,13 +35,7 @@ async function onSessionReady(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
   let isAlreadyInVault = false;
   if (tab?.url) {
-    const existing = await db.bookmarks
-      .where('url')
-      .equals(tab.url)
-      .and((b) => !b.deletedAt)
-      .first()
-      .catch(() => null);
-    if (existing) isAlreadyInVault = true;
+    isAlreadyInVault = await checkIfUrlInVault(db.bookmarks, tab.url);
   }
 
   const { mode } = resolveInitialMode({ isAuthenticated: true, isAlreadyInVault });

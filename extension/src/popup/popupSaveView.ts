@@ -8,6 +8,7 @@ import { saveBookmark, listSharedVaults, SharedVault } from '../api';
 import { db } from '@/db/db';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
+import { sanitizeAndCleanUrl } from '@/lib/urlSafety';
 import type { ExtractedPageMetadata } from '../content';
 import { escapeHtml, isRestrictedBrowserUrl, showError, showView } from './popupUtils';
 
@@ -77,9 +78,14 @@ export function buildBookmarkSavePayload(params: {
   const finalGroup = resolveEffectiveGroup(params.customGroup, params.selectedGroup, params.autoGroup);
   const formattedReminder = formatReminderDate(params.remindAt);
 
+  let cleanUrl = params.url.trim();
+  try {
+    cleanUrl = sanitizeAndCleanUrl(params.url.trim()).cleanUrlStr;
+  } catch {}
+
   return {
-    url: params.url.trim(),
-    title: params.title.trim() || params.url.trim(),
+    url: cleanUrl,
+    title: params.title.trim() || cleanUrl,
     description: (params.description || '').trim(),
     image: params.image || '',
     favicon: params.favicon || '',

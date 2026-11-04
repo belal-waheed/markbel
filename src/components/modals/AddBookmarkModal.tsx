@@ -3,6 +3,7 @@ import { X, Loader2, Globe, Sparkles, Plus, Calendar, Pin } from "lucide-react";
 import { api } from "../../lib/api";
 import { useDebounce } from "../../lib/useDebounce";
 import { resolveSmartGroup, getCustomSmartGroupRules, CompoundSmartGroupRule } from "../../lib/smartGroups";
+import { sanitizeAndCleanUrl } from "../../lib/urlSafety";
 
 interface AddBookmarkModalProps {
   isOpen: boolean;
@@ -122,15 +123,39 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleUrlChange = (val: string) => {
+    if (val.includes("?") || val.includes("&") || val.startsWith("http://") || val.startsWith("https://")) {
+      try {
+        const cleaned = sanitizeAndCleanUrl(val.trim()).cleanUrlStr;
+        setUrl(cleaned);
+        return;
+      } catch {}
+    }
+    setUrl(val);
+  };
+
+  const handleUrlBlur = () => {
+    if (url.trim()) {
+      try {
+        setUrl(sanitizeAndCleanUrl(url.trim()).cleanUrlStr);
+      } catch {}
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
 
     setIsSubmitting(true);
     try {
+      let finalUrl = url.trim();
+      try {
+        finalUrl = sanitizeAndCleanUrl(finalUrl).cleanUrlStr;
+      } catch {}
+
       await onAdd({
-        url: url.trim(),
-        title: title.trim() || url.trim(),
+        url: finalUrl,
+        title: title.trim() || finalUrl,
         description: description.trim(),
         image: image.trim(),
         group: group || "Unsorted",
@@ -188,7 +213,8 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
                 ref={urlInputRef}
                 type="url"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => handleUrlChange(e.target.value)}
+                onBlur={handleUrlBlur}
                 placeholder="https://example.com/article"
                 className="w-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-lg py-2.5 pl-9 pr-3 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focused)] focus:ring-1 focus:ring-[var(--color-border-focused)]"
                 required

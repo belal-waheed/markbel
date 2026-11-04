@@ -4,6 +4,7 @@ import type { Bindings, Variables } from "../types";
 import { authMiddleware } from "../middleware/auth";
 import { normalizeSyncRecord } from "../normalize";
 import { extractInstantMediaMetadata } from "../../../src/lib/mediaHeuristics";
+import { sanitizeAndCleanUrl } from "../../../src/lib/urlSafety";
 
 export const syncRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -53,11 +54,6 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
   if (changes.length === 0) {
     return c.json({ results: [] });
   }
-
-  try {
-    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sync_changes_client_id ON sync_changes(client_change_id)").run();
-    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, sequence)").run();
-  } catch {}
 
   // 1. Prefetch existing sync changes for idempotency check in batch
   const changeIds = changes.map((ch) => ch.changeId);
@@ -182,6 +178,11 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
         if (operation === "create") {
           let bookmarkTitle = (payload.title || "").trim();
           let bookmarkUrl = (payload.url || "").trim();
+          if (bookmarkUrl) {
+            try {
+              bookmarkUrl = sanitizeAndCleanUrl(bookmarkUrl).cleanUrlStr;
+            } catch {}
+          }
           let bookmarkImage = (payload.image || "").trim();
           let bookmarkSiteName = (payload.siteName || payload.site_name || "").trim();
           let bookmarkDescription = (payload.description || "").trim();
@@ -282,6 +283,14 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
           recordJson = JSON.stringify(normalizeSyncRecord(savedBookmark, "bookmark"));
         } else if (operation === "update") {
           const updatedAt = payload.updatedAt || now;
+          let cleanedUrl = payload.url;
+          if (typeof payload.url === "string" && payload.url.trim()) {
+            try {
+              cleanedUrl = sanitizeAndCleanUrl(payload.url.trim()).cleanUrlStr;
+            } catch {
+              cleanedUrl = payload.url.trim();
+            }
+          }
 
           statements.push(
             c.env.DB.prepare(
@@ -311,7 +320,7 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
                WHERE id = ? AND user_id = ?`
             ).bind(
               payload.title ?? null,
-              payload.url ?? null,
+              cleanedUrl ?? null,
               payload.description ?? null,
               payload.image ?? null,
               payload.favicon ?? null,
@@ -342,7 +351,7 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
             id: entityId,
             user_id: userId,
             title: payload.title !== undefined ? payload.title : currentRecord?.title,
-            url: payload.url !== undefined ? payload.url : currentRecord?.url,
+            url: cleanedUrl !== undefined ? cleanedUrl : currentRecord?.url,
             description: payload.description !== undefined ? payload.description : currentRecord?.description,
             image: payload.image !== undefined ? payload.image : currentRecord?.image,
             favicon: payload.favicon !== undefined ? payload.favicon : currentRecord?.favicon,
@@ -644,4 +653,15 @@ syncRouter.get("/api/sync/pull", authMiddleware, async (c) => {
     nextCursor,
     hasMore,
   });
+});
+
+syncRouter.post("/api/sync/compact", authMiddleware, async (c) => {
+  const userId = c.get("vaultOwnerId") || c.get("userId");
+  await c.env.DB.prepare(
+    `DELETE FROM sync_changes WHERE user_id = ? AND sequence NOT IN (SELECT MAX(sequence) FROM sync_changes WHERE user_id = ? GROUP BY entity_type, entity_id)`
+  )
+    .bind(userId, userId)
+    .run();
+
+  return c.json({ success: true, message: "Sync delta log compacted successfully" });
 });

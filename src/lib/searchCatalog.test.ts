@@ -146,6 +146,39 @@ describe('searchCatalog - filterAndRankBookmarks', () => {
     expect(results.length).toBe(30);
   });
 
+  it('returns all items without slicing when limit <= 0', () => {
+    // Arrange
+    const largeCatalog: SearchBookmarkItem[] = Array.from({ length: 45 }, (_, i) => ({
+      id: `item-${i}`,
+      title: `Cloudflare Article ${i}`,
+      url: `https://cloudflare.com/${i}`,
+      createdAt: new Date(Date.now() - i * 1000).toISOString(),
+    }));
+
+    // Act
+    const allEmptyResults = filterAndRankBookmarks(largeCatalog, '', undefined, 0);
+    const allQueryResults = filterAndRankBookmarks(largeCatalog, 'cloudflare', undefined, 0);
+
+    // Assert
+    expect(allEmptyResults.length).toBe(45);
+    expect(allQueryResults.length).toBe(45);
+  });
+
+  it('matches non-contiguous multi-word tokens in title and across fields', () => {
+    // Arrange
+    // sampleCatalog has item 5: title "YouTube - Building React Hooks from Scratch"
+    // and item 6: title "Advanced Web Architecture", description "Explaining react hooks and state management"
+
+    // Act: Non-contiguous words in item 5 title ("building" and "scratch")
+    const nonContiguousTitle = filterAndRankBookmarks(sampleCatalog, 'building scratch');
+    expect(nonContiguousTitle.length).toBeGreaterThanOrEqual(1);
+    expect(nonContiguousTitle[0].id).toBe('5');
+
+    // Act: Tokens spread across title ("Advanced") and description ("hooks")
+    const crossFieldMatches = filterAndRankBookmarks(sampleCatalog, 'advanced hooks');
+    expect(crossFieldMatches.some((item) => item.id === '6')).toBe(true);
+  });
+
   it('unmatching items are filtered out even if pinned', () => {
     const customCatalog: SearchBookmarkItem[] = [
       { id: 'unrelated-pinned', title: 'Cooking Recipes', url: 'https://food.com', isPinned: true },

@@ -44,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.12
+                  What's New in Markbel v2.5.13
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Modular Edge Agent Routers, OpenAPI Sub-Routing &amp; Zero-Downtime Decoupling
+                Dexie URL Indexing, Hot-Path DDL Removal, Ingest Tracking Cleansing &amp; Delta Compaction
               </p>
             </div>
           </div>
@@ -66,6 +66,95 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature 1: Dexie URL Indexing & HUD Duplicate Detection */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Dexie URL Indexing &amp; Extension Duplicate Detection
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Phase 14 Core
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Upgraded Dexie IndexedDB schema to <code>version(7)</code> with an indexed <code>url</code> column. The browser extension HUD now executes sub-millisecond queries to detect if the active tab is already bookmarked in your vault, switching seamlessly into Quick Search mode.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Dexie v7 Indexed URL</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Extension HUD Already-in-Vault Detection</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature 2: Edge Hot-Path DDL Removal & Delta Compaction */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Hot-Path DDL Elimination &amp; Delta Log Compaction
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Edge Cloudflare Worker
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Eliminated dynamic <code>CREATE INDEX IF NOT EXISTS</code> calls on the push sync mutation hot path, shifting all index governance to static schema migrations. Added <code>POST /api/sync/compact</code> to prune obsolete historical audit deltas.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>0ms DDL Push Overhead</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>POST /api/sync/compact Endpoint</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature 3: Universal Ingest Cleansing & Unified Search Catalog */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Search className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Universal Ingest Cleansing &amp; Unified Search Catalog
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Privacy &amp; Discovery
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Universal URL parameter sanitization automatically strips tracking identifiers (<code>si</code>, <code>igsh</code>, <code>fbclid</code>, <code>gbraid</code>, <code>wbraid</code>, <code>utm_*</code>) across modal input, extension saves, agent API, and sync mutations. Web Vault search is now unified with tokenized scoring and ranking.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Tracking Parameter Cleansing</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Unified Tokenized Ranking</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature 1: Modular Agent Sub-Routers & OpenAPI Decoupling */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

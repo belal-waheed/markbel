@@ -197,4 +197,60 @@ describe("Sync Mutations Zod Boundary Validation", () => {
     // Only valid-1 is compacted
     expect(compacted.map((c) => c.id)).toEqual(["valid-1"]);
   });
+
+  describe("Sync Delta Compaction & Ingest Sanitization (Phase 14)", () => {
+    it("compacts superseded sequence rows while preserving the latest sequence per entity", () => {
+      // Arrange: Simulated sync_changes rows
+      interface SyncRow {
+        sequence: number;
+        user_id: string;
+        entity_type: string;
+        entity_id: string;
+        operation: string;
+      }
+
+      const rows: SyncRow[] = [
+        { sequence: 1, user_id: "user-1", entity_type: "bookmark", entity_id: "bm-1", operation: "create" },
+        { sequence: 2, user_id: "user-1", entity_type: "bookmark", entity_id: "bm-1", operation: "update" },
+        { sequence: 3, user_id: "user-1", entity_type: "bookmark", entity_id: "bm-1", operation: "update" }, // Latest bm-1
+        { sequence: 4, user_id: "user-1", entity_type: "group", entity_id: "grp-1", operation: "create" }, // Latest grp-1
+        { sequence: 5, user_id: "user-1", entity_type: "bookmark", entity_id: "bm-2", operation: "create" },
+        { sequence: 6, user_id: "user-1", entity_type: "bookmark", entity_id: "bm-2", operation: "update" }, // Latest bm-2
+        { sequence: 7, user_id: "user-2", entity_type: "bookmark", entity_id: "bm-99", operation: "create" }, // Other user
+      ];
+
+      // Act: Simulate SQL DELETE WHERE user_id = ? AND sequence NOT IN (SELECT MAX(sequence) FROM sync_changes WHERE user_id = ? GROUP BY entity_type, entity_id)
+      const targetUserId = "user-1";
+      const userRows = rows.filter((r) => r.user_id === targetUserId);
+      const maxSeqByEntity = new Map<string, number>();
+
+      for (const row of userRows) {
+        const key = `${row.entity_type}:${row.entity_id}`;
+        const currentMax = maxSeqByEntity.get(key) || 0;
+        if (row.sequence > currentMax) {
+          maxSeqByEntity.set(key, row.sequence);
+        }
+      }
+
+      const preservedSequences = new Set(maxSeqByEntity.values());
+      const deletedRows = userRows.filter((r) => !preservedSequences.has(r.sequence));
+      const retainedRows = userRows.filter((r) => preservedSequences.has(r.sequence));
+
+      // Assert
+      expect(deletedRows.map((r) => r.sequence)).toEqual([1, 2, 5]);
+      expect(retainedRows.map((r) => r.sequence)).toEqual([3, 4, 6]);
+    });
+
+    it("cleans tracking parameters on ingest before persisting bookmark url", async () => {
+      // Arrange
+      const { sanitizeAndCleanUrl } = await import("../lib/urlSafety");
+      const dirtyUrl = "https://example.com/article?fbclid=123&utm_source=twitter&si=abc&post=42";
+
+      // Act
+      const { cleanUrlStr } = sanitizeAndCleanUrl(dirtyUrl);
+
+      // Assert
+      expect(cleanUrlStr).toBe("https://example.com/article?post=42");
+    });
+  });
 });

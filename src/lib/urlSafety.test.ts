@@ -118,6 +118,27 @@ describe('urlSafety Unit Tests (AAA Pattern)', () => {
       expect(targetUrl.searchParams.has('pp')).toBe(false);
       expect(cleanUrlStr).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     });
+
+    it('should strip modern tracking parameters (si, igsh, fbclid, gbraid, wbraid, utm_*) while retaining content params', () => {
+      // Arrange
+      const dirtyUrl =
+        'https://example.com/item?article_id=123&si=share999&igsh=insta123&fbclid=fb_click_id&gbraid=google_app_1&wbraid=google_web_2&utm_source=custom&utm_campaign=winter_sale&utm_custom_tracker=active';
+
+      // Act
+      const { targetUrl, cleanUrlStr } = sanitizeAndCleanUrl(dirtyUrl);
+
+      // Assert
+      expect(targetUrl.searchParams.get('article_id')).toBe('123');
+      expect(targetUrl.searchParams.has('si')).toBe(false);
+      expect(targetUrl.searchParams.has('igsh')).toBe(false);
+      expect(targetUrl.searchParams.has('fbclid')).toBe(false);
+      expect(targetUrl.searchParams.has('gbraid')).toBe(false);
+      expect(targetUrl.searchParams.has('wbraid')).toBe(false);
+      expect(targetUrl.searchParams.has('utm_source')).toBe(false);
+      expect(targetUrl.searchParams.has('utm_campaign')).toBe(false);
+      expect(targetUrl.searchParams.has('utm_custom_tracker')).toBe(false);
+      expect(cleanUrlStr).toBe('https://example.com/item?article_id=123');
+    });
   });
 
   describe('cleanText Helper', () => {

@@ -4,6 +4,7 @@
  */
 
 import { checkHostPermission, requestHostPermission } from '../api';
+import { sanitizeAndCleanUrl } from '@/lib/urlSafety';
 
 export type PopupView = 'auth' | 'save' | 'search' | 'success';
 export type PopupMode = 'save' | 'search';
@@ -52,6 +53,48 @@ export function resolveInitialMode(params: {
     return { view: 'search', mode: 'search' };
   }
   return { view: 'save', mode: 'save' };
+}
+
+/**
+ * Check whether an active tab URL already exists in local vault storage.
+ * Evaluates the sanitized canonical URL first, with graceful fallback to raw URL.
+ */
+export async function checkIfUrlInVault(
+  bookmarksTable: {
+    where: (index: string) => {
+      equals: (val: string) => {
+        and: (predicate: (b: any) => boolean) => {
+          first: () => Promise<any>;
+        };
+      };
+    };
+  },
+  rawUrl?: string | null
+): Promise<boolean> {
+  if (!rawUrl || !rawUrl.trim()) return false;
+  const trimmed = rawUrl.trim();
+  let cleanUrl = trimmed;
+  try {
+    cleanUrl = sanitizeAndCleanUrl(trimmed).cleanUrlStr;
+  } catch {}
+
+  let existing = await bookmarksTable
+    .where('url')
+    .equals(cleanUrl)
+    .and((b: any) => !b.deletedAt)
+    .first()
+    .catch(() => null);
+
+  if (!existing && cleanUrl !== trimmed) {
+    existing = await bookmarksTable
+      .where('url')
+      .equals(trimmed)
+      .and((b: any) => !b.deletedAt)
+      .first()
+      .catch(() => null);
+  }
+
+  return !!existing;
 }
 
 /**

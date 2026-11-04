@@ -124,6 +124,10 @@ export class MarkbelDatabase extends Dexie {
     this.version(6).stores({
       cachedThumbnails: 'id, updatedAt'
     }).upgrade(() => {});
+
+    this.version(7).stores({
+      bookmarks: 'id, userId, url, group, isArchived, isRead, contentType, deletedAt'
+    }).upgrade(() => {});
   }
 }
 

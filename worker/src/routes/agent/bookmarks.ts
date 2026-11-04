@@ -4,6 +4,7 @@ import type { Bindings, Variables } from "../../types";
 import { requireScope, requireVaultRole } from "../../middleware/auth";
 import { normalizeSyncRecord } from "../../normalize";
 import { extractInstantMediaMetadata } from "../../../../src/lib/mediaHeuristics";
+import { sanitizeAndCleanUrl } from "../../../../src/lib/urlSafety";
 import { resolveSmartGroup, type CompoundSmartGroupRule, type CustomGroupRule } from "../../../../src/lib/smartGroups";
 import {
   BookmarkDbRow,
@@ -224,7 +225,12 @@ agentBookmarksRouter.post("/bookmarks", requireScope("bookmarks:write"), require
     }
 
     const body = parseResult.data;
-    const cleanUrl = body.url;
+    let cleanUrl = body.url;
+    try {
+      cleanUrl = sanitizeAndCleanUrl(body.url).cleanUrlStr;
+    } catch {
+      cleanUrl = body.url;
+    }
 
     // Extract instant media heuristics for title, description, image, and site name
     const instant = extractInstantMediaMetadata(cleanUrl);

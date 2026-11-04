@@ -8,7 +8,7 @@ export interface LandingTopBannerProps {
 
 export function LandingTopBanner({
   onOpenReleaseNotes,
-  version = 'v2.5.12'
+  version = 'v2.5.13'
 }: LandingTopBannerProps) {
   return (
     <div className="bg-[var(--color-bg-element)] border-b border-[var(--color-border-default)] px-4 py-2 sm:py-2.5 text-center text-xs text-[var(--color-text-muted)] font-medium select-none">
@@ -19,7 +19,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Modular Edge Agent Routers, OpenAPI Sub-Routing &amp; Zero-Downtime Decoupling
+            Dexie URL Indexing, Hot-Path DDL Removal, Ingest Tracking Cleansing &amp; Delta Compaction
           </span>
         </div>
         <button

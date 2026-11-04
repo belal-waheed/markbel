@@ -10,6 +10,7 @@ import {
   escapeHtml,
   isRestrictedBrowserUrl,
   resolveInitialMode,
+  checkIfUrlInVault,
 } from '../../extension/src/popup/popupUtils';
 import {
   validateLoginCredentials,
@@ -125,6 +126,116 @@ describe('ExtensionPopup HUD Subsystem (Phase 11)', () => {
       // Assert
       expect(result.view).toBe('save');
       expect(result.mode).toBe('save');
+    });
+
+    it('detects bookmark in vault when active URL query matches sanitized URL', async () => {
+      // Arrange
+      const mockBookmarks = [
+        { id: 'b1', url: 'https://example.com/clean-article', deletedAt: null },
+      ];
+      const mockDb = {
+        where: (field: string) => ({
+          equals: (val: string) => ({
+            and: (predicate: (b: any) => boolean) => ({
+              first: async () => mockBookmarks.find((b) => b[field as keyof typeof b] === val && predicate(b)) || null,
+            }),
+          }),
+        }),
+      };
+
+      // Act
+      const isFound = await checkIfUrlInVault(
+        mockDb as any,
+        'https://example.com/clean-article?utm_source=twitter&si=tracking123'
+      );
+
+      // Assert
+      expect(isFound).toBe(true);
+    });
+
+    it('detects bookmark in vault via raw URL fallback if stored with parameters', async () => {
+      // Arrange
+      const rawUrl = 'https://example.com/page?custom_param=123';
+      const mockBookmarks = [
+        { id: 'b2', url: rawUrl, deletedAt: null },
+      ];
+      const mockDb = {
+        where: (field: string) => ({
+          equals: (val: string) => ({
+            and: (predicate: (b: any) => boolean) => ({
+              first: async () => mockBookmarks.find((b) => b[field as keyof typeof b] === val && predicate(b)) || null,
+            }),
+          }),
+        }),
+      };
+
+      // Act
+      const isFound = await checkIfUrlInVault(mockDb as any, rawUrl);
+
+      // Assert
+      expect(isFound).toBe(true);
+    });
+
+    it('returns false when bookmark exists but is marked as deleted (deletedAt is set)', async () => {
+      // Arrange
+      const mockBookmarks = [
+        { id: 'b3', url: 'https://example.com/deleted', deletedAt: '2026-01-01T00:00:00Z' },
+      ];
+      const mockDb = {
+        where: (field: string) => ({
+          equals: (val: string) => ({
+            and: (predicate: (b: any) => boolean) => ({
+              first: async () => mockBookmarks.find((b) => b[field as keyof typeof b] === val && predicate(b)) || null,
+            }),
+          }),
+        }),
+      };
+
+      // Act
+      const isFound = await checkIfUrlInVault(mockDb as any, 'https://example.com/deleted');
+
+      // Assert
+      expect(isFound).toBe(false);
+    });
+
+    it('returns false when URL does not exist in vault or is empty', async () => {
+      // Arrange
+      const mockDb = {
+        where: () => ({
+          equals: () => ({
+            and: () => ({
+              first: async () => null,
+            }),
+          }),
+        }),
+      };
+
+      // Act & Assert
+      expect(await checkIfUrlInVault(mockDb as any, 'https://not-in-vault.com')).toBe(false);
+      expect(await checkIfUrlInVault(mockDb as any, '')).toBe(false);
+      expect(await checkIfUrlInVault(mockDb as any, null)).toBe(false);
+      expect(await checkIfUrlInVault(mockDb as any, undefined)).toBe(false);
+    });
+
+    it('gracefully handles database rejection without throwing', async () => {
+      // Arrange
+      const mockDb = {
+        where: () => ({
+          equals: () => ({
+            and: () => ({
+              first: async () => {
+                throw new Error('Database locked');
+              },
+            }),
+          }),
+        }),
+      };
+
+      // Act
+      const isFound = await checkIfUrlInVault(mockDb as any, 'https://example.com');
+
+      // Assert
+      expect(isFound).toBe(false);
     });
   });
 

@@ -13,13 +13,19 @@ export interface SearchBookmarkItem {
 /**
  * Filters and ranks bookmarks from the search catalog in sub-millisecond execution time.
  * Supports tokenized multi-attribute matching, group filtering, and pinned bonus scoring.
+ * If limit <= 0, returns all matching results without slicing.
  */
-export function filterAndRankBookmarks(
-  catalog: SearchBookmarkItem[],
+export function filterAndRankBookmarks<T extends SearchBookmarkItem = SearchBookmarkItem>(
+  catalog: T[],
   query: string,
-  groupFilter?: string
-): SearchBookmarkItem[] {
+  groupFilter?: string,
+  limit: number = 30
+): T[] {
   if (!catalog || catalog.length === 0) return [];
+
+  const applyLimit = (items: T[]): T[] => {
+    return limit <= 0 ? items : items.slice(0, limit);
+  };
 
   // 1. Group Filtering
   let filtered = catalog;
@@ -32,31 +38,30 @@ export function filterAndRankBookmarks(
 
   const qClean = (query || '').toLowerCase().trim();
 
-  // 2. Empty Query: Pinned first, then sorted by createdAt descending, top 30
+  // 2. Empty Query: Pinned first, then sorted by createdAt descending
   if (!qClean) {
-    return [...filtered]
-      .sort((a, b) => {
-        const pinA = a.isPinned ? 1 : 0;
-        const pinB = b.isPinned ? 1 : 0;
-        if (pinB !== pinA) return pinB - pinA;
+    const sorted = [...filtered].sort((a, b) => {
+      const pinA = a.isPinned ? 1 : 0;
+      const pinB = b.isPinned ? 1 : 0;
+      if (pinB !== pinA) return pinB - pinA;
 
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        if (timeB !== timeA) return timeB - timeA;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
 
-        return (a.title || '').localeCompare(b.title || '');
-      })
-      .slice(0, 30);
+      return (a.title || '').localeCompare(b.title || '');
+    });
+    return applyLimit(sorted);
   }
 
   // 3. Tokenize Query
   const tokens = qClean.split(/\s+/).filter(Boolean);
   if (tokens.length === 0) {
-    return filtered.slice(0, 30);
+    return applyLimit(filtered);
   }
 
   // 4. Score Each Item
-  const scoredItems: { item: SearchBookmarkItem; score: number }[] = [];
+  const scoredItems: { item: T; score: number }[] = [];
 
   for (const item of filtered) {
     const itemTitle = (item.title || '').toLowerCase();
@@ -131,5 +136,6 @@ export function filterAndRankBookmarks(
     return (a.item.title || '').localeCompare(b.item.title || '');
   });
 
-  return scoredItems.slice(0, 30).map((s) => s.item);
+  const ranked = scoredItems.map((s) => s.item);
+  return applyLimit(ranked);
 }

@@ -19,6 +19,7 @@ import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
 import { CategoryPillBar } from "../components/CategoryPillBar";
 import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories";
+import { filterAndRankBookmarks } from "../lib/searchCatalog";
 import {
   getNavigationPreferences,
   NavigationPreferences,
@@ -370,16 +371,9 @@ export default function BookmarksPage() {
       result = result.filter((b) => b.remindAt && b.remindAt <= now && !b.isRead);
     }
 
-    // Filter by Search Query
+    // Filter and Rank by Search Query using Unified Search Catalog
     if (debouncedSearchQuery.trim()) {
-      const q = debouncedSearchQuery.toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          (b.description || "").toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q) ||
-          (b.group || "").toLowerCase().includes(q)
-      );
+      return filterAndRankBookmarks(result, debouncedSearchQuery, undefined, 0);
     }
 
     // Sort: Pinned first, then newest first
