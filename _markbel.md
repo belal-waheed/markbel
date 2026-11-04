@@ -253,13 +253,40 @@ Our deep codebase investigation revealed **5 independent root causes** compoundi
 
 ---
 
+### Modernization Phases 16–18: Full-Text Search, Link Health Prober & Two-Way Browser Sync [DELIVERED - v2.5.15]
+**Goal:** Deliver deep offline knowledge search, proactive 404 dead link detection with Wayback Machine fallbacks, and native two-way browser bookmarks synchronization.
+
+1. **Phase 16: Offline Article Full-Text Search (D1 FTS5 & Dexie v8 Inverted Index):**
+   - Cloudflare D1 SQLite virtual table `bookmarks_fts` using `fts5(id UNINDEXED, user_id UNINDEXED, title, description, site_name, article_content, tokenize = 'unicode61 remove_diacritics 2')`.
+   - Automatic `AFTER INSERT`, `AFTER DELETE`, and `AFTER UPDATE` synchronization triggers on table `bookmarks`.
+   - Upgraded `GET /api/agent/v1/bookmarks` and `/search` to support `search_mode=fulltext` using `MATCH` with BM25 relevance ranking and `snippet()` extraction.
+   - Upgraded Dexie database schema to version 8 with dedicated table `articleTokens: 'token, bookmarkId, [token+bookmarkId]'`.
+   - Added `searchCatalogFullText` with scope selection (`'all' | 'titles' | 'articles'`) and contextual highlight snippet extraction.
+   - Integrated scope selector chips and contextual snippets into `CommandPalette.tsx`.
+
+2. **Phase 17: Background Link Health & 404 Rot Detector:**
+   - Extended D1 schema with columns `is_broken`, `http_status`, and `last_checked_at` and index `idx_bookmarks_link_health`.
+   - Added Cloudflare Workers scheduled cron trigger (`0 * * * *`) executing non-blocking HEAD and range GET probes on uninspected links with 5s timeouts.
+   - Automatic delta emission into `sync_changes` so client devices receive health status updates during regular sync.
+   - Added endpoint `POST /api/agent/v1/bookmarks/:id/check-health` for on-demand single bookmark verification.
+   - Added "Broken Links" filter in `GroupSidebar.tsx` and `BookmarksPage.tsx` with live uninspected count badges.
+   - Enhanced `BookmarkCard.tsx` with warning badges, 1-click Wayback Machine (`https://web.archive.org/web/*/${url}`) and offline Reader Mode recovery actions.
+
+3. **Phase 18: Two-Way Native Browser Bookmarks Sync:**
+   - Added `"bookmarks"` permission to Chrome (`manifest.json`) and Firefox (`manifest.firefox.json`) manifests.
+   - Engineered `BrowserBookmarkSyncEngine` in `extension/src/bookmarkSync.ts` managing bi-directional synchronization between the browser's "Markbel Vault" folder and the Markbel outbox engine.
+   - Enforced loop prevention invariants (`isSyncing = true` and `inFlightNodeIds`) to eliminate mutation echoing.
+   - Added options UI controls for two-way sync toggle and one-click "Import All Browser Bookmarks" with duplicate detection.
+
+---
+
 ## 4. Verification Seams & Quality Gates
 
 Each milestone must pass the strict Markbel release pipeline:
-- **Unit & Integration:** All 308+ Vitest tests pass (`npm test`).
+- **Unit & Integration:** All 532 Vitest tests pass (`npm test`).
 - **Static Typing:** 0 TypeScript compilation errors (`npm run typecheck`).
 - **Production Bundling:** Vite web build (`npm run build`) and MCP build (`npm run build:mcp`).
 - **Extension Packaging:** `npm run build:extension:all` producing fresh `markbel-extension.zip` and `markbel-firefox-extension.zip`.
-- **Unpacked Mirror:** `robocopy dist-extension D:\apps\0-setup\markbel-extension /E`.
+- **Unpacked Mirror:** Mirrored to `D:\dev\tools\markbel-extension\` and `D:\apps\0-setup\markbel-extension\`.
 - **Edge Deployment:** `npx wrangler deploy` to `https://mark.obel.workers.dev`.
 - **Git Hygiene:** Conventional Commits and clean tracking ref synchronization.
