@@ -65,7 +65,7 @@ export const agentBookmarksRouter = new Hono<{ Bindings: Bindings; Variables: Va
 // BOOKMARKS SEARCH & RETRIEVAL (bookmarks:read)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-agentBookmarksRouter.get("/bookmarks/search", requireScope("bookmarks:read"), async (c) => {
+const handleBookmarksSearch = async (c: any) => {
   try {
     const userId = c.get("vaultOwnerId") || c.get("userId");
     const queryResult = searchParamsSchema.safeParse(c.req.query());
@@ -177,7 +177,10 @@ agentBookmarksRouter.get("/bookmarks/search", requireScope("bookmarks:read"), as
     console.error("[Agent Search Error]:", message);
     return c.json({ error: message }, 500);
   }
-});
+};
+
+agentBookmarksRouter.get("/bookmarks/search", requireScope("bookmarks:read"), handleBookmarksSearch);
+agentBookmarksRouter.get("/bookmarks", requireScope("bookmarks:read"), handleBookmarksSearch);
 
 agentBookmarksRouter.get("/bookmarks/:id", requireScope("bookmarks:read"), async (c) => {
   try {

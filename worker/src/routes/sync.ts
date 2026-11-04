@@ -98,16 +98,36 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
   }
 
   const currentGroupMap = new Map<string, any>();
-  if (groupIds.length > 0) {
-    const placeholders = groupIds.map(() => "?").join(", ");
-    const { results: groups } = await c.env.DB.prepare(
-      `SELECT * FROM groups WHERE user_id = ? AND id IN (${placeholders})`
-    )
-      .bind(userId, ...groupIds)
-      .all();
+  const activeGroupByLowerName = new Map<string, any>();
 
-    for (const g of groups || []) {
-      currentGroupMap.set((g as any).id, g);
+  // Fetch all active user groups to prevent duplicate insertions
+  const { results: userActiveGroups } = await c.env.DB.prepare(
+    "SELECT * FROM groups WHERE user_id = ? AND deleted_at IS NULL"
+  )
+    .bind(userId)
+    .all();
+
+  for (const g of userActiveGroups || []) {
+    currentGroupMap.set((g as any).id, g);
+    const lower = ((g as any).name || "").toLowerCase().trim();
+    if (lower && !activeGroupByLowerName.has(lower)) {
+      activeGroupByLowerName.set(lower, g);
+    }
+  }
+
+  if (groupIds.length > 0) {
+    const missingIds = groupIds.filter((id) => !currentGroupMap.has(id));
+    if (missingIds.length > 0) {
+      const placeholders = missingIds.map(() => "?").join(", ");
+      const { results: groups } = await c.env.DB.prepare(
+        `SELECT * FROM groups WHERE user_id = ? AND id IN (${placeholders})`
+      )
+        .bind(userId, ...missingIds)
+        .all();
+
+      for (const g of groups || []) {
+        currentGroupMap.set((g as any).id, g);
+      }
     }
   }
 
@@ -395,35 +415,46 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
         }
       } else if (entityType === "group") {
         if (operation === "create") {
-          const createdAt = payload.createdAt || now;
-          const updatedAt = payload.updatedAt || now;
+          const groupName = (payload.name || "New Group").trim();
+          const lowerName = groupName.toLowerCase();
+          const existingActiveGroup = activeGroupByLowerName.get(lowerName);
 
-          statements.push(
-            c.env.DB.prepare(
-              "INSERT INTO groups (id, user_id, name, color, version, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)"
-            ).bind(
-              entityId,
-              userId,
-              payload.name || "New Group",
-              payload.color || "blue",
-              newVersion,
-              createdAt,
-              updatedAt
-            )
-          );
+          if (existingActiveGroup) {
+            // Deduplicate: group already exists for user; reuse canonical record
+            currentGroupMap.set(entityId, existingActiveGroup);
+            recordJson = JSON.stringify(normalizeSyncRecord(existingActiveGroup, "group"));
+          } else {
+            const createdAt = payload.createdAt || now;
+            const updatedAt = payload.updatedAt || now;
 
-          const savedGroup = {
-            id: entityId,
-            user_id: userId,
-            name: payload.name || "New Group",
-            color: payload.color || "blue",
-            version: newVersion,
-            created_at: createdAt,
-            updated_at: updatedAt,
-            deleted_at: null,
-          };
-          currentGroupMap.set(entityId, savedGroup);
-          recordJson = JSON.stringify(normalizeSyncRecord(savedGroup, "group"));
+            statements.push(
+              c.env.DB.prepare(
+                "INSERT INTO groups (id, user_id, name, color, version, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)"
+              ).bind(
+                entityId,
+                userId,
+                groupName,
+                payload.color || "blue",
+                newVersion,
+                createdAt,
+                updatedAt
+              )
+            );
+
+            const savedGroup = {
+              id: entityId,
+              user_id: userId,
+              name: groupName,
+              color: payload.color || "blue",
+              version: newVersion,
+              created_at: createdAt,
+              updated_at: updatedAt,
+              deleted_at: null,
+            };
+            currentGroupMap.set(entityId, savedGroup);
+            activeGroupByLowerName.set(lowerName, savedGroup);
+            recordJson = JSON.stringify(normalizeSyncRecord(savedGroup, "group"));
+          }
         } else if (operation === "update") {
           const oldName = currentRecord?.name;
           const updatedAt = payload.updatedAt || now;
@@ -657,11 +688,22 @@ syncRouter.get("/api/sync/pull", authMiddleware, async (c) => {
 
 syncRouter.post("/api/sync/compact", authMiddleware, async (c) => {
   const userId = c.get("vaultOwnerId") || c.get("userId");
+
+  // 1. Compact sync_changes delta log (retaining only latest sequence per entity)
   await c.env.DB.prepare(
     `DELETE FROM sync_changes WHERE user_id = ? AND sequence NOT IN (SELECT MAX(sequence) FROM sync_changes WHERE user_id = ? GROUP BY entity_type, entity_id)`
   )
     .bind(userId, userId)
     .run();
 
-  return c.json({ success: true, message: "Sync delta log compacted successfully" });
+  // 2. Safely deduplicate duplicate group rows (retaining oldest canonical record per group name)
+  await c.env.DB.prepare(
+    `DELETE FROM groups WHERE user_id = ? AND deleted_at IS NULL AND id NOT IN (
+      SELECT MIN(id) FROM groups WHERE user_id = ? AND deleted_at IS NULL GROUP BY LOWER(name)
+    )`
+  )
+    .bind(userId, userId)
+    .run();
+
+  return c.json({ success: true, message: "Sync delta log and group duplicates compacted successfully" });
 });

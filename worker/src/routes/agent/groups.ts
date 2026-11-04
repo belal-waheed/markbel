@@ -40,6 +40,7 @@ agentGroupsRouter.get("/groups", requireScope("bookmarks:read"), async (c) => {
            AND b.is_archived = 0) as bookmarkCount
        FROM groups g
        WHERE g.user_id = ? AND g.deleted_at IS NULL
+       GROUP BY LOWER(g.name)
        ORDER BY g.name ASC`
     )
       .bind(userId)

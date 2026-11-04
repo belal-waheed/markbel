@@ -21,7 +21,7 @@ agentStatsRouter.get("/stats", requireScope("bookmarks:read"), async (c) => {
       c.env.DB.prepare(
         "SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ? AND deleted_at IS NULL AND is_archived = 1"
       ).bind(userId),
-      c.env.DB.prepare("SELECT COUNT(*) as total FROM groups WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
+      c.env.DB.prepare("SELECT COUNT(DISTINCT LOWER(name)) as total FROM groups WHERE user_id = ? AND deleted_at IS NULL").bind(userId),
       c.env.DB.prepare("SELECT MAX(sequence) as max_seq FROM sync_changes WHERE user_id = ?").bind(userId),
     ]);
 
