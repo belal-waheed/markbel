@@ -28,15 +28,42 @@ export function escapeHtml(str: string): string {
 export function isRestrictedBrowserUrl(url?: string | null): boolean {
   if (!url) return false;
   const lower = url.trim().toLowerCase();
-  return (
+  if (!lower) return false;
+
+  // Explicit browser internal schemes
+  if (
     lower.startsWith('chrome://') ||
     lower.startsWith('chrome-extension://') ||
     lower.startsWith('edge://') ||
     lower.startsWith('about:') ||
     lower.startsWith('moz-extension://') ||
     lower.startsWith('devtools://') ||
-    lower.startsWith('view-source:')
-  );
+    lower.startsWith('view-source:') ||
+    lower.startsWith('brave://') ||
+    lower.startsWith('opera://') ||
+    lower.startsWith('vivaldi://') ||
+    lower.startsWith('helium://') ||
+    lower.startsWith('arc://') ||
+    lower.startsWith('javascript:') ||
+    lower.startsWith('data:')
+  ) {
+    return true;
+  }
+
+  // Web store restricted domains
+  if (
+    lower.startsWith('https://chrome.google.com/webstore') ||
+    lower.startsWith('https://chromewebstore.google.com')
+  ) {
+    return true;
+  }
+
+  // If it does not start with standard web protocol or local file, treat as restricted
+  if (!lower.startsWith('http://') && !lower.startsWith('https://') && !lower.startsWith('file://')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

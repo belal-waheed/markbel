@@ -42,7 +42,7 @@ export default function DataBackupCard({
 
       const backup = {
         app: "Markbel",
-        version: "2.5.8",
+        version: "2.5.14",
         exportedAt: new Date().toISOString(),
         totalBookmarks: bookmarks.length,
         totalGroups: groups.length,

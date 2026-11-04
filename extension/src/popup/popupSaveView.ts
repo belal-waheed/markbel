@@ -178,7 +178,7 @@ export async function loadActiveTabData(): Promise<void> {
             meta = retryRes.data;
           }
         } catch (err) {
-          console.warn('[Markbel Popup] In-DOM extraction fallback:', err);
+          console.debug('[Markbel Popup] In-DOM extraction fallback:', err);
         }
       }
     }

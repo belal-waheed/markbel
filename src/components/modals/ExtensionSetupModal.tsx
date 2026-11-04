@@ -18,6 +18,8 @@ import {
   Info
 } from 'lucide-react'
 
+import { CURRENT_RELEASE_VERSION } from '@/components/landing/landingConstants'
+
 interface ExtensionSetupModalProps {
   isOpen: boolean
   onClose: () => void
@@ -72,7 +74,7 @@ export const ExtensionSetupModal: React.FC<ExtensionSetupModalProps> = ({
                   Install Markbel Extension
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                  v2.5.9
+                  {CURRENT_RELEASE_VERSION}
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">

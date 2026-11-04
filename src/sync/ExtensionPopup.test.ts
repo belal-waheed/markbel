@@ -82,6 +82,19 @@ describe('ExtensionPopup HUD Subsystem (Phase 11)', () => {
       expect(isRestrictedBrowserUrl('view-source:https://example.com')).toBe(true);
     });
 
+    it('flags Helium, Brave, Opera, Vivaldi, Arc, and Web Store URLs as restricted', () => {
+      // Arrange & Act & Assert
+      expect(isRestrictedBrowserUrl('helium://extensions')).toBe(true);
+      expect(isRestrictedBrowserUrl('brave://settings')).toBe(true);
+      expect(isRestrictedBrowserUrl('opera://startpage')).toBe(true);
+      expect(isRestrictedBrowserUrl('vivaldi://apps')).toBe(true);
+      expect(isRestrictedBrowserUrl('arc://settings')).toBe(true);
+      expect(isRestrictedBrowserUrl('https://chromewebstore.google.com/detail/markbel')).toBe(true);
+      expect(isRestrictedBrowserUrl('https://chrome.google.com/webstore/detail/markbel')).toBe(true);
+      expect(isRestrictedBrowserUrl('javascript:alert(1)')).toBe(true);
+      expect(isRestrictedBrowserUrl('data:text/html,test')).toBe(true);
+    });
+
     it('permits standard web and localhost URLs', () => {
       // Arrange & Act & Assert
       expect(isRestrictedBrowserUrl('https://markbel.dev')).toBe(false);

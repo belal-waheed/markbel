@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
+import { CURRENT_RELEASE_VERSION } from './landingConstants'
 import {
   Zap,
   RefreshCw,
@@ -45,7 +46,7 @@ export function FeatureShowcaseSection() {
                   <Search className="w-6 h-6" />
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--color-accent)]/15 text-[var(--color-accent)] border border-[var(--color-accent)]/30 uppercase tracking-wider">
-                  New in v2.5.8
+                  New in {CURRENT_RELEASE_VERSION}
                 </span>
               </div>
               <h3 className="text-xl font-bold text-[var(--color-text-primary)]">

@@ -247,7 +247,7 @@ export async function verifySession(): Promise<AuthUser | null> {
         '[Markbel Extension] Network connection to mark.obel.workers.dev timed out. If using Telecom Egypt (WE/Vodafone), set Chrome Secure DNS to Google Public DNS (chrome://settings/security -> Use secure DNS -> Google) to bypass blocked 188.114.x IP ranges.'
       );
     } else {
-      console.warn('[Markbel Extension] Offline session check notice:', err);
+      console.debug('[Markbel Extension] Offline session check notice:', err);
     }
     return session.user;
   }
@@ -290,7 +290,7 @@ export async function listSharedVaults(): Promise<SharedVault[]> {
     }
     return [];
   } catch (err) {
-    console.warn('[Markbel Extension] Error listing shared vaults:', err);
+    console.debug('[Markbel Extension] Error listing shared vaults:', err);
     return [];
   }
 }
@@ -416,12 +416,12 @@ export async function syncSessionFromActiveVaultTab(): Promise<{ success: boolea
           return { success: true, email: execution.result.user.email };
         }
       } catch (scriptErr) {
-        console.warn('[Markbel Extension] Tab script inspection failed:', scriptErr);
+        console.debug('[Markbel Extension] Tab script inspection failed:', scriptErr);
       }
     }
     return { success: false, error: 'No authenticated session found in open tabs.' };
   } catch (err: any) {
-    console.warn('[Markbel Extension] syncSessionFromActiveVaultTab error:', err);
+    console.debug('[Markbel Extension] syncSessionFromActiveVaultTab error:', err);
     return { success: false, error: err?.message || 'Failed to inspect open tabs.' };
   }
 }
