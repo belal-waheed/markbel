@@ -29,6 +29,8 @@ import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
 import { GroupModal } from "../components/modals/GroupModal";
+import { ReaderModal } from "../components/modals/ReaderModal";
+import { CommandPalette } from "../components/modals/CommandPalette";
 import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
@@ -275,6 +277,7 @@ export default function BookmarksPage() {
     handleBulkDelete,
     handleBulkArchive,
     handleBulkToggleRead,
+    handleBulkMoveGroup,
   } = useBookmarkBatchOperations();
 
   // Full-screen mobile swipe gestures
@@ -289,6 +292,8 @@ export default function BookmarksPage() {
   const [editingBookmark, setEditingBookmark] = useState<LocalBookmark | null>(null);
   const [archivingBookmark, setArchivingBookmark] = useState<LocalBookmark | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<LocalBookmark | null>(null);
+  const [readingBookmark, setReadingBookmark] = useState<LocalBookmark | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [groupModalState, setGroupModalState] = useState<{
     isOpen: boolean;
     initialName?: string;
@@ -296,6 +301,8 @@ export default function BookmarksPage() {
 
   // Trap browser & Android Back button navigation when overlays are open
   useModalBackNavigation([
+    { isOpen: isCommandPaletteOpen, close: () => setIsCommandPaletteOpen(false) },
+    { isOpen: Boolean(readingBookmark), close: () => setReadingBookmark(null) },
     { isOpen: Boolean(deletingBookmark), close: () => setDeletingBookmark(null) },
     { isOpen: Boolean(archivingBookmark), close: () => setArchivingBookmark(null) },
     { isOpen: groupModalState.isOpen, close: () => setGroupModalState({ isOpen: false }) },
@@ -511,7 +518,20 @@ export default function BookmarksPage() {
     });
   }, [selectedIds, filteredBookmarks, handleBulkToggleRead, showToast]);
 
+  const onBulkMoveGroup = useCallback(
+    async (targetGroup: string) => {
+      const count = selectedIds.size;
+      if (count === 0) return;
+      await handleBulkMoveGroup(targetGroup, () => {
+        showToast("Moved", `Moved ${count} bookmark${count === 1 ? '' : 's'} to "${targetGroup}"`, "success");
+      });
+    },
+    [selectedIds.size, handleBulkMoveGroup, showToast]
+  );
+
   const hasOpenModal = Boolean(
+    isCommandPaletteOpen ||
+    readingBookmark ||
     deletingBookmark ||
     archivingBookmark ||
     groupModalState.isOpen ||
@@ -524,6 +544,7 @@ export default function BookmarksPage() {
   useBookmarkKeyboardShortcuts({
     searchInputRef,
     onOpenAddModal: () => setIsAddModalOpen(true),
+    onOpenCommandPalette: () => setIsCommandPaletteOpen(true),
     isSelectionMode,
     onClearSelection: handleClearSelection,
     onBulkArchive: onBulkArchive,
@@ -751,6 +772,8 @@ export default function BookmarksPage() {
               onToggleRead={onBulkToggleRead}
               onArchive={onBulkArchive}
               onDelete={onBulkDelete}
+              groups={groupNames}
+              onMoveGroup={onBulkMoveGroup}
             />
 
             {/* Bookmarks Grid / List / Empty State */}
@@ -811,6 +834,7 @@ export default function BookmarksPage() {
                         onArchive={(bookmark) => setArchivingBookmark(bookmark)}
                         onEdit={(bookmark) => setEditingBookmark(bookmark)}
                         onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                        onOpenReader={(bookmark) => setReadingBookmark(bookmark)}
                         isSelected={selectedIds.has(b.id)}
                         selectionMode={isSelectionMode}
                         onToggleSelect={handleToggleSelect}
@@ -864,6 +888,7 @@ export default function BookmarksPage() {
                             onArchive={(bookmark) => setArchivingBookmark(bookmark)}
                             onEdit={(bookmark) => setEditingBookmark(bookmark)}
                             onDelete={(bookmark) => setDeletingBookmark(bookmark)}
+                            onOpenReader={(bookmark) => setReadingBookmark(bookmark)}
                             isSelected={selectedIds.has(b.id)}
                             selectionMode={isSelectionMode}
                             onToggleSelect={handleToggleSelect}
@@ -925,6 +950,39 @@ export default function BookmarksPage() {
         initialName={groupModalState.initialName}
         onClose={() => setGroupModalState({ isOpen: false })}
         onSave={handleSaveGroup}
+      />
+
+      <ReaderModal
+        isOpen={Boolean(readingBookmark)}
+        bookmark={readingBookmark}
+        onClose={() => setReadingBookmark(null)}
+        onToggleRead={handleToggleRead}
+      />
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        bookmarks={bookmarks}
+        groups={groupNames}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onTriggerSync={() => {
+          syncManager.sync(true);
+          showToast("Sync Triggered", "Synchronizing library with Cloudflare Edge...", "info");
+        }}
+        onSelectGroup={(g) => {
+          if (g === '__unread__') {
+            setCurrentTab('unread');
+          } else if (g === '__pinned__') {
+            setCurrentTab('pinned');
+          } else if (g === '__archived__') {
+            navigate('/archive');
+          } else {
+            handleGroupChange(g);
+          }
+        }}
+        onNavigateSettings={() => navigate('/settings')}
+        onOpenBookmark={(b) => handleCardClick(b.url)}
+        onOpenReader={(b) => setReadingBookmark(b)}
       />
     </div>
   );

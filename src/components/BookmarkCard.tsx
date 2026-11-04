@@ -1,5 +1,5 @@
 import React from 'react'
-import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check, ListVideo } from 'lucide-react'
+import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check, ListVideo, BookOpen } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { extractHostname } from '../lib/smartGroups'
 import { LocalBookmark } from '../db/db'
@@ -14,6 +14,7 @@ interface BookmarkCardProps {
   onArchive: (b: LocalBookmark) => void
   onEdit: (b: LocalBookmark) => void
   onDelete: (b: LocalBookmark) => void
+  onOpenReader?: (b: LocalBookmark) => void
   isSelected?: boolean
   selectionMode?: boolean
   onToggleSelect?: (b: LocalBookmark, multi: boolean) => void
@@ -38,6 +39,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onArchive,
   onEdit,
   onDelete,
+  onOpenReader,
   isSelected = false,
   selectionMode = false,
   onToggleSelect,
@@ -118,6 +120,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             <span className="text-[9px] font-semibold text-[var(--color-text-muted)] bg-[var(--color-bg-element)] px-1.5 py-0.2 rounded border border-[var(--color-border-default)] truncate max-w-[100px]">
               {b.group || "Unsorted"}
             </span>
+            {b.readingTime ? (
+              <span className="text-[9px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-element)] px-1.5 py-0.2 rounded border border-[var(--color-border-default)] flex items-center gap-0.5 shrink-0">
+                <Clock className="w-2.5 h-2.5" />
+                {b.readingTime} min
+              </span>
+            ) : null}
             {b.contentType === 'playlist' && (
               <span className="text-[9px] font-semibold text-rose-500 bg-rose-500/10 px-1.5 py-0.2 rounded border border-rose-500/20 flex items-center gap-1 shrink-0">
                 <ListVideo className="w-2.5 h-2.5" />
@@ -177,6 +185,18 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           >
             {b.isRead ? <Check className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
           </button>
+
+          {onOpenReader && (
+            <button
+              type="button"
+              onClick={() => onOpenReader(b)}
+              className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] rounded transition-colors"
+              title="Read Offline"
+              aria-label="Read Offline"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           <button
             onClick={() => onTogglePin(b)}
@@ -284,6 +304,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                   Playlist
                 </span>
               )}
+              {b.readingTime ? (
+                <span className="text-[10px] font-semibold text-white/90 bg-black/75 backdrop-blur-md px-2 py-0.5 rounded shadow-xs border border-white/10 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[var(--color-accent)]" />
+                  {b.readingTime}m
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center gap-1.5 pointer-events-auto">
               {!b.isRead && (
@@ -386,6 +412,20 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           {new Date(b.createdAt).toLocaleDateString()}
         </span>
         <div className="flex items-center gap-1 sm:gap-1.5 w-full sm:w-auto justify-around sm:justify-end">
+          {onOpenReader && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenReader(b);
+              }}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-blue-500/10 rounded p-1.5 transition-colors active:scale-95"
+              title="Read Offline"
+              aria-label="Read Offline"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

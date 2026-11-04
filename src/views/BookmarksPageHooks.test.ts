@@ -6,6 +6,7 @@ import {
   toggleSelection,
   selectAll,
   computeBulkToggleReadState,
+  handleBulkMoveGroup,
   useBookmarkBatchOperations,
 } from "../hooks/useBookmarkBatchOperations";
 import { BookmarkBatchBar } from "../components/BookmarkBatchBar";
@@ -205,6 +206,54 @@ describe("BookmarksPage Hooks & Modular Architecture Suite", () => {
       expect(bulkUpdateSpy).not.toHaveBeenCalled();
       expect(syncSpy).not.toHaveBeenCalled();
     });
+
+    it("executes handleBulkMoveGroup standalone, updates group in bulk, syncs, and fires onSuccess", async () => {
+      const bulkUpdateSpy = vi.spyOn(bookmarkRepository, "bulkUpdate").mockResolvedValue(undefined as any);
+      const syncSpy = vi.spyOn(syncManager, "sync").mockResolvedValue({} as any);
+      const onSuccess = vi.fn();
+
+      const selected = new Set(["bm-10", "bm-20"]);
+      await handleBulkMoveGroup(selected, "Articles", onSuccess);
+
+      expect(bulkUpdateSpy).toHaveBeenCalledWith(["bm-10", "bm-20"], { group: "Articles" });
+      expect(syncSpy).toHaveBeenCalledWith(true);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    it("handles handleBulkMoveGroup gracefully with empty set", async () => {
+      const bulkUpdateSpy = vi.spyOn(bookmarkRepository, "bulkUpdate").mockResolvedValue(undefined as any);
+      const syncSpy = vi.spyOn(syncManager, "sync").mockResolvedValue({} as any);
+      const onSuccess = vi.fn();
+
+      await handleBulkMoveGroup(new Set(), "Articles", onSuccess);
+
+      expect(bulkUpdateSpy).not.toHaveBeenCalled();
+      expect(syncSpy).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it("executes hook handleBulkMoveGroup, updates group, syncs, and fires onSynced", async () => {
+      const bulkUpdateSpy = vi.spyOn(bookmarkRepository, "bulkUpdate").mockResolvedValue(undefined as any);
+      const syncSpy = vi.spyOn(syncManager, "sync").mockResolvedValue({} as any);
+      const onSynced = vi.fn();
+
+      let hookValue: ReturnType<typeof useBookmarkBatchOperations> | null = null;
+      function TestComponent() {
+        hookValue = useBookmarkBatchOperations();
+        return null;
+      }
+      renderToString(React.createElement(TestComponent));
+
+      expect(hookValue).not.toBeNull();
+      hookValue!.selectedIds.add("bm-1");
+      hookValue!.selectedIds.add("bm-2");
+
+      await hookValue!.handleBulkMoveGroup("DevOps", onSynced);
+
+      expect(bulkUpdateSpy).toHaveBeenCalledWith(["bm-1", "bm-2"], { group: "DevOps" });
+      expect(syncSpy).toHaveBeenCalledWith(true);
+      expect(onSynced).toHaveBeenCalled();
+    });
   });
 
   describe("3. BookmarkBatchBar Component Rendering", () => {
@@ -250,6 +299,21 @@ describe("BookmarksPage Hooks & Modular Architecture Suite", () => {
       expect(html).toContain("Archive");
       expect(html).toContain("Delete");
       expect(html).toContain('role="toolbar"');
+    });
+
+    it("renders Move to Group button when onMoveGroup is provided", () => {
+      const html = renderToString(
+        React.createElement(BookmarkBatchBar, {
+          selectedCount: 3,
+          onClear: vi.fn(),
+          onToggleRead: vi.fn(),
+          onArchive: vi.fn(),
+          onDelete: vi.fn(),
+          groups: ["Dev", "Design"],
+          onMoveGroup: vi.fn(),
+        })
+      );
+      expect(html).toContain("Move to Group");
     });
   });
 
@@ -502,6 +566,40 @@ describe("BookmarksPage Hooks & Modular Architecture Suite", () => {
       );
       expect(handled).toBe(false);
       expect(onOpenAddModal).not.toHaveBeenCalled();
+    });
+
+    it("intercepts Cmd+K and Ctrl+K to trigger universal Command Palette", () => {
+      const onOpenCommandPalette = vi.fn();
+      const preventDefaultMeta = vi.fn();
+
+      // Meta + K
+      const handledMetaK = handleBookmarkShortcut(
+        { key: "k", metaKey: true, preventDefault: preventDefaultMeta } as any,
+        { onOpenCommandPalette }
+      );
+      expect(handledMetaK).toBe(true);
+      expect(preventDefaultMeta).toHaveBeenCalled();
+      expect(onOpenCommandPalette).toHaveBeenCalledTimes(1);
+
+      // Ctrl + K (uppercase)
+      const preventDefaultCtrl = vi.fn();
+      const handledCtrlK = handleBookmarkShortcut(
+        { key: "K", ctrlKey: true, preventDefault: preventDefaultCtrl } as any,
+        { onOpenCommandPalette }
+      );
+      expect(handledCtrlK).toBe(true);
+      expect(preventDefaultCtrl).toHaveBeenCalled();
+      expect(onOpenCommandPalette).toHaveBeenCalledTimes(2);
+
+      // Alt + Meta + K should NOT trigger
+      const preventDefaultAlt = vi.fn();
+      const handledAltMeta = handleBookmarkShortcut(
+        { key: "k", metaKey: true, altKey: true, preventDefault: preventDefaultAlt } as any,
+        { onOpenCommandPalette }
+      );
+      expect(handledAltMeta).toBe(false);
+      expect(preventDefaultAlt).not.toHaveBeenCalled();
+      expect(onOpenCommandPalette).toHaveBeenCalledTimes(2);
     });
   });
 });

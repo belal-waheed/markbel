@@ -4,6 +4,7 @@ import { LocalBookmark } from "../db/db";
 export interface UseBookmarkKeyboardShortcutsOptions {
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   onOpenAddModal?: () => void;
+  onOpenCommandPalette?: () => void;
   isSelectionMode?: boolean;
   onClearSelection?: () => void;
   focusedIndex?: number | null;
@@ -56,6 +57,13 @@ export function handleBookmarkShortcut(
       return true;
     }
     return false;
+  }
+
+  // Cmd+K / Ctrl+K : Universal Command Palette shortcut
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    options.onOpenCommandPalette?.();
+    return true;
   }
 
   // Modifier guard: do not intercept shortcuts with Ctrl, Meta, or Alt

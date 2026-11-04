@@ -13,6 +13,7 @@ export interface BookmarkBatchOperations {
   handleBulkDelete: (onSynced?: () => void) => Promise<void>;
   handleBulkArchive: (onSynced?: () => void) => Promise<void>;
   handleBulkToggleRead: (filteredBookmarks: LocalBookmark[], onSynced?: () => void) => Promise<void>;
+  handleBulkMoveGroup: (targetGroup: string, onSynced?: () => void) => Promise<void>;
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
@@ -42,6 +43,18 @@ export function computeBulkToggleReadState(
   const newStatus = !allRead;
   const readAtTimestamp = newStatus ? new Date().toISOString() : "";
   return { targetIds, newStatus, readAtTimestamp };
+}
+
+export async function handleBulkMoveGroup(
+  selectedIds: Set<string>,
+  targetGroup: string,
+  onSuccess?: () => void
+): Promise<void> {
+  const ids = Array.from(selectedIds);
+  if (ids.length === 0) return;
+  await bookmarkRepository.bulkUpdate(ids, { group: targetGroup });
+  await syncManager.sync(true);
+  onSuccess?.();
 }
 
 export function useBookmarkBatchOperations(): BookmarkBatchOperations {
@@ -106,6 +119,16 @@ export function useBookmarkBatchOperations(): BookmarkBatchOperations {
     [selectedIds, handleClearSelection]
   );
 
+  const handleBulkMoveGroupCallback = useCallback(
+    async (targetGroup: string, onSynced?: () => void): Promise<void> => {
+      await handleBulkMoveGroup(selectedIds, targetGroup, () => {
+        handleClearSelection();
+        onSynced?.();
+      });
+    },
+    [selectedIds, handleClearSelection]
+  );
+
   return {
     selectedIds,
     isSelectionMode,
@@ -116,6 +139,7 @@ export function useBookmarkBatchOperations(): BookmarkBatchOperations {
     handleBulkDelete,
     handleBulkArchive,
     handleBulkToggleRead,
+    handleBulkMoveGroup: handleBulkMoveGroupCallback,
     setSelectedIds,
   };
 }

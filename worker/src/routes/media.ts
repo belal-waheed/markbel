@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import * as cheerio from "cheerio";
 import { sniffImageMimeType } from "../../../src/lib/mediaHeuristics";
 import { isSafePublicUrl } from "../../../src/lib/urlSafety";
 import type { Bindings, Variables } from "../types";
@@ -388,5 +389,265 @@ mediaRouter.get("/api/metadata", async (c) => {
       return c.json(synthesizeMetadataFromUrl(targetUrl));
     }
     return c.json({ title: "Link", description: "", image: "" });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDGE ARTICLE EXTRACTION ENDPOINT (READER MODE)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function escapeHtml(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+mediaRouter.get("/api/article", async (c) => {
+  let targetUrl: URL | null = null;
+  try {
+    const rawReqUrl = c.req.url;
+    let rawUrl = (c.req.query("url") || "").trim();
+
+    const forceRefresh =
+      c.req.query("refresh") === "1" ||
+      c.req.query("nocache") === "1" ||
+      c.req.query("forceRefresh") === "true" ||
+      rawReqUrl.includes("refresh=1") ||
+      rawReqUrl.includes("nocache=1") ||
+      rawReqUrl.includes("forceRefresh=true");
+
+    const urlParamIdx = rawReqUrl.indexOf("url=");
+    if (urlParamIdx !== -1) {
+      let extracted = rawReqUrl.slice(urlParamIdx + 4);
+      extracted = extracted.replace(/&(refresh|nocache|forceRefresh)=[^&]*/g, "");
+      try {
+        rawUrl = decodeURIComponent(extracted);
+      } catch {
+        rawUrl = extracted;
+      }
+    }
+
+    if (!rawUrl) {
+      return c.json({ error: "URL is required" }, 400);
+    }
+
+    try {
+      const formatted =
+        rawUrl.startsWith("http://") || rawUrl.startsWith("https://")
+          ? rawUrl
+          : `https://${rawUrl}`;
+      targetUrl = new URL(formatted);
+      if (!isSafePublicUrl(targetUrl.href)) {
+        return c.json({ error: "Blocked or unsafe URL" }, 400);
+      }
+    } catch {
+      return c.json({ error: "Invalid URL format" }, 400);
+    }
+
+    // 0. Cloudflare Worker L1 Edge Cache Check
+    const cache = (caches as any).default;
+    const edgeCacheKey = new Request(c.req.url, { method: "GET" });
+
+    if (!forceRefresh && cache) {
+      try {
+        const edgeCached = await cache.match(edgeCacheKey);
+        if (edgeCached) {
+          const edgeResponse = new Response(edgeCached.body, edgeCached);
+          edgeResponse.headers.set("X-Cache", "HIT-L1-EDGE");
+          return edgeResponse;
+        }
+      } catch (cacheMatchErr) {
+        console.warn("[Article L1 Edge Cache Match Warning]:", cacheMatchErr);
+      }
+    }
+
+    const urlHash = await computeHash(targetUrl.toString());
+    const redisKey = `markbel:article:${urlHash}`;
+
+    // 1. Upstash Redis Cache Check
+    if (!forceRefresh) {
+      const cached = await getRedisCache<{
+        title: string;
+        author: string;
+        publishedAt: string;
+        readingTime: number;
+        wordCount: number;
+        content: string;
+      }>(c.env, redisKey);
+
+      if (cached && cached.content) {
+        c.header("X-Cache", "HIT");
+        c.header(
+          "Cache-Control",
+          "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+        );
+        const redisHitResponse = c.json(cached);
+        if (cache) {
+          try {
+            c.executionCtx.waitUntil(cache.put(edgeCacheKey, redisHitResponse.clone()));
+          } catch (cachePutErr) {
+            console.warn("[Article L1 Edge Cache Put Warning from Redis]:", cachePutErr);
+          }
+        }
+        return redisHitResponse;
+      }
+    }
+
+    c.header("X-Cache", "MISS");
+
+    // 2. Upstream HTML Fetch with 7s timeout
+    let upstreamRes: Response;
+    try {
+      upstreamRes = await fetchWithTimeout(targetUrl.href, {}, 7000);
+    } catch (fetchErr: any) {
+      return c.json(
+        { error: `Failed to fetch target URL: ${fetchErr?.message || fetchErr}` },
+        502
+      );
+    }
+
+    if (!upstreamRes.ok) {
+      return c.json({ error: `Upstream returned status ${upstreamRes.status}` }, 502);
+    }
+
+    const html = await upstreamRes.text();
+    const $ = cheerio.load(html);
+
+    // Strip junk and distracting elements
+    $(
+      "script, style, noscript, nav, footer, header, aside, iframe, form, button, " +
+      ".ad, .ads, .advertisement, .sidebar, .menu, .cookie-banner, .popup, " +
+      "[role='banner'], [role='navigation'], [role='complementary'], [aria-hidden='true']"
+    ).remove();
+
+    // Extract title
+    const title =
+      $('meta[property="og:title"]').attr("content") ||
+      $('meta[name="twitter:title"]').attr("content") ||
+      $("h1").first().text().trim() ||
+      $("title").text().trim() ||
+      targetUrl.hostname;
+
+    // Extract author
+    const author =
+      $('meta[name="author"]').attr("content") ||
+      $('meta[property="article:author"]').attr("content") ||
+      $('meta[name="twitter:creator"]').attr("content") ||
+      $('[rel="author"]').first().text().trim() ||
+      $(".byline, .author").first().text().trim() ||
+      "";
+
+    // Extract published date
+    const publishedAt =
+      $('meta[property="article:published_time"]').attr("content") ||
+      $('meta[name="date"]').attr("content") ||
+      $('meta[name="pubdate"]').attr("content") ||
+      $("time[datetime]").first().attr("datetime") ||
+      $("time").first().text().trim() ||
+      "";
+
+    // Candidate article containers
+    let $content = $("article");
+    if (!$content.length) {
+      $content = $("main");
+    }
+    if (!$content.length) {
+      $content = $('[role="main"]');
+    }
+    if (!$content.length) {
+      $content = $(".post-content, .article-content, .entry-content, .content");
+    }
+    if (!$content.length) {
+      $content = $("body");
+    }
+
+    // Extract clean paragraphs, headings, blockquotes, code blocks, lists
+    const extractedParts: string[] = [];
+    $content
+      .find("h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, pre")
+      .each((_, el) => {
+        const tagName = (el as any).tagName?.toLowerCase() || "";
+        const $el = $(el);
+        const text = $el.text().trim();
+        if (!text) return;
+
+        // Skip children if inside blockquote/ul/ol unless list item
+        if ($el.parents("blockquote, ul, ol").length > 0 && tagName !== "li") {
+          return;
+        }
+
+        if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(tagName)) {
+          extractedParts.push(`<${tagName}>${escapeHtml(text)}</${tagName}>`);
+        } else if (tagName === "blockquote") {
+          extractedParts.push(`<blockquote><p>${escapeHtml(text)}</p></blockquote>`);
+        } else if (tagName === "pre") {
+          extractedParts.push(`<pre><code>${escapeHtml(text)}</code></pre>`);
+        } else if (tagName === "ul" || tagName === "ol") {
+          const items: string[] = [];
+          $el.children("li").each((_, li) => {
+            const liText = $(li).text().trim();
+            if (liText) items.push(`<li>${escapeHtml(liText)}</li>`);
+          });
+          if (items.length > 0) {
+            extractedParts.push(`<${tagName}>${items.join("")}</${tagName}>`);
+          }
+        } else if (tagName === "p") {
+          extractedParts.push(`<p>${escapeHtml(text)}</p>`);
+        }
+      });
+
+    let cleanContent = extractedParts.join("\n");
+    if (!cleanContent) {
+      const rawText = $content.text().replace(/\s+/g, " ").trim();
+      cleanContent = rawText
+        ? `<p>${escapeHtml(rawText)}</p>`
+        : "<p>No readable article content could be extracted.</p>";
+    }
+
+    // Compute word count and reading time (Math.max(1, Math.ceil(words / 200)))
+    const plainText = cleanContent.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const words = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0;
+    const readingTime = Math.max(1, Math.ceil(words / 200));
+
+    const result = {
+      title: title.trim(),
+      author: author.trim(),
+      publishedAt: publishedAt.trim(),
+      readingTime,
+      wordCount: words,
+      content: cleanContent,
+    };
+
+    if (words > 20) {
+      setRedisCache(c.env, redisKey, result, 604800).catch(() => {});
+      c.header(
+        "Cache-Control",
+        "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+      );
+    }
+
+    const response = c.json(result);
+
+    if (words > 20 && cache) {
+      try {
+        c.executionCtx.waitUntil(cache.put(edgeCacheKey, response.clone()));
+      } catch (cachePutErr) {
+        console.warn("[Article L1 Edge Cache Put Warning]:", cachePutErr);
+      }
+    }
+
+    return response;
+  } catch (err: any) {
+    console.error("[Article Extraction Exception]:", err);
+    return c.json(
+      {
+        error: `Article extraction failed: ${err?.message || err}`,
+      },
+      500
+    );
   }
 });

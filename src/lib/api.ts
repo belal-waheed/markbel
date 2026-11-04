@@ -6,6 +6,15 @@ export interface APIResponse<T = unknown> {
   error?: string
 }
 
+export interface ExtractedArticle {
+  title: string
+  author: string
+  publishedAt: string
+  readingTime: number
+  wordCount: number
+  content: string
+}
+
 export class ApiError extends Error {
   status: number
   data?: unknown
@@ -137,6 +146,12 @@ export const api = {
 
   async deleteToken(id: string): Promise<{ success: boolean }> {
     return deleteToken(id);
+  },
+
+  async extractArticle(url: string, forceRefresh = false): Promise<ExtractedArticle> {
+    return this.get<ExtractedArticle>(
+      `/article?url=${encodeURIComponent(url)}${forceRefresh ? '&refresh=1' : ''}`
+    );
   },
 
   agent: {
