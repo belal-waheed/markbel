@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, build } from 'vite';
 import path from 'path';
 import fs from 'fs';
 
@@ -21,12 +21,11 @@ export default defineConfig(({ mode }) => {
         input: {
           popup: path.resolve(__dirname, 'extension/src/popup/index.html'),
           options: path.resolve(__dirname, 'extension/src/options/index.html'),
-          background: path.resolve(__dirname, 'extension/src/background.ts'),
-          content: path.resolve(__dirname, 'extension/src/content.ts')
+          background: path.resolve(__dirname, 'extension/src/background.ts')
         },
         output: {
           entryFileNames: (chunkInfo) => {
-            if (chunkInfo.name === 'background' || chunkInfo.name === 'content') {
+            if (chunkInfo.name === 'background') {
               return '[name].js';
             }
             return 'assets/[name]-[hash].js';
@@ -39,7 +38,30 @@ export default defineConfig(({ mode }) => {
     plugins: [
       {
         name: 'copy-extension-manifest-and-icons',
-        closeBundle() {
+        async closeBundle() {
+          // Build content.ts as an isolated IIFE without code-splitting imports
+          await build({
+            configFile: false,
+            publicDir: false,
+            resolve: {
+              alias: {
+                '@': path.resolve(__dirname, './src')
+              }
+            },
+            build: {
+              outDir: outDir,
+              emptyOutDir: false,
+              rollupOptions: {
+                input: path.resolve(__dirname, 'extension/src/content.ts'),
+                output: {
+                  format: 'iife',
+                  entryFileNames: 'content.js',
+                  extend: true
+                }
+              }
+            }
+          });
+
           // Copy manifest.json (or manifest.firefox.json)
           const manifestSrc = isFirefox
             ? path.resolve(__dirname, 'extension/manifest.firefox.json')
@@ -84,3 +106,4 @@ export default defineConfig(({ mode }) => {
     ]
   };
 });
+
