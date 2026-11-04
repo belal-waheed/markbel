@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { openApiSpec } from "../../worker/src/openapi";
 import { normalizeSyncRecord } from "../../worker/src/normalize";
 import {
+  generateSearchSnippet,
+  getErrorMessage,
+} from "../../worker/src/routes/agent/common";
+import {
   agentApi,
   AgentBookmarkSearchParams,
   AgentCreateBookmarkRequest,
@@ -392,6 +396,30 @@ describe("Markbel Agent API - Phase 2 Architectural Tests", () => {
       expect(typeof agentApi.updateSettings).toBe("function");
       expect(typeof agentApi.getStats).toBe("function");
       expect(typeof agentApi.getOpenApiSpec).toBe("function");
+    });
+  });
+
+  describe("7. Sub-Router Modular Architecture & Shared Helpers", () => {
+    it("verifies getErrorMessage helper correctly extracts message or fallback", () => {
+      expect(getErrorMessage(new Error("Database connection timed out"), "Fallback")).toBe("Database connection timed out");
+      expect(getErrorMessage("plain string error", "Fallback")).toBe("Fallback");
+      expect(getErrorMessage(null, "Default error")).toBe("Default error");
+      expect(getErrorMessage(undefined, "Default error")).toBe("Default error");
+    });
+
+    it("generates contextual snippet around matched terms", () => {
+      const description = "Antigravity modern agent architecture with high-speed tool execution.";
+      const articleContent = "Extensive details on subagent delegation, distributed workflows, and cloud workers.";
+      
+      const snippet = generateSearchSnippet(description, articleContent, ["delegation"]);
+      expect(snippet).toContain("delegation");
+      expect(snippet).toContain("subagent");
+    });
+
+    it("handles snippet generation when text is null or terms are empty", () => {
+      expect(generateSearchSnippet(null, null, ["test"])).toBeNull();
+      const fallback = generateSearchSnippet("A brief description of bookmarks.", null, []);
+      expect(fallback).toBe("A brief description of bookmarks.");
     });
   });
 });

@@ -44,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.11
+                  What's New in Markbel v2.5.12
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Modular Domain Hooks, Keyboard Shortcut Manager &amp; Floating Selection Action Bar
+                Modular Edge Agent Routers, OpenAPI Sub-Routing &amp; Zero-Downtime Decoupling
               </p>
             </div>
           </div>
@@ -66,6 +66,43 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature 1: Modular Agent Sub-Routers & OpenAPI Decoupling */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Modular Agent Sub-Routers &amp; OpenAPI Decoupling
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  Phase 13 Architecture
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Deconstructed monolithic <code>worker/src/routes/agent.ts</code> (943 lines) into modular domain sub-routers under <code>worker/src/routes/agent/</code> (bookmarks, groups, settings, stats, common). Maintains 100% backwards-compatible REST endpoints, atomic D1 SQLite sync_changes mutations, and OpenAPI 3.1 specification contracts.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Bookmarks Sub-Router</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Groups &amp; Rules Sub-Router</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Settings &amp; Preferences Sub-Router</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Vault Stats Sub-Router</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature 1: Modular Batch Operations & Floating Action Bar */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
