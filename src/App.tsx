@@ -37,8 +37,33 @@ function NativeBridge() {
 
     // Configure native status bar to match Studio surface and prevent clipping
     StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {})
-    StatusBar.setBackgroundColor({ color: '#f6f5f0' }).catch(() => {})
-    StatusBar.setStyle({ style: Style.Light }).catch(() => {})
+
+    const syncStatusBarTheme = () => {
+      const isDark =
+        document.documentElement.classList.contains('dark') ||
+        (typeof window !== 'undefined' &&
+          window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches &&
+          (!localStorage.getItem('markbel_theme_mode') || localStorage.getItem('markbel_theme_mode') === 'system')) ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('markbel_theme_mode') === 'dark')
+
+      StatusBar.setBackgroundColor({ color: isDark ? '#090d16' : '#f6f5f0' }).catch(() => {})
+      StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light }).catch(() => {})
+    }
+
+    syncStatusBarTheme()
+
+    const mediaQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null
+    const handleMediaChange = () => syncStatusBarTheme()
+    if (mediaQuery) {
+      mediaQuery.addEventListener('change', handleMediaChange)
+    }
+
+    let observer: MutationObserver | null = null
+    if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => syncStatusBarTheme())
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    }
 
     // Hide splash screen once React is mounted
     SplashScreen.hide().catch(() => {})
@@ -96,6 +121,12 @@ function NativeBridge() {
       backHandlerPromise.then((handle) => handle.remove()).catch(() => {})
       urlHandlerPromise.then((handle) => handle.remove()).catch(() => {})
       window.removeEventListener('markbel:shareIntent', handleNativeShare)
+      if (mediaQuery) {
+        mediaQuery.removeEventListener('change', handleMediaChange)
+      }
+      if (observer) {
+        observer.disconnect()
+      }
     }
   }, [navigate, location])
 

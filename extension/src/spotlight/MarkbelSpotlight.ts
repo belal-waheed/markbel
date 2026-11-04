@@ -567,7 +567,7 @@ export class MarkbelSpotlight {
         const isSelected = idx === this.selectedIndex;
         const initial = (item.title || item.url || '?').charAt(0).toUpperCase();
         const iconHtml = item.favicon
-          ? `<img class="spotlight-item-icon" src="${escapeHtml(item.favicon)}" alt="" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+          ? `<img class="spotlight-item-icon" src="${escapeHtml(item.favicon)}" alt="" />
              <div class="spotlight-item-fallback-icon" style="display: none;">${escapeHtml(initial)}</div>`
           : `<div class="spotlight-item-fallback-icon">${escapeHtml(initial)}</div>`;
 
@@ -593,6 +593,14 @@ export class MarkbelSpotlight {
         `;
       })
       .join('');
+
+    this.resultsList.querySelectorAll<HTMLImageElement>('img.spotlight-item-icon').forEach((img) => {
+      img.addEventListener('error', () => {
+        img.style.display = 'none';
+        const fallback = img.nextElementSibling as HTMLElement | null;
+        if (fallback) fallback.style.display = 'flex';
+      }, { once: true });
+    });
 
     this.renderSelection();
   }

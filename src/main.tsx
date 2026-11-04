@@ -7,6 +7,11 @@ import { initializeNotifications } from './notifications/init.js'
 // Initialize local background services
 initializeNotifications();
 
+// Request persistent storage quota to prevent browser evicting IndexedDB under storage pressure
+if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

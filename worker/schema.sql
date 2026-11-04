@@ -174,7 +174,8 @@ END;
 CREATE TRIGGER IF NOT EXISTS bookmarks_au AFTER UPDATE ON bookmarks BEGIN
     DELETE FROM bookmarks_fts WHERE id = old.id;
     INSERT INTO bookmarks_fts (id, user_id, title, description, site_name, article_content)
-    VALUES (new.id, new.user_id, new.title, new.description, new.site_name, COALESCE(new.article_content, ''));
+    SELECT new.id, new.user_id, new.title, new.description, new.site_name, COALESCE(new.article_content, '')
+    WHERE new.deleted_at IS NULL;
 END;
 
 

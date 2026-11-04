@@ -11,6 +11,7 @@ import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 
 export const MARKBEL_VAULT_FOLDER_TITLE = 'Markbel Vault';
 export const STORAGE_KEY_TWO_WAY_SYNC = 'twoWayBookmarksSyncEnabled';
+export const STORAGE_KEY_NODE_URL_MAP = 'browserNodeIdToUrlMap';
 
 export class BrowserBookmarkSyncEngine {
   private isSyncing = false;
@@ -18,6 +19,63 @@ export class BrowserBookmarkSyncEngine {
 
   public getIsSyncing(): boolean {
     return this.isSyncing;
+  }
+
+  public async getNodeUrlMap(): Promise<Record<string, string>> {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      return {};
+    }
+    return new Promise<Record<string, string>>((resolve) => {
+      chrome.storage.local.get([STORAGE_KEY_NODE_URL_MAP], (result) => {
+        const val = result ? result[STORAGE_KEY_NODE_URL_MAP] : undefined;
+        resolve((val as Record<string, string>) || {});
+      });
+    });
+  }
+
+  public async recordNodeUrl(id: string, url: string): Promise<void> {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !id || !url) {
+      return;
+    }
+    const map = await this.getNodeUrlMap();
+    map[id] = url;
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ [STORAGE_KEY_NODE_URL_MAP]: map }, () => {
+        resolve();
+      });
+    });
+  }
+
+  public async recordNodeUrls(entries: [string, string][]): Promise<void> {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || entries.length === 0) {
+      return;
+    }
+    const map = await this.getNodeUrlMap();
+    for (const [id, url] of entries) {
+      if (id && url) map[id] = url;
+    }
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ [STORAGE_KEY_NODE_URL_MAP]: map }, () => {
+        resolve();
+      });
+    });
+  }
+
+  public async removeNodeUrl(id: string): Promise<string | undefined> {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !id) {
+      return undefined;
+    }
+    const map = await this.getNodeUrlMap();
+    const url = map[id];
+    if (url) {
+      delete map[id];
+      await new Promise<void>((resolve) => {
+        chrome.storage.local.set({ [STORAGE_KEY_NODE_URL_MAP]: map }, () => {
+          resolve();
+        });
+      });
+    }
+    return url;
   }
 
   public async isEnabled(): Promise<boolean> {
@@ -153,6 +211,9 @@ export class BrowserBookmarkSyncEngine {
 
     try {
       this.inFlightNodeIds.add(id);
+      if (bookmark.url) {
+        await this.recordNodeUrl(id, bookmark.url);
+      }
 
       // Check if URL already exists locally
       const existing = await db.bookmarks.where('url').equals(bookmark.url).first();
@@ -193,7 +254,8 @@ export class BrowserBookmarkSyncEngine {
     if (!inside) return;
 
     try {
-      const url = removeInfo.node?.url;
+      const storedUrl = await this.removeNodeUrl(id);
+      const url = removeInfo.node?.url || storedUrl;
       if (!url) return;
 
       const existing = await db.bookmarks.where('url').equals(url).first();
@@ -246,6 +308,8 @@ export class BrowserBookmarkSyncEngine {
       const targetUrl = changeInfo.url || node.url;
       if (!targetUrl) return;
 
+      await this.recordNodeUrl(id, targetUrl);
+
       const existing = await db.bookmarks.where('url').equals(targetUrl).first();
       if (existing && !existing.deletedAt) {
         const now = new Date().toISOString();
@@ -292,15 +356,24 @@ export class BrowserBookmarkSyncEngine {
       // Retrieve all existing browser bookmarks under Markbel Vault
       const vaultSubTree = await chrome.bookmarks.getSubTree(vaultFolder.id);
       const existingUrls = new Set<string>();
+      const nodeUrlEntries: [string, string][] = [];
 
       const collectUrls = (nodes: chrome.bookmarks.BookmarkTreeNode[]) => {
         for (const n of nodes) {
-          if (n.url) existingUrls.add(n.url.toLowerCase().trim());
+          if (n.url) {
+            existingUrls.add(n.url.toLowerCase().trim());
+            if (n.id) {
+              nodeUrlEntries.push([n.id, n.url]);
+            }
+          }
           if (n.children) collectUrls(n.children);
         }
       };
       if (vaultSubTree[0]?.children) {
         collectUrls(vaultSubTree[0].children);
+      }
+      if (nodeUrlEntries.length > 0) {
+        await this.recordNodeUrls(nodeUrlEntries);
       }
 
       for (const b of bookmarks) {
@@ -316,6 +389,7 @@ export class BrowserBookmarkSyncEngine {
         });
 
         this.inFlightNodeIds.add(createdNode.id);
+        await this.recordNodeUrl(createdNode.id, b.url);
         existingUrls.add(normalizedUrl);
         reflectedCount++;
       }

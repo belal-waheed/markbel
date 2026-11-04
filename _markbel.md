@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.5.15  
+> **Status:** Production / v2.5.16  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -290,3 +290,17 @@ Each milestone must pass the strict Markbel release pipeline:
 - **Unpacked Mirror:** Mirrored to `D:\dev\tools\markbel-extension\` and `D:\apps\0-setup\markbel-extension\`.
 - **Edge Deployment:** `npx wrangler deploy` to `https://mark.obel.workers.dev`.
 - **Git Hygiene:** Conventional Commits and clean tracking ref synchronization.
+
+### Extension CSP Compliance Hotfix (v2.5.15):
+- **Inline Event Handler Elimination:** Removed inline `onerror="..."` handlers from `popupSearchView.ts` and `MarkbelSpotlight.ts` template literals to comply with Manifest V3 Content Security Policy (`script-src 'self'`).
+- **Standard DOM Event Binding:** Replaced with post-render `querySelectorAll('img').forEach(img => img.addEventListener('error', ...))` event listeners.
+- **Packaging & Unpacked Mirror:** Cleaned and mirrored fresh bundles to `D:\dev\tools\markbel-extension\` and `D:\apps\0-setup\markbel-extension\`; refreshed GitHub release assets on `v2.5.15`.
+
+### Architectural Hardening & Release Protocols (v2.5.16):
+- **Client-Side Dexie Schema Upgrade (Version 9):** Defined compound primary key `[token+bookmarkId]` for `articleTokens` table with automatic migration hook indexing all existing readable article bodies; updated token extraction and indexing logic.
+- **Cloudflare D1 SQLite Schema & Ingestion Guard:** Fixed trigger `bookmarks_au AFTER UPDATE ON bookmarks` to only insert active records (`WHERE new.deleted_at IS NULL`) into `bookmarks_fts`; fortified `/api/sync` push mutation handling with SQLite `ON CONFLICT(id) DO UPDATE SET` upserts for bookmarks and groups to prevent `SQLITE_CONSTRAINT` duplicate key violations.
+- **Edge Background Link Health Prober Hardening:** Fortified `probeUrlHealth` with canonical `isSafePublicUrl` SSRF protection, immediately rejecting loopbacks, private CIDRs, and metadata IPs without fetching; scheduled prober now conditionally updates version and emits sync deltas only when health status actually flips.
+- **Extension MV3 Service Worker & Native Bookmarks Sync:** Fixed `chrome.runtime.onMessage` to return `true` strictly for asynchronous messages; ensured `sync-alarm` initialization at top-level service worker scope; implemented persistent `browserNodeIdToUrlMap` in `chrome.storage.local` to enable deletion synchronization from native browser bookmark removes.
+- **PWA Quota & Mobile Dark Mode Theme:** Removed duplicate manifest link in `index.html`; added `navigator.storage.persist()` storage quota protection; dynamically synchronized native Capacitor `StatusBar` color and style to active dark/light mode state changes.
+- **Verification Gate:** 536/536 tests passing (`npm test`), 0 TypeScript errors (`npm run typecheck`), production assets deployed to `https://mark.obel.workers.dev`.
+

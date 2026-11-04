@@ -123,4 +123,75 @@ describe('Phase 17: Link Health & 404 Rot Detector Suite', () => {
     expect(stats.broken).toBe(1);
     expect(mockPrepare).toHaveBeenCalled();
   });
+
+  it('immediately blocks unsafe loopback, private CIDR, and metadata URLs from probing', async () => {
+    // Arrange
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+
+    // Act
+    const loopback = await probeUrlHealth('http://127.0.0.1:8080/admin');
+    const metadata = await probeUrlHealth('http://169.254.169.254/latest/meta-data');
+    const privateIp = await probeUrlHealth('http://192.168.1.1/router');
+
+    // Assert
+    expect(loopback).toEqual({ isBroken: true, httpStatus: 400 });
+    expect(metadata).toEqual({ isBroken: true, httpStatus: 400 });
+    expect(privateIp).toEqual({ isBroken: true, httpStatus: 400 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('skips version bump and sync_changes delta when health status is unchanged', async () => {
+    // Arrange
+    const mockPrepare = vi.fn();
+    const mockBind = vi.fn();
+    const mockAll = vi.fn();
+    const mockRun = vi.fn();
+
+    const mockBookmarks = [
+      {
+        id: 'bm-healthy-1',
+        user_id: 'user-123',
+        url: 'https://healthy.com',
+        title: 'Healthy Link',
+        is_broken: 0,
+        http_status: 200,
+        last_checked_at: '2026-10-01T00:00:00.000Z',
+        version: 5,
+      },
+    ];
+
+    mockAll.mockResolvedValue({ results: mockBookmarks });
+    mockRun.mockResolvedValue({ success: true });
+    mockBind.mockReturnValue({
+      all: mockAll,
+      run: mockRun,
+      first: vi.fn(),
+    });
+    mockPrepare.mockReturnValue({ bind: mockBind });
+
+    const mockEnv = {
+      DB: {
+        prepare: mockPrepare,
+      },
+    } as any;
+
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 200, ok: true });
+
+    // Act
+    const stats = await handleScheduledLinkHealthCheck(mockEnv, 10);
+
+    // Assert
+    expect(stats.checked).toBe(1);
+    expect(stats.broken).toBe(0);
+    // Should NOT prepare sync_changes insert statement
+    const prepareCalls = mockPrepare.mock.calls.map((c) => c[0]);
+    const insertedSyncChanges = prepareCalls.some((sql: string) => sql.includes('sync_changes'));
+    expect(insertedSyncChanges).toBe(false);
+    // Should only run UPDATE bookmarks SET last_checked_at = ?
+    const updatedLastCheckedOnly = prepareCalls.some((sql: string) =>
+      sql.includes('UPDATE bookmarks SET last_checked_at = ? WHERE id = ?')
+    );
+    expect(updatedLastCheckedOnly).toBe(true);
+  });
 });

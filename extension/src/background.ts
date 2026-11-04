@@ -47,6 +47,13 @@ if (typeof chrome !== 'undefined' && chrome.bookmarks) {
   });
 }
 
+// Ensure sync-alarm is initialized at top-level service worker scope
+if (typeof chrome !== 'undefined' && chrome.alarms) {
+  chrome.alarms.get('sync-alarm', (a) => {
+    if (!a) chrome.alarms.create('sync-alarm', { periodInMinutes: 5 });
+  });
+}
+
 // Initialize sync engine for background syncing
 syncAndReflect().catch(() => {});
 
@@ -54,7 +61,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SYNC_OUTBOX') {
     syncAndReflect().catch(() => {});
     sendResponse({ success: true });
-    return true;
+    return false;
   }
 
   if (message.type === 'MARKBEL_IMPORT_BROWSER_BOOKMARKS') {
@@ -100,7 +107,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch((err) => {
       sendResponse({ success: false, error: err?.message });
     });
-    return true;
+    return false;
   }
 
   if (message.type === 'MARKBEL_NAVIGATE_TAB') {
@@ -118,10 +125,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err?.message });
       });
     }
-    return true;
+    return false;
   }
 
-  return true;
+  return false;
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrowserBookmarkSyncEngine, MARKBEL_VAULT_FOLDER_TITLE, STORAGE_KEY_TWO_WAY_SYNC } from '../../extension/src/bookmarkSync';
+import {
+  BrowserBookmarkSyncEngine,
+  MARKBEL_VAULT_FOLDER_TITLE,
+  STORAGE_KEY_TWO_WAY_SYNC,
+  STORAGE_KEY_NODE_URL_MAP,
+} from '../../extension/src/bookmarkSync';
+import { db } from '../../src/db/db';
 
 describe('Phase 18: Extension Two-Way Native Browser Bookmarks Sync Suite', () => {
   let engine: BrowserBookmarkSyncEngine;
@@ -157,5 +163,84 @@ describe('Phase 18: Extension Two-Way Native Browser Bookmarks Sync Suite', () =
 
     const reflected = await engine.reflectCloudBookmarksToBrowser(bookmarks);
     expect(reflected).toBe(0);
+  });
+
+  it('records, queries, and clears browserNodeIdToUrlMap in storage', async () => {
+    // Act: record node URLs
+    await engine.recordNodeUrl('node-123', 'https://example.com/page1');
+    await engine.recordNodeUrl('node-456', 'https://example.com/page2');
+
+    // Assert
+    const map = await engine.getNodeUrlMap();
+    expect(map['node-123']).toBe('https://example.com/page1');
+    expect(map['node-456']).toBe('https://example.com/page2');
+
+    // Remove one node
+    const removedUrl = await engine.removeNodeUrl('node-123');
+    expect(removedUrl).toBe('https://example.com/page1');
+
+    const updatedMap = await engine.getNodeUrlMap();
+    expect(updatedMap['node-123']).toBeUndefined();
+    expect(updatedMap['node-456']).toBe('https://example.com/page2');
+  });
+
+  it('handleNativeRemoved soft-deletes bookmark using persistent mapping when removeInfo.node is undefined', async () => {
+    await engine.setEnabled(true);
+
+    const testUrl = 'https://vitest.dev/guide';
+    const testBookmark = {
+      id: 'test-bm-vitest',
+      userId: 'user-1',
+      title: 'Vitest Guide',
+      url: testUrl,
+      group: 'Dev',
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+
+    const mockDbBookmarks: any[] = [testBookmark];
+    const mockOutbox: any[] = [];
+
+    (vi.spyOn(db.bookmarks, 'where') as any).mockImplementation((key: string) => {
+      return {
+        equals: (val: any) => ({
+          first: async () => mockDbBookmarks.find((b) => b[key] === val),
+        }),
+      } as any;
+    });
+
+    (vi.spyOn(db.bookmarks, 'put') as any).mockImplementation(async (item: any) => {
+      const idx = mockDbBookmarks.findIndex((b) => b.id === item.id);
+      if (idx >= 0) mockDbBookmarks[idx] = item;
+      else mockDbBookmarks.push(item);
+      return item.id;
+    });
+
+    (vi.spyOn(db.syncOutbox, 'add') as any).mockImplementation(async (item: any) => {
+      mockOutbox.push(item);
+      return item.id;
+    });
+
+    // Pre-record mapping for native node 'native-999'
+    await engine.recordNodeUrl('native-999', testUrl);
+
+    // Act: Chrome calls onRemoved with parentId in Vault, but node is undefined!
+    await engine.handleNativeRemoved('native-999', {
+      parentId: '101', // Dev subfolder
+    });
+
+    // Assert: bookmark was soft-deleted in Dexie
+    expect(mockDbBookmarks[0].deletedAt).toBeTruthy();
+
+    // Mapping was cleaned up from storage
+    const map = await engine.getNodeUrlMap();
+    expect(map['native-999']).toBeUndefined();
+
+    // Sync outbox has delete entry
+    expect(mockOutbox.length).toBe(1);
+    expect(mockOutbox[0].operation).toBe('delete');
+    expect(mockOutbox[0].entityId).toBe('test-bm-vitest');
   });
 });

@@ -4,6 +4,8 @@
  * and scheduled batch health checking for Cloudflare D1 bookmarks.
  */
 
+import { isSafePublicUrl } from '../../../src/lib/urlSafety';
+
 export interface LinkHealthResult {
   isBroken: boolean;
   httpStatus: number;
@@ -14,6 +16,9 @@ export interface LinkHealthResult {
  * to a byte-range GET request if HEAD is rejected or unsupported.
  */
 export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
+  if (!url || !isSafePublicUrl(url)) {
+    return { isBroken: true, httpStatus: 400 };
+  }
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -22,7 +27,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
       res = await fetch(url, {
         method: 'HEAD',
         signal: controller.signal,
-        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.15' },
+        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.16' },
         redirect: 'follow',
       });
       // Fallback to range GET if server disallows HEAD (405) or blocks it (403)
@@ -30,7 +35,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
         res = await fetch(url, {
           method: 'GET',
           signal: controller.signal,
-          headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.15', Range: 'bytes=0-1024' },
+          headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.16', Range: 'bytes=0-1024' },
           redirect: 'follow',
         });
       }
@@ -39,7 +44,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
       res = await fetch(url, {
         method: 'GET',
         signal: controller.signal,
-        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.15', Range: 'bytes=0-1024' },
+        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.16', Range: 'bytes=0-1024' },
         redirect: 'follow',
       });
     } finally {
@@ -84,31 +89,41 @@ export async function handleScheduledLinkHealthCheck(
       if (isBroken) brokenCount++;
 
       const now = new Date().toISOString();
-      const newVersion = (row.version || 0) + 1;
+      const statusChanged = (row.is_broken ?? 0) !== (isBroken ? 1 : 0) || row.http_status !== httpStatus;
 
-      await env.DB.prepare(
-        'UPDATE bookmarks SET is_broken = ?, http_status = ?, last_checked_at = ?, version = ?, updated_at = ? WHERE id = ?'
-      )
-        .bind(isBroken ? 1 : 0, httpStatus, now, newVersion, now, row.id)
-        .run();
+      if (statusChanged) {
+        const newVersion = (row.version || 0) + 1;
 
-      const changeId = `cron-health-${row.id}-${Date.now()}`;
-      const updatedRecord = {
-        ...row,
-        is_broken: isBroken ? 1 : 0,
-        http_status: httpStatus,
-        last_checked_at: now,
-        version: newVersion,
-        updated_at: now,
-      };
+        await env.DB.prepare(
+          'UPDATE bookmarks SET is_broken = ?, http_status = ?, last_checked_at = ?, version = ?, updated_at = ? WHERE id = ?'
+        )
+          .bind(isBroken ? 1 : 0, httpStatus, now, newVersion, now, row.id)
+          .run();
 
-      await env.DB.prepare(
-        `INSERT INTO sync_changes (
-          user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
-        ) VALUES (?, 'bookmark', ?, 'update', ?, ?, 'agent', 'LinkRotDetector', ?, ?)`
-      )
-        .bind(row.user_id, row.id, newVersion, changeId, JSON.stringify(updatedRecord), now)
-        .run();
+        const changeId = `cron-health-${row.id}-${Date.now()}`;
+        const updatedRecord = {
+          ...row,
+          is_broken: isBroken ? 1 : 0,
+          http_status: httpStatus,
+          last_checked_at: now,
+          version: newVersion,
+          updated_at: now,
+        };
+
+        await env.DB.prepare(
+          `INSERT INTO sync_changes (
+            user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+          ) VALUES (?, 'bookmark', ?, 'update', ?, ?, 'agent', 'LinkRotDetector', ?, ?)`
+        )
+          .bind(row.user_id, row.id, newVersion, changeId, JSON.stringify(updatedRecord), now)
+          .run();
+      } else {
+        await env.DB.prepare(
+          'UPDATE bookmarks SET last_checked_at = ? WHERE id = ?'
+        )
+          .bind(now, row.id)
+          .run();
+      }
     }
 
     return { checked: results.length, broken: brokenCount };

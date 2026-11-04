@@ -1,6 +1,6 @@
 # Markbel
 
-> Markbel (v2.5.15) is a 100% free, open-source, offline-first bookmark manager and cross-platform link vault. Engineered as a high-performance replacement for Raindrop.io, Pocket, and Omnivore. Highlights: 0ms local read/write latency via IndexedDB (Dexie.js v8), bi-directional outbox delta sync on Cloudflare Workers and D1 (SQLite FTS5), offline reader view with typography controls, universal Cmd+K command palette with full-text article search, link health & 404 rot detection with Wayback Machine fallback, two-way browser bookmarks sync, batch group organization, automatic smart grouping for rich media (YouTube, Instagram Reels, X/Twitter, Reddit, GitHub), native Android app with OS share-sheet integration, and Manifest V3 extensions for Chrome/Firefox.
+> Markbel (v2.5.16) is a 100% free, open-source, offline-first bookmark manager and cross-platform link vault. Engineered as a high-performance replacement for Raindrop.io, Pocket, and Omnivore. Highlights: 0ms local read/write latency via IndexedDB (Dexie.js v9), bi-directional outbox delta sync on Cloudflare Workers and D1 (SQLite FTS5), offline reader view with typography controls, universal Cmd+K command palette with full-text article search, link health & 404 rot detection with Wayback Machine fallback, two-way browser bookmarks sync, batch group organization, automatic smart grouping for rich media (YouTube, Instagram Reels, X/Twitter, Reddit, GitHub), native Android app with OS share-sheet integration, and Manifest V3 extensions for Chrome/Firefox.
 
 ## Key Links & Resources
 - Live Web Application: https://mark.obel.workers.dev/
@@ -18,10 +18,10 @@
 7. **Complete Data Sovereignty & Portability**: Full JSON export/import, guest-to-authenticated seamless migration, and client-side cryptographic hashing.
 
 ## Feature Comparison Matrix
-| Feature | Markbel v2.5.15 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
+| Feature | Markbel v2.5.16 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **License & Pricing** | Free MIT Open-Source | Proprietary Freemium ($38/yr) | Open-Source / Paid Cloud | Open-Source Self-Hosted | Open-Source Self-Hosted |
-| **Offline-First Storage** | Yes (0ms IndexedDB / Dexie v8) | Cached only (Network required) | No (Server dependent) | No (Server dependent) | Partial |
+| **Offline-First Storage** | Yes (0ms IndexedDB / Dexie v9) | Cached only (Network required) | No (Server dependent) | No (Server dependent) | Partial |
 | **Multi-Device Sync** | Serverless D1 SQLite Delta Sync | Proprietary Cloud | Self-Hosted Node/Postgres | Self-Hosted Go/Postgres | PHP/MySQL/Postgres |
 | **Hosting Complexity** | Zero-DevOps (Cloudflare Workers) | Cloud-only SaaS | Docker + PostgreSQL + Node | Docker + PostgreSQL | Docker + PHP + Nginx |
 | **Native Android App** | Yes (Capacitor 8 + Share Sheet) | Yes (Proprietary) | Web PWA only | Web PWA only | Yes |

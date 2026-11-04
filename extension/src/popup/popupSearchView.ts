@@ -144,7 +144,7 @@ export function renderSearchResults(): void {
       const isSelected = idx === selectedResultIndex;
       const initial = (item.title || item.url || '?').charAt(0).toUpperCase();
       const iconHtml = item.favicon
-        ? `<img class="search-item-icon" src="${escapeHtml(item.favicon)}" alt="" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+        ? `<img class="search-item-icon" src="${escapeHtml(item.favicon)}" alt="" />
            <div class="search-item-fallback-icon" style="display: none;">${escapeHtml(initial)}</div>`
         : `<div class="search-item-fallback-icon">${escapeHtml(initial)}</div>`;
 
@@ -165,6 +165,14 @@ export function renderSearchResults(): void {
       `;
     })
     .join('');
+
+  searchResultsList.querySelectorAll<HTMLImageElement>('img.search-item-icon').forEach((img) => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const fallback = img.nextElementSibling as HTMLElement | null;
+      if (fallback) fallback.style.display = 'flex';
+    }, { once: true });
+  });
 
   renderSelection();
 }

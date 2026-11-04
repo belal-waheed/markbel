@@ -83,6 +83,19 @@ export interface ArticleToken {
   bookmarkId: string;
 }
 
+/**
+ * Normalizes text and extracts unique search tokens (lowercase, alphanumeric, length >= 2)
+ */
+export function extractArticleTokens(text?: string | null): string[] {
+  if (!text) return [];
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && w.length <= 50);
+  return Array.from(new Set(words));
+}
+
 export class MarkbelDatabase extends Dexie {
   bookmarks!: Table<LocalBookmark, string>;
   groups!: Table<LocalGroup, string>;
@@ -92,7 +105,7 @@ export class MarkbelDatabase extends Dexie {
 
   scheduledNotifications!: Table<any, string>;
   cachedThumbnails!: Table<CachedThumbnail, string>;
-  articleTokens!: Table<ArticleToken, string>;
+  articleTokens!: Table<ArticleToken, [string, string]>;
 
   constructor() {
     super('MarkbelDatabase');
@@ -142,6 +155,24 @@ export class MarkbelDatabase extends Dexie {
       bookmarks: 'id, userId, url, group, isArchived, isRead, isBroken, contentType, deletedAt',
       articleTokens: 'token, bookmarkId, [token+bookmarkId]'
     }).upgrade(() => {});
+
+    this.version(9).stores({
+      articleTokens: '[token+bookmarkId], token, bookmarkId'
+    }).upgrade(async (tx) => {
+      const bookmarks = await tx.table<LocalBookmark>('bookmarks').toArray();
+      const rows: ArticleToken[] = [];
+      for (const b of bookmarks) {
+        if (b.articleContent && !b.deletedAt) {
+          const tokens = extractArticleTokens(b.articleContent);
+          for (const token of tokens) {
+            rows.push({ token, bookmarkId: b.id });
+          }
+        }
+      }
+      if (rows.length > 0) {
+        await tx.table('articleTokens').bulkPut(rows);
+      }
+    });
   }
 }
 
@@ -578,19 +609,6 @@ export async function pruneCachedThumbnails(maxCount: number = 300): Promise<num
     console.error('Failed to prune cached thumbnails:', err);
     return 0;
   }
-}
-
-/**
- * Normalizes text and extracts unique search tokens (lowercase, alphanumeric, length >= 2)
- */
-export function extractArticleTokens(text?: string | null): string[] {
-  if (!text) return [];
-  const words = text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 2 && w.length <= 50);
-  return Array.from(new Set(words));
 }
 
 /**

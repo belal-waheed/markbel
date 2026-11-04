@@ -235,13 +235,41 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
             bookmarkTitle = "Saved Bookmark";
           }
 
-          const createdAt = payload.createdAt || now;
+          const createdAt = currentRecord?.created_at || payload.createdAt || now;
           const updatedAt = payload.updatedAt || now;
 
           statements.push(
             c.env.DB.prepare(
-              `INSERT INTO bookmarks (id, user_id, title, url, description, image, favicon, site_name, author, published_at, content_type, reading_time, word_count, canonical_url, article_content, group_name, is_read, read_at, is_pinned, remind_at, is_archived, archive_group, version, created_at, updated_at, deleted_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+              `INSERT INTO bookmarks (
+                id, user_id, title, url, description, image, favicon, site_name, author, published_at,
+                content_type, reading_time, word_count, canonical_url, article_content, group_name,
+                is_read, read_at, is_pinned, remind_at, is_archived, archive_group, version, created_at, updated_at, deleted_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+              ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                url = excluded.url,
+                description = excluded.description,
+                image = excluded.image,
+                favicon = excluded.favicon,
+                site_name = excluded.site_name,
+                author = excluded.author,
+                published_at = excluded.published_at,
+                content_type = excluded.content_type,
+                reading_time = excluded.reading_time,
+                word_count = excluded.word_count,
+                canonical_url = excluded.canonical_url,
+                article_content = excluded.article_content,
+                group_name = excluded.group_name,
+                is_read = excluded.is_read,
+                read_at = excluded.read_at,
+                is_pinned = excluded.is_pinned,
+                remind_at = excluded.remind_at,
+                is_archived = excluded.is_archived,
+                archive_group = excluded.archive_group,
+                version = excluded.version,
+                updated_at = excluded.updated_at,
+                deleted_at = NULL
+              WHERE user_id = excluded.user_id`
             ).bind(
               entityId,
               userId,
@@ -424,12 +452,20 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
             currentGroupMap.set(entityId, existingActiveGroup);
             recordJson = JSON.stringify(normalizeSyncRecord(existingActiveGroup, "group"));
           } else {
-            const createdAt = payload.createdAt || now;
+            const createdAt = currentRecord?.created_at || payload.createdAt || now;
             const updatedAt = payload.updatedAt || now;
 
             statements.push(
               c.env.DB.prepare(
-                "INSERT INTO groups (id, user_id, name, color, version, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)"
+                `INSERT INTO groups (id, user_id, name, color, version, created_at, updated_at, deleted_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+                 ON CONFLICT(id) DO UPDATE SET
+                   name = excluded.name,
+                   color = excluded.color,
+                   version = excluded.version,
+                   updated_at = excluded.updated_at,
+                   deleted_at = NULL
+                 WHERE user_id = excluded.user_id`
               ).bind(
                 entityId,
                 userId,
