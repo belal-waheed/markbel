@@ -156,21 +156,32 @@ export class MarkbelDatabase extends Dexie {
       articleTokens: 'token, bookmarkId, [token+bookmarkId]'
     }).upgrade(() => {});
 
+    // Step 1: Drop the legacy articleTokens store that had single primary key 'token'
+    // IndexedDB does not permit modifying an existing object store's primary key in-place.
     this.version(9).stores({
+      articleTokens: null
+    });
+
+    // Step 2: Recreate articleTokens with the correct compound primary key [token+bookmarkId]
+    this.version(10).stores({
       articleTokens: '[token+bookmarkId], token, bookmarkId'
     }).upgrade(async (tx) => {
-      const bookmarks = await tx.table<LocalBookmark>('bookmarks').toArray();
-      const rows: ArticleToken[] = [];
-      for (const b of bookmarks) {
-        if (b.articleContent && !b.deletedAt) {
-          const tokens = extractArticleTokens(b.articleContent);
-          for (const token of tokens) {
-            rows.push({ token, bookmarkId: b.id });
+      try {
+        const bookmarks = await tx.table<LocalBookmark>('bookmarks').toArray();
+        const rows: ArticleToken[] = [];
+        for (const b of bookmarks) {
+          if (b.articleContent && !b.deletedAt) {
+            const tokens = extractArticleTokens(b.articleContent);
+            for (const token of tokens) {
+              rows.push({ token, bookmarkId: b.id });
+            }
           }
         }
-      }
-      if (rows.length > 0) {
-        await tx.table('articleTokens').bulkPut(rows);
+        if (rows.length > 0) {
+          await tx.table('articleTokens').bulkPut(rows);
+        }
+      } catch (err) {
+        console.warn('[Dexie Version 10 Upgrade Error]:', err);
       }
     });
   }

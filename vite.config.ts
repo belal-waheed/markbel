@@ -10,22 +10,28 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'logo.png'],
       manifest: {
         name: 'Markbel',
         short_name: 'Markbel',
         description: 'Offline-first bookmark manager',
-        theme_color: '#ffffff',
+        theme_color: '#090d16',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: '/logo.png',
+            sizes: '192x192 512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ],
         share_target: {
@@ -58,14 +64,14 @@ export default defineConfig({
             urlPattern: /^\/api\/proxy\/image/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'image-proxy-cache',
+              cacheName: 'image-proxy-v2',
               expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
+                maxEntries: 100,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
                 purgeOnQuotaError: true,
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200],
               },
             },
           },
@@ -73,14 +79,14 @@ export default defineConfig({
             urlPattern: /^https:\/\/(?:i\.ytimg\.com|www\.google\.com\/s2\/favicons|pbs\.twimg\.com|avatars\.githubusercontent\.com)\/.*$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'external-thumbnail-cache',
+              cacheName: 'external-thumb-v2',
               expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
+                maxEntries: 100,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
                 purgeOnQuotaError: true,
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200],
               },
             },
           },
@@ -90,14 +96,14 @@ export default defineConfig({
               /\.(?:png|jpg|jpeg|svg|webp|avif|gif|ico)(?:\?.*)?$/i.test(url.href),
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'general-image-cache',
+              cacheName: 'general-image-v2',
               expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
+                maxEntries: 100,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
                 purgeOnQuotaError: true,
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200],
               },
             },
           },

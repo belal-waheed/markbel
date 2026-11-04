@@ -21,10 +21,14 @@ export class DatabaseErrorBoundary extends Component<Props, State> {
     const errorString = (error.message || '').toLowerCase();
     const isDbError = 
       error.name === 'QuotaExceededError' ||
+      error.name === 'DatabaseClosedError' ||
+      error.name === 'UpgradeError' ||
       errorString.includes('database') ||
       errorString.includes('dexie') ||
       errorString.includes('indexeddb') ||
-      errorString.includes('idb');
+      errorString.includes('idb') ||
+      errorString.includes('primary key') ||
+      errorString.includes('upgrade');
       
     // Only capture storage/DB errors. Let normal React errors bubble up.
     if (isDbError) {
