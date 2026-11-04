@@ -373,11 +373,6 @@ mediaRouter.get("/api/metadata", async (c) => {
       metadataResult = synthesizeMetadataFromUrl(targetUrl);
     }
 
-    // Always ensure high-res favicon if image is still missing
-    if (metadataResult && !metadataResult.image) {
-      metadataResult.image = `https://www.google.com/s2/favicons?domain=${targetUrl.hostname}&sz=128`;
-    }
-
     // Only cache high-quality results in Redis & L1 Edge (NEVER cache empty/failed fallback results)
     const isHighQualityResult =
       metadataResult.title &&

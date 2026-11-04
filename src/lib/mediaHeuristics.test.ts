@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractInstantMediaMetadata, upgradeInsecureImageUrl } from './mediaHeuristics';
+import { extractInstantMediaMetadata, upgradeInsecureImageUrl, isFaviconUrl } from './mediaHeuristics';
 
 describe('extractInstantMediaMetadata Unit Tests', () => {
   describe('YouTube Heuristics', () => {
@@ -208,6 +208,39 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
       expect(upgradeInsecureImageUrl('   ')).toBeUndefined();
       expect(upgradeInsecureImageUrl(null)).toBeUndefined();
       expect(upgradeInsecureImageUrl(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('isFaviconUrl Tests', () => {
+    it('identifies falsy or empty inputs as favicon URLs', () => {
+      expect(isFaviconUrl(null)).toBe(true);
+      expect(isFaviconUrl(undefined)).toBe(true);
+      expect(isFaviconUrl('')).toBe(true);
+      expect(isFaviconUrl('   ')).toBe(true);
+    });
+
+    it('identifies Google S2 favicon service URLs', () => {
+      expect(isFaviconUrl('https://www.google.com/s2/favicons?domain=youtube.com&sz=128')).toBe(true);
+      expect(isFaviconUrl('http://google.com/s2/favicons?domain=github.com')).toBe(true);
+    });
+
+    it('identifies generic URLs containing favicon', () => {
+      expect(isFaviconUrl('https://example.com/assets/favicon.png')).toBe(true);
+      expect(isFaviconUrl('https://example.com/favicons/apple-touch-icon.png')).toBe(true);
+    });
+
+    it('identifies .ico and .svg icon assets', () => {
+      expect(isFaviconUrl('https://example.com/logo.ico')).toBe(true);
+      expect(isFaviconUrl('https://example.com/icon.svg')).toBe(true);
+      expect(isFaviconUrl('https://example.com/icon.svg?v=2')).toBe(true);
+      expect(isFaviconUrl('https://example.com/app.ico?cache=1')).toBe(true);
+    });
+
+    it('returns false for real cover and banner images', () => {
+      expect(isFaviconUrl('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')).toBe(false);
+      expect(isFaviconUrl('https://opengraph.githubassets.com/1/facebook/react')).toBe(false);
+      expect(isFaviconUrl('https://cdn.site.com/covers/hero-banner.webp')).toBe(false);
+      expect(isFaviconUrl('https://images.unsplash.com/photo-1579546929518-9e396f3cc809')).toBe(false);
     });
   });
 });

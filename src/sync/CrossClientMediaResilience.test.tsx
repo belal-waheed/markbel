@@ -3,7 +3,7 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { BookmarkCard } from '../components/BookmarkCard';
 import { BookmarkRepository } from '../db/SyncRepository';
-import { db, LocalBookmark, SyncOutboxItem, repairMissingMediaThumbnails } from '../db/db';
+import { db, LocalBookmark, SyncOutboxItem, repairMissingMediaThumbnails, repairAndEnrichBookmarkThumbnails } from '../db/db';
 
 describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
   describe('1. BookmarkCard Deterministic Thumbnail Fallback', () => {
@@ -277,6 +277,86 @@ describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
       const ghUpdate = updatedRecords.find((r) => r.id === 'b-gh');
       expect(ghUpdate?.changes.image).toBe('https://opengraph.githubassets.com/1/facebook/react');
       expect(ghUpdate?.changes.siteName).toBe('GitHub');
+    });
+
+    it('repairAndEnrichBookmarkThumbnails scrubs polluted favicons and restores instant posters', async () => {
+      let bulkPutPayload: LocalBookmark[] = [];
+      (vi.spyOn(db.bookmarks, 'bulkPut') as any).mockImplementation(async (items: any) => {
+        bulkPutPayload = items;
+        return items.map((i: any) => i.id);
+      });
+
+      const pollutedBookmarks: LocalBookmark[] = [
+        {
+          id: 'b-polluted-yt',
+          userId: 'u1',
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          title: 'YouTube Video',
+          group: 'Video',
+          image: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=128',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+        {
+          id: 'b-polluted-article',
+          userId: 'u1',
+          url: 'https://example.com/article',
+          title: 'Generic Article',
+          group: 'Reading',
+          image: 'https://www.google.com/s2/favicons?domain=example.com&sz=128',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+        {
+          id: 'b-clean-real-img',
+          userId: 'u1',
+          url: 'https://example.com/photo',
+          title: 'Photo',
+          group: 'Reading',
+          image: 'https://cdn.example.com/photo.jpg',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+        {
+          id: 'b-deleted-polluted',
+          userId: 'u1',
+          url: 'https://www.youtube.com/watch?v=xyz',
+          title: 'Deleted',
+          group: 'Video',
+          image: 'https://www.google.com/s2/favicons?domain=youtube.com',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: '2026-01-02T00:00:00Z',
+        },
+      ];
+
+      (vi.spyOn(db.bookmarks, 'filter') as any).mockImplementation((filterFn: any) => {
+        const filtered = pollutedBookmarks.filter(filterFn);
+        return {
+          toArray: async () => filtered,
+        } as any;
+      });
+
+      const count = await repairAndEnrichBookmarkThumbnails();
+
+      // b-polluted-yt (replaces favicon with YouTube poster) and b-polluted-article (clears favicon)
+      expect(count).toBe(2);
+      expect(bulkPutPayload).toHaveLength(2);
+
+      const ytRepaired = bulkPutPayload.find((b) => b.id === 'b-polluted-yt');
+      expect(ytRepaired?.image).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+      expect(ytRepaired?.siteName).toBe('YouTube');
+      expect(ytRepaired?.contentType).toBe('video');
+
+      const articleRepaired = bulkPutPayload.find((b) => b.id === 'b-polluted-article');
+      expect(articleRepaired?.image).toBeUndefined();
     });
   });
 });

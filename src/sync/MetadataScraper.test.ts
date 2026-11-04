@@ -170,7 +170,7 @@ describe("Metadata Scraper & Platform Adapters Suite (Modular Worker Engine)", (
       expect(synth.title).toContain("En US - Docs - Web - API");
       expect(synth.title).toContain("Developer");
       expect(synth.description).toContain("developer.mozilla.org");
-      expect(synth.image).toBe("https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=128");
+      expect(synth.image).toBe("");
     });
 
     it("synthesizes root domain titles for top-level URLs", () => {
@@ -179,7 +179,7 @@ describe("Metadata Scraper & Platform Adapters Suite (Modular Worker Engine)", (
 
       expect(synth.title).toBe("Example");
       expect(synth.description).toBe("Saved link from example.com");
-      expect(synth.image).toBe("https://www.google.com/s2/favicons?domain=example.com&sz=128");
+      expect(synth.image).toBe("");
     });
   });
 

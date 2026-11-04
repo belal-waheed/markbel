@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.js'
 import './index.css'
 import { initializeNotifications } from './notifications/init.js'
-import { repairMissingMediaThumbnails } from './db/db.js'
+import { repairMissingMediaThumbnails, repairAndEnrichBookmarkThumbnails } from './db/db.js'
 
 // Initialize local background services
 initializeNotifications();
@@ -12,6 +12,7 @@ initializeNotifications();
 if (typeof window !== 'undefined') {
   const runMediaRepair = () => {
     repairMissingMediaThumbnails().catch(() => {});
+    repairAndEnrichBookmarkThumbnails().catch(() => {});
   };
   if ('requestIdleCallback' in window) {
     (window as any).requestIdleCallback(runMediaRepair);
@@ -25,15 +26,22 @@ if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
   navigator.storage.persist().catch(() => {});
 }
 
-// Automatically prune legacy bloated Workbox caches with opaque responses
+// Automatically prune obsolete or bloated caches with opaque response padding
 if (typeof caches !== 'undefined') {
+  const WHITELIST = new Set([
+    'pages-cache',
+    'external-thumb-v2',
+    'image-proxy-v2',
+    'general-image-v2',
+  ]);
+
   caches.keys().then((names) => {
     for (const name of names) {
-      if (
-        name === 'general-image-cache' ||
-        name === 'external-thumbnail-cache' ||
-        name === 'image-proxy-cache'
-      ) {
+      const isPrecache = name.startsWith('workbox-precache');
+      const isWhitelisted = WHITELIST.has(name) || isPrecache;
+      const isLegacyRuntime = name === 'workbox-runtime' || name.startsWith('workbox-runtime-');
+
+      if (!isWhitelisted || isLegacyRuntime) {
         caches.delete(name).catch(() => {});
       }
     }

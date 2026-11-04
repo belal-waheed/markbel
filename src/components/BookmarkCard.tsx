@@ -2,7 +2,7 @@ import React from 'react'
 import { Clock, Archive, Edit, Trash2, Pin, CheckCircle, Check, ListVideo, BookOpen } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { getPublicFaviconUrl } from '@/lib/urlSafety'
-import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics'
+import { extractInstantMediaMetadata, isFaviconUrl } from '@/lib/mediaHeuristics'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
 
@@ -48,7 +48,13 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onSnoozeReminder
 }) => {
   const instant = extractInstantMediaMetadata(b.url);
-  const effectiveImage = b.image || instant.image || '';
+  const isPolluted = isFaviconUrl(b.image);
+  let effectiveImage = '';
+  if (instant.image) {
+    effectiveImage = (!isPolluted && b.image) ? b.image : instant.image;
+  } else if (!isPolluted && b.image) {
+    effectiveImage = b.image;
+  }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // COMPACT LIST ROW VIEW

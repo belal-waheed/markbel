@@ -366,18 +366,20 @@ export default function BookmarksPage() {
     // Filter by Group or Special Filter
     if (activeGroup === "__broken__") {
       result = result.filter((b) => b.isBroken);
-    } else if (activeGroup) {
-      result = result.filter((b) => (b.group || "Unsorted") === activeGroup);
-    }
+    } else {
+      if (activeGroup) {
+        result = result.filter((b) => (b.group || "Unsorted") === activeGroup);
+      }
 
-    // Filter by Tab
-    if (currentTab === "unread") {
-      result = result.filter((b) => !b.isRead);
-    } else if (currentTab === "pinned") {
-      result = result.filter((b) => b.isPinned);
-    } else if (currentTab === "due") {
-      const now = new Date().toISOString();
-      result = result.filter((b) => b.remindAt && b.remindAt <= now && !b.isRead);
+      // Filter by Tab
+      if (currentTab === "unread") {
+        result = result.filter((b) => !b.isRead);
+      } else if (currentTab === "pinned") {
+        result = result.filter((b) => b.isPinned);
+      } else if (currentTab === "due") {
+        const now = new Date().toISOString();
+        result = result.filter((b) => b.remindAt && b.remindAt <= now && !b.isRead);
+      }
     }
 
     // Filter and Rank by Search Query using Unified Search Catalog

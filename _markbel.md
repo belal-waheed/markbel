@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.5.18  
+> **Status:** Production / v2.5.19  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -310,4 +310,22 @@ Each milestone must pass the strict Markbel release pipeline:
 - **Extension Native Browser Sync Enrichment:** Integrated instant media metadata extraction into `BrowserBookmarkSyncEngine` (`handleNativeCreated` and `importAllBrowserBookmarks`) in `extension/src/bookmarkSync.ts`.
 - **Database Self-Healing Sweep:** Added `repairMissingMediaThumbnails` in `src/db/db.ts` and scheduled automatic execution in an idle callback on launch in `src/main.tsx` to self-heal existing local IndexedDB records.
 - **Verification Gate:** 544/544 tests passing across 42 suites (`npm test`), 0 TypeScript errors (`npm run typecheck`), edge worker and web assets deployed to `https://mark.obel.workers.dev`.
+
+### Favicon Cleanse, Cache Quota Reclaim & Broken Links HUD (v2.5.19):
+- **Favicon Pollution Elimination & Instant Media Priority:**
+  - Added `isFaviconUrl()` heuristic in `src/lib/mediaHeuristics.ts` to detect low-res Google S2 favicon service URLs, generic favicon assets, and `.ico`/`.svg` icons.
+  - Fortified `src/components/BookmarkCard.tsx` (Grid & List views) so that `instant.image` (YouTube video thumbnails, GitHub OpenGraph banners) takes absolute priority over missing or polluted favicon covers in `b.image`.
+  - Cleansed backend metadata scraper (`worker/src/routes/media.ts` and `worker/src/lib/metadataScraper.ts`) removing favicon fallbacks in `image` so database records are never polluted.
+- **Dexie Self-Healing Thumbnail Repair & Favicon Scrubbing:**
+  - Exported `repairAndEnrichBookmarkThumbnails()` in `src/db/db.ts` to scan non-deleted IndexedDB bookmarks, backfill instant YouTube/GitHub posters into `b.image`, and clean polluted favicon URLs to `undefined`.
+  - Integrated automatic execution on launch in `src/main.tsx` via idle callback.
+- **Cache Storage Opaque Bloat Elimination:**
+  - Enhanced startup cache pruner in `src/main.tsx` against a strict whitelist (`pages-cache`, `external-thumb-v2`, `image-proxy-v2`, `general-image-v2`), deleting legacy and opaque Workbox caches (`workbox-runtime`) to reclaim 400 MB artificial browser quota padding.
+  - Added dedicated "Clear Cache Storage" action in `src/components/settings/DataBackupCard.tsx` to purge Service Worker caches and reload on demand.
+- **Sidebar "Broken Links" Navigation & Filter Isolation:**
+  - Updated `GroupSidebar.tsx` broken links trigger to explicitly navigate to `/app` before setting active group, preventing user lockouts on subpages.
+  - Isolated tab filter in `src/views/BookmarksPage.tsx` when `activeGroup === "__broken__"` so broken bookmarks are never hidden by the `isRead` filter.
+- **Extension Clean Packaging & Unpacked Distribution:**
+  - Cleaned `dist-extension` before packaging in `package.json` and mirrored fresh builds to `D:\apps\0-setup\markbel-extension\` with pre-cleaned `assets/` subfolder.
+- **Verification Gate:** 555/555 Vitest unit and integration tests passing (`npm test`), 0 TypeScript errors (`npm run typecheck`), edge worker and PWA deployed to `https://mark.obel.workers.dev`.
 

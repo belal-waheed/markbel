@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Safe Private Favicons, Cross-Origin Proxy Streamlining, Edge Redirect Support &amp; Web Push Guidance
+            Favicon Pollution Elimination, Instant YouTube Thumbnails, Cache Storage Bloat Reclaim &amp; Broken Links HUD
           </span>
         </div>
         <button

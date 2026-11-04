@@ -181,6 +181,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
         <div className="space-y-1">
           <button
             onClick={() => {
+              navigate("/app");
               setActiveGroup(null);
               setIsSidebarOpen(false);
             }}
@@ -205,6 +206,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
           </button>
           <button
             onClick={() => {
+              navigate("/app");
               setActiveGroup("__broken__");
               setIsSidebarOpen(false);
             }}
@@ -299,11 +301,13 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                       role="button"
                       tabIndex={0}
                       onClick={() => {
+                        navigate("/app");
                         setActiveGroup(group.name);
                         setIsSidebarOpen(false);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
+                          navigate("/app");
                           setActiveGroup(group.name);
                           setIsSidebarOpen(false);
                         }
@@ -498,6 +502,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
                         <button
                           type="button"
                           onClick={() => {
+                            navigate("/app");
                             setActiveGroup(group.name);
                             setIsSidebarOpen(false);
                           }}

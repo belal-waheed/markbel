@@ -30,6 +30,7 @@ export default function DataBackupCard({
   const [exportingHtml, setExportingHtml] = useState(false);
   const [importingHtml, setImportingHtml] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+  const [clearingCacheStorage, setClearingCacheStorage] = useState(false);
 
   // 1. Export as JSON
   const handleExportJson = async () => {
@@ -250,12 +251,12 @@ export default function DataBackupCard({
     }
   };
 
-  // 4. Clear Local Cache
-  const handleClearCache = async () => {
+  // 4. Clear Local Thumbnail DB
+  const handleClearThumbnailDb = async () => {
     setClearingCache(true);
     try {
       await db.cachedThumbnails.clear();
-      onNotice("Local thumbnail cache purged successfully.");
+      onNotice("Local thumbnail database purged successfully.");
     } catch (err) {
       console.error("Cache purge error:", err);
       alert("Failed to clear thumbnail cache: " + (err instanceof Error ? err.message : String(err)));
@@ -263,6 +264,30 @@ export default function DataBackupCard({
       setClearingCache(false);
     }
   };
+
+  // 5. Clear Cache Storage (Workbox / Browser Service Worker Cache)
+  const handleClearCacheStorage = async () => {
+    setClearingCacheStorage(true);
+    try {
+      if (typeof caches !== "undefined") {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      onNotice("Local image cache purged. Reloading...");
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      }, 1000);
+    } catch (err) {
+      console.error("CacheStorage purge error:", err);
+      alert("Failed to clear cache storage: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setClearingCacheStorage(false);
+    }
+  };
+
+  const handleClearCache = handleClearThumbnailDb;
 
   return (
     <section className="studio-card p-4 sm:p-6 relative space-y-6">
@@ -366,32 +391,49 @@ export default function DataBackupCard({
         </div>
       </div>
 
-      {/* Clear Cache */}
+      {/* Clear Cache Storage & Thumbnails */}
       <div className="p-4 bg-[var(--color-bg-element)] rounded-lg border border-[var(--color-border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h4 className="text-xs font-bold text-[var(--color-text-primary)] flex items-center gap-1.5">
             <Trash2 className="w-4 h-4 text-[var(--color-text-muted)]" />
-            <span>Clear Local Image & Thumbnail Cache</span>
+            <span>Clear Cache Storage &amp; Image Memory</span>
           </h4>
           <p className="text-xs text-[var(--color-text-muted)] leading-relaxed max-w-xl">
-            Frees local storage on this device by removing cached preview thumbnails. Thumbnails will re-cache on demand.
+            Purges browser Cache Storage and IndexedDB thumbnail blobs to reclaim device disk space and eliminate opaque response padding.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleClearCache}
-          disabled={clearingCache}
-          className="btn-secondary px-4 py-2 text-xs font-bold shrink-0 self-start sm:self-center cursor-pointer disabled:opacity-50"
-        >
-          {clearingCache ? (
-            <span className="flex items-center gap-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Clearing...</span>
-            </span>
-          ) : (
-            <span>Purge Thumbnail Cache</span>
-          )}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
+          <button
+            type="button"
+            onClick={handleClearThumbnailDb}
+            disabled={clearingCache}
+            className="btn-secondary px-3.5 py-2 text-xs font-bold cursor-pointer disabled:opacity-50"
+          >
+            {clearingCache ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Clearing DB...</span>
+              </span>
+            ) : (
+              <span>Purge Thumbnail DB</span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleClearCacheStorage}
+            disabled={clearingCacheStorage}
+            className="btn-primary px-3.5 py-2 text-xs font-bold cursor-pointer disabled:opacity-50"
+          >
+            {clearingCacheStorage ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Purging Storage...</span>
+              </span>
+            ) : (
+              <span>Clear Cache Storage</span>
+            )}
+          </button>
+        </div>
       </div>
     </section>
   );

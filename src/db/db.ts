@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { resolveSmartGroup, getCustomSmartGroupRules, DEFAULT_SMART_GROUPS } from '../lib/smartGroups.js';
-import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
+import { extractInstantMediaMetadata, isFaviconUrl } from '@/lib/mediaHeuristics';
 
 export interface LocalBookmark {
   id: string;
@@ -681,6 +681,50 @@ export async function repairMissingMediaThumbnails(): Promise<number> {
     return repaired;
   } catch (err) {
     console.debug('[Markbel DB] repairMissingMediaThumbnails notice:', err);
+    return 0;
+  }
+}
+
+/**
+ * Self-healing repair: scans all non-deleted bookmarks in Dexie, scrubs polluted favicon URLs
+ * from the `image` field, and repairs/enriches missing or polluted thumbnails with instant
+ * deterministic media metadata (e.g. YouTube hqdefault posters, GitHub OpenGraph banners).
+ */
+export async function repairAndEnrichBookmarkThumbnails(): Promise<number> {
+  try {
+    const bookmarks = await db.bookmarks
+      .filter((b) => !b.deletedAt)
+      .toArray();
+
+    const toUpdate: LocalBookmark[] = [];
+
+    for (const b of bookmarks) {
+      const instant = extractInstantMediaMetadata(b.url);
+      const isPolluted = isFaviconUrl(b.image);
+      let changed = false;
+      const updated = { ...b };
+
+      if (instant.image && (!b.image || isPolluted)) {
+        updated.image = instant.image;
+        if (instant.siteName && !b.siteName) updated.siteName = instant.siteName;
+        if (instant.contentType && !b.contentType) updated.contentType = instant.contentType;
+        changed = true;
+      } else if (isPolluted && !instant.image) {
+        updated.image = undefined;
+        changed = true;
+      }
+
+      if (changed) {
+        toUpdate.push(updated);
+      }
+    }
+
+    if (toUpdate.length > 0) {
+      await db.bookmarks.bulkPut(toUpdate);
+    }
+    return toUpdate.length;
+  } catch (err) {
+    console.debug('[Markbel DB] repairAndEnrichBookmarkThumbnails error:', err);
     return 0;
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "markbel",
-  "version": "2.5.18",
+  "version": "2.5.19",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -23,11 +23,13 @@
     "cap:sync": "npx cap sync",
     "cap:build": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
+    "clean:extension": "node -e \"['dist-extension', 'dist-extension-firefox'].forEach(d => fs.rmSync(d, { recursive: true, force: true }))\"",
     "build:extension": "vite build --config vite.config.extension.ts",
     "build:extension:firefox": "vite build --config vite.config.extension.ts --mode firefox",
     "extension:zip": "npm run build:extension && node scripts/zip-extension.cjs",
     "extension:zip:firefox": "npm run build:extension:firefox && node scripts/zip-extension-firefox.cjs",
-    "build:extension:all": "npm run extension:zip && npm run extension:zip:firefox",
+    "build:extension:all": "npm run clean:extension && npm run extension:zip && npm run extension:zip:firefox",
+    "sync:extension:unpacked": "node scripts/sync-extension-unpacked.cjs",
     "build:mcp": "npm --prefix packages/mcp run build"
   },
   "dependencies": {

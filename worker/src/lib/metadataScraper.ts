@@ -65,8 +65,6 @@ export function synthesizeMetadataFromUrl(targetUrl: URL): ScrapedMetadata {
   const domainName = domainParts.length > 1 ? domainParts[0] : targetUrl.hostname;
   const capitalizedDomain = domainName.charAt(0).toUpperCase() + domainName.slice(1);
 
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${targetUrl.hostname}&sz=128`;
-
   if (rawSegments.length > 0) {
     const formattedSegments = rawSegments.map((s) =>
       s.replace(/\b\w/g, (l) => l.toUpperCase())
@@ -75,14 +73,14 @@ export function synthesizeMetadataFromUrl(targetUrl: URL): ScrapedMetadata {
     return {
       title: synthesizedTitle,
       description: `Saved link from ${targetUrl.hostname} (${formattedSegments.join(" / ")})`,
-      image: faviconUrl,
+      image: "",
     };
   }
 
   return {
     title: capitalizedDomain || targetUrl.hostname.replace(/^www\./, ""),
     description: `Saved link from ${targetUrl.hostname}`,
-    image: faviconUrl,
+    image: "",
   };
 }
 

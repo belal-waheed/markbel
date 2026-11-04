@@ -67,6 +67,24 @@ export function upgradeInsecureImageUrl(imageUrl?: string | null): string | unde
 }
 
 /**
+ * Detects whether a URL represents a low-resolution favicon rather than a true media cover/poster.
+ * Identifies Google S2 favicon service, generic favicon URLs, and .ico/.svg icon assets.
+ */
+export function isFaviconUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return true;
+  const trimmed = url.trim().toLowerCase();
+  if (!trimmed) return true;
+  if (trimmed.includes('google.com/s2/favicons')) return true;
+  if (trimmed.includes('favicon')) return true;
+  if (trimmed.endsWith('.ico') || trimmed.endsWith('.svg')) return true;
+  try {
+    const pathname = new URL(trimmed).pathname.toLowerCase();
+    if (pathname.endsWith('.ico') || pathname.endsWith('.svg')) return true;
+  } catch {}
+  return false;
+}
+
+/**
  * Sniffs image format from binary magic bytes.
  * Returns standard MIME type or null if unrecognized.
  */
