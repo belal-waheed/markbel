@@ -9,9 +9,11 @@ import { bookmarkRepository, groupRepository } from "../db/SyncRepository";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../components/Toast";
 import { useDebounce } from "../lib/useDebounce";
-import { useKeyboardShortcuts } from "../lib/useKeyboardShortcuts";
 import { useSwipeGesture } from "../lib/useSwipeGesture";
 import { useModalBackNavigation } from "../lib/useModalBackNavigation";
+import { useBookmarkBatchOperations } from "../hooks/useBookmarkBatchOperations";
+import { useBookmarkKeyboardShortcuts } from "../hooks/useBookmarkKeyboardShortcuts";
+import { BookmarkBatchBar } from "../components/BookmarkBatchBar";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
 import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
@@ -26,7 +28,7 @@ import { EditBookmarkModal } from "../components/modals/EditBookmarkModal";
 import { ArchiveModal } from "../components/modals/ArchiveModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
 import { GroupModal } from "../components/modals/GroupModal";
-import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff, Trash2, CheckCircle, Archive } from "lucide-react";
+import { Plus, Menu, RefreshCw, BookmarkX, X, WifiOff } from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo";
 
 export default function BookmarksPage() {
@@ -263,25 +265,16 @@ export default function BookmarksPage() {
     setPinnedCategoryNames(updated);
   }, []);
 
-  // Multiselect State
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const isSelectionMode = selectedIds.size > 0;
-
-  const handleToggleSelect = useCallback((b: LocalBookmark, _shiftKey: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(b.id)) {
-        next.delete(b.id);
-      } else {
-        next.add(b.id);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+  // Multiselect State & Batch Operations
+  const {
+    selectedIds,
+    isSelectionMode,
+    handleToggleSelect,
+    handleClearSelection,
+    handleBulkDelete,
+    handleBulkArchive,
+    handleBulkToggleRead,
+  } = useBookmarkBatchOperations();
 
   // Full-screen mobile swipe gestures
   useSwipeGesture({
@@ -311,27 +304,6 @@ export default function BookmarksPage() {
   ]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Global Keyboard Shortcuts
-  useKeyboardShortcuts([
-    {
-      key: "/",
-      preventInputFocus: false,
-      handler: (e) => {
-        if (searchInputRef.current) {
-          e.preventDefault();
-          searchInputRef.current.focus();
-        }
-      },
-    },
-    {
-      key: "n",
-      preventInputFocus: true,
-      handler: () => {
-        setIsAddModalOpen(true);
-      },
-    },
-  ]);
 
   // Group names list for selectors
   const groupNames = useMemo(() => {
@@ -516,38 +488,53 @@ export default function BookmarksPage() {
     syncManager.sync(true);
   };
 
-  const handleBulkDelete = async () => {
+  const onBulkDelete = useCallback(async () => {
     const count = selectedIds.size;
+    if (count === 0) return;
     if (window.confirm(`Delete ${count} selected bookmarks?`)) {
-      await bookmarkRepository.bulkDelete(Array.from(selectedIds));
-      handleClearSelection();
-      syncManager.sync(true);
-      showToast("Deleted", `Deleted ${count} bookmarks`, "success");
+      await handleBulkDelete(() => {
+        showToast("Deleted", `Deleted ${count} bookmarks`, "success");
+      });
     }
-  };
+  }, [selectedIds.size, handleBulkDelete, showToast]);
 
-  const handleBulkArchive = async () => {
+  const onBulkArchive = useCallback(async () => {
     const count = selectedIds.size;
-    await bookmarkRepository.bulkUpdate(Array.from(selectedIds), { isArchived: true });
-    handleClearSelection();
-    syncManager.sync(true);
-    showToast("Archived", `Archived ${count} bookmarks`, "success");
-  };
-
-  const handleBulkToggleRead = async () => {
-    const count = selectedIds.size;
-    const selectedList = filteredBookmarks.filter(b => selectedIds.has(b.id));
-    const allRead = selectedList.every(b => b.isRead);
-    const newStatus = !allRead;
-    const readAtTimestamp = newStatus ? new Date().toISOString() : "";
-    await bookmarkRepository.bulkUpdate(Array.from(selectedIds), {
-      isRead: newStatus,
-      readAt: readAtTimestamp
+    if (count === 0) return;
+    await handleBulkArchive(() => {
+      showToast("Archived", `Archived ${count} bookmarks`, "success");
     });
-    handleClearSelection();
-    syncManager.sync(true);
-    showToast("Updated", `Marked ${count} bookmarks as ${newStatus ? 'read' : 'unread'}`, "success");
-  };
+  }, [selectedIds.size, handleBulkArchive, showToast]);
+
+  const onBulkToggleRead = useCallback(async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    const selectedList = filteredBookmarks.filter((b) => selectedIds.has(b.id));
+    const allRead = selectedList.length > 0 && selectedList.every((b) => b.isRead);
+    const newStatus = !allRead;
+    await handleBulkToggleRead(filteredBookmarks, () => {
+      showToast("Updated", `Marked ${count} bookmarks as ${newStatus ? 'read' : 'unread'}`, "success");
+    });
+  }, [selectedIds, filteredBookmarks, handleBulkToggleRead, showToast]);
+
+  const hasOpenModal = Boolean(
+    deletingBookmark ||
+    archivingBookmark ||
+    groupModalState.isOpen ||
+    editingBookmark ||
+    isAddModalOpen ||
+    isSidebarOpen
+  );
+
+  // Global Keyboard Shortcuts
+  useBookmarkKeyboardShortcuts({
+    searchInputRef,
+    onOpenAddModal: () => setIsAddModalOpen(true),
+    isSelectionMode,
+    onClearSelection: handleClearSelection,
+    onBulkArchive: onBulkArchive,
+    hasOpenModal,
+  });
 
   const handleDismissReminder = async (b: LocalBookmark) => {
     await bookmarkRepository.update(b.id, { remindAt: "" });
@@ -764,19 +751,13 @@ export default function BookmarksPage() {
             )}
 
             {/* Multiselect Action Bar */}
-            {isSelectionMode && (
-              <div className="mb-6 sticky top-0 z-20 flex items-center justify-between bg-[var(--color-bg-element)] border border-[var(--color-accent)] rounded-lg p-2 px-4 shadow-lg backdrop-blur-md animate-in slide-in-from-top-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-[var(--color-accent)]">{selectedIds.size} Selected</span>
-                  <button onClick={handleClearSelection} className="text-xs text-[var(--color-text-muted)] hover:text-white transition-colors">Clear</button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={handleBulkToggleRead} className="btn-secondary text-xs px-3 py-1.5 rounded flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Toggle Read</button>
-                  <button onClick={handleBulkArchive} className="btn-secondary text-xs px-3 py-1.5 rounded flex items-center gap-1.5"><Archive className="w-3.5 h-3.5" /> Archive</button>
-                  <button onClick={handleBulkDelete} className="text-xs px-3 py-1.5 rounded flex items-center gap-1.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors border border-red-500/20"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
-                </div>
-              </div>
-            )}
+            <BookmarkBatchBar
+              selectedCount={selectedIds.size}
+              onClear={handleClearSelection}
+              onToggleRead={onBulkToggleRead}
+              onArchive={onBulkArchive}
+              onDelete={onBulkDelete}
+            />
 
             {/* Bookmarks Grid / List / Empty State */}
             {filteredBookmarks.length === 0 ? (

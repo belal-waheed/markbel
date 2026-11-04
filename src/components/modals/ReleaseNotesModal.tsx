@@ -44,14 +44,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.10
+                  What's New in Markbel v2.5.11
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Modular Popup HUD Architecture, 0ms Local Dexie Quick Open &amp; Comprehensive Subsystem Tests
+                Modular Domain Hooks, Keyboard Shortcut Manager &amp; Floating Selection Action Bar
               </p>
             </div>
           </div>
@@ -66,7 +66,7 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-          {/* Feature 1: Modular Extension Popup HUD Controllers */}
+          {/* Feature 1: Modular Batch Operations & Floating Action Bar */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Layers className="w-5 h-5" />
@@ -74,27 +74,31 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-                  Modular Extension Popup HUD Controllers
+                  Modular Batch Operations &amp; Action Bar
                 </h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
-                  Clean Architecture
+                  Phase 12 Architecture
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                Deconstructed the monolithic procedural extension controller into decoupled, isolated modules: <code>popupUtils</code>, <code>popupAuth</code>, <code>popupSaveView</code>, <code>popupSearchView</code>, and a lightweight 76-line top-level orchestrator (<code>popup.ts</code>). Comprehensive unit test coverage added in <code>ExtensionPopup.test.ts</code>.
+                Deconstructed <code>BookmarksPage.tsx</code> by extracting <code>useBookmarkBatchOperations</code>, <code>useBookmarkKeyboardShortcuts</code>, and the floating <code>BookmarkBatchBar</code> component. Enables resilient multiselect, transactional bulk delete, bulk archive, and bulk read toggling with zero UI coupling.
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>Decoupled View Controllers</span>
+                  <span>useBookmarkBatchOperations Hook</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>Slim Top-Level Orchestrator</span>
+                  <span>useBookmarkKeyboardShortcuts Manager</span>
                 </span>
                 <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>34 Subsystem Unit Tests</span>
+                  <span>BookmarkBatchBar Component</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>23 Subsystem Unit Tests</span>
                 </span>
               </div>
             </div>
