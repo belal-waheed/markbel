@@ -203,7 +203,7 @@ describe("BookmarkImage Slow-Network & Failure Recovery Suite", () => {
 
   describe("Corrupted and 0-Byte Blob Handling", () => {
     it("rejects 0-byte blobs from direct and proxy fetch without persisting corrupt cache", async () => {
-      const url = "https://broken-cdn.example.com/zero-bytes.jpg";
+      const url = "/assets/zero-bytes.jpg";
       const emptyBlob = new Blob([]);
 
       const fetchSpy = vi.fn().mockResolvedValue({
@@ -215,7 +215,7 @@ describe("BookmarkImage Slow-Network & Failure Recovery Suite", () => {
 
       await captureAndCacheThumbnail(url);
 
-      // Both direct and proxy were attempted because direct returned empty blob
+      // Both same-origin direct and proxy were attempted because direct returned empty blob
       expect(fetchSpy).toHaveBeenCalledTimes(2);
 
       // 0-byte blob was NEVER persisted to Dexie

@@ -1,8 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('@/db/db', () => ({
+  getCachedThumbnail: vi.fn().mockResolvedValue(null),
+  saveCachedThumbnail: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   isExpiredSocialCdnUrl,
   getInitialStage,
   type ImageStage,
+  captureAndCacheThumbnail,
+  inFlightCaptures,
+  failedCaptures,
 } from './BookmarkImage';
 
 describe('BookmarkImage 4-Stage Fallback FSM & Social CDN Expired Check', () => {
@@ -187,6 +196,68 @@ describe('BookmarkImage 4-Stage Fallback FSM & Social CDN Expired Check', () => 
 
       stage = simulateTransition(stage, src, fallback);
       expect(stage).toBe('PLACEHOLDER');
+    });
+  });
+
+  describe('captureAndCacheThumbnail Resilience & Negative Caching', () => {
+    beforeEach(() => {
+      failedCaptures.clear();
+      inFlightCaptures.clear();
+    });
+
+    it('records failed captures and short-circuits future network calls to prevent retry storms', async () => {
+      const brokenUrl = 'https://unreachable-cdn.net/404.png';
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        blob: async () => null,
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      // First run: calls proxy, gets 404, records brokenUrl in failedCaptures
+      await captureAndCacheThumbnail(brokenUrl);
+      expect(failedCaptures.has(brokenUrl)).toBe(true);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      // Second run: immediately short-circuits due to failedCaptures check, 0 additional fetch calls
+      await captureAndCacheThumbnail(brokenUrl);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('bypasses direct CORS fetch for cross-origin URLs, routing directly to proxy', async () => {
+      const crossOriginUrl = 'https://external-site.org/banner.jpg';
+      const mockBlob = new Blob(['cross-origin-bytes'], { type: 'image/jpeg' });
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => mockBlob,
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await captureAndCacheThumbnail(crossOriginUrl);
+
+      // Verify it did NOT attempt direct fetch to external-site.org, but called proxy directly
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toContain('/api/proxy/image?url=');
+      expect(failedCaptures.has(crossOriginUrl)).toBe(false);
+    });
+
+    it('attempts direct CORS fetch for same-origin URLs', async () => {
+      const sameOriginUrl = '/assets/local-preview.jpg';
+      const mockBlob = new Blob(['local-bytes'], { type: 'image/png' });
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => mockBlob,
+        headers: new Headers({ 'content-type': 'image/png' }),
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await captureAndCacheThumbnail(sameOriginUrl);
+
+      // Verify it fetched local relative URL directly
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toBe('/assets/local-preview.jpg');
+      expect(failedCaptures.has(sameOriginUrl)).toBe(false);
     });
   });
 });

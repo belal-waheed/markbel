@@ -100,6 +100,23 @@ export function isSafePublicUrl(urlStr: string): boolean {
 }
 
 /**
+ * Safely resolves a public Google S2 favicon service URL for public domains only.
+ * Returns undefined for private IPs, localhost, loopbacks, internal hostnames, or invalid URLs
+ * to prevent leaking internal network topology and console 404 errors.
+ */
+export function getPublicFaviconUrl(url?: string | null): string | undefined {
+  if (!url || typeof url !== 'string') return undefined;
+  const trimmed = url.trim();
+  if (!trimmed || !isSafePublicUrl(trimmed)) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=128`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Removes tracking parameters (UTM, fbclid, gclid, etc.) from a URL while preserving core content parameters.
  */
 export function sanitizeAndCleanUrl(rawUrl: string): { targetUrl: URL; cleanUrlStr: string } {

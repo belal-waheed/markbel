@@ -151,9 +151,10 @@ mediaRouter.get("/api/proxy/image", async (c) => {
       referer = "https://www.reddit.com/";
     }
 
-    // Fetch upstream image with desktop browser headers and origin referer to bypass hotlink protection
+    // Fetch upstream image with desktop browser headers and origin referer to bypass hotlink protection.
+    // Use manual redirects to prevent Cloudflare/fetch from dropping custom Referer headers across domains.
     let upstreamRes = await fetch(imageUrl, {
-      redirect: "follow",
+      redirect: "manual",
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Referer": referer,
@@ -167,7 +168,7 @@ mediaRouter.get("/api/proxy/image", async (c) => {
     // If initial fetch returned 403 on Instagram CDN, retry once without Referer header
     if (upstreamRes.status === 403 && parsed.hostname.includes("cdninstagram.com")) {
       upstreamRes = await fetch(imageUrl, {
-        redirect: "follow",
+        redirect: "manual",
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
@@ -175,17 +176,36 @@ mediaRouter.get("/api/proxy/image", async (c) => {
       });
     }
 
-    // If initial fetch returned 301/302 that wasn't automatically followed
-    if ((upstreamRes.status === 301 || upstreamRes.status === 302) && upstreamRes.headers.get("location")) {
-      const redirectedUrl = new URL(upstreamRes.headers.get("location")!, imageUrl).href;
+    // Follow up to 3 redirect hops manually while strictly preserving Referer and validating target URL safety
+    let currentRedirectUrl = imageUrl;
+    let redirectHops = 0;
+    while (
+      redirectHops < 3 &&
+      (upstreamRes.status === 301 ||
+        upstreamRes.status === 302 ||
+        upstreamRes.status === 307 ||
+        upstreamRes.status === 308)
+    ) {
+      const location = upstreamRes.headers.get("location");
+      if (!location) break;
+
+      const redirectedUrl = new URL(location, currentRedirectUrl).href;
       if (!isSafePublicUrl(redirectedUrl)) {
         return c.text("Blocked or unsafe redirect URL", 400);
       }
-      upstreamRes = await fetch(redirectedUrl, {
+
+      currentRedirectUrl = redirectedUrl;
+      redirectHops++;
+
+      upstreamRes = await fetch(currentRedirectUrl, {
+        redirect: "manual",
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           "Referer": referer,
           "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+          "Sec-Fetch-Dest": "image",
+          "Sec-Fetch-Mode": "no-cors",
+          "Sec-Fetch-Site": "cross-site",
         },
       });
     }

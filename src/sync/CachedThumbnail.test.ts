@@ -196,17 +196,21 @@ describe('CachedThumbnail Dexie Blob Storage & Offline Cache FSM', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('captures blob directly when CORS fetch succeeds', async () => {
-      const url = 'https://images.unsplash.com/direct.jpg';
+    it('captures blob directly when same-origin fetch succeeds', async () => {
+      const url = '/assets/direct.jpg';
       const mockBlob = new Blob(['cors-image-bytes'], { type: 'image/webp' });
 
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      const fetchSpy = vi.fn().mockResolvedValue({
         ok: true,
         blob: async () => mockBlob,
         headers: new Headers({ 'content-type': 'image/webp' }),
-      }));
+      });
+      vi.stubGlobal('fetch', fetchSpy);
 
       await captureAndCacheThumbnail(url);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toBe('/assets/direct.jpg');
 
       const cached = thumbnailStore.get(url);
       expect(cached).toBeDefined();
@@ -214,24 +218,22 @@ describe('CachedThumbnail Dexie Blob Storage & Offline Cache FSM', () => {
       expect(cached?.size).toBe(mockBlob.size);
     });
 
-    it('falls back to image proxy when direct CORS fetch fails', async () => {
+    it('routes cross-origin captures directly to proxy to avoid CORS console noise', async () => {
       const targetUrl = 'https://cors-protected.com/banner.jpg';
       const mockBlob = new Blob(['proxy-image-bytes'], { type: 'image/png' });
 
-      const fetchSpy = vi.fn()
-        .mockRejectedValueOnce(new TypeError('Failed to fetch due to CORS'))
-        .mockResolvedValueOnce({
-          ok: true,
-          blob: async () => mockBlob,
-          headers: new Headers({ 'content-type': 'image/png' }),
-        });
+      const fetchSpy = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        blob: async () => mockBlob,
+        headers: new Headers({ 'content-type': 'image/png' }),
+      });
 
       vi.stubGlobal('fetch', fetchSpy);
 
       await captureAndCacheThumbnail(targetUrl, 'https://mark.obel.workers.dev');
 
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(fetchSpy.mock.calls[1][0]).toContain('/api/proxy/image?url=');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toContain('/api/proxy/image?url=');
 
       const cached = thumbnailStore.get(targetUrl);
       expect(cached).toBeDefined();

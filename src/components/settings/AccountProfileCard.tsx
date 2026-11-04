@@ -122,6 +122,8 @@ export default function AccountProfileCard({
       if (sub) {
         setPushSubscribed(true);
         onNotice("Push notifications successfully enabled on this device.");
+      } else {
+        onNotice("Web push notifications are not configured on this server (cloud VAPID keys required). Local browser reminders remain active.");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

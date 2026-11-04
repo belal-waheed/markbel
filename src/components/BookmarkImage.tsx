@@ -7,6 +7,7 @@ import { getCachedThumbnail, saveCachedThumbnail } from "@/db/db";
 export type ImageStage = "DIRECT" | "PROXY" | "FAVICON" | "PLACEHOLDER";
 
 export const inFlightCaptures = new Set<string>();
+export const failedCaptures = new Set<string>();
 
 /**
  * Creates an AbortSignal with timeout, falling back to setTimeout for environments lacking AbortSignal.timeout
@@ -31,14 +32,16 @@ export function createTimeoutSignal(ms: number): { signal: AbortSignal; cleanup:
 
 /**
  * Attempts to capture a remote image thumbnail as a Blob and persist it in Dexie.
- * Checks CORS direct fetch first, then falls back to image proxy before failing gracefully.
+ * Checks CORS direct fetch only for same-origin URLs, routing cross-origin captures
+ * directly to the proxy to avoid browser console CORS errors.
+ * Records failed captures to prevent retry storms.
  * Protected with explicit 6000ms timeout on both direct and proxy fetches.
  */
 export async function captureAndCacheThumbnail(
   url: string,
   proxyBaseUrl?: string
 ): Promise<void> {
-  if (!url || inFlightCaptures.has(url)) return;
+  if (!url || inFlightCaptures.has(url) || failedCaptures.has(url)) return;
   inFlightCaptures.add(url);
 
   try {
@@ -48,24 +51,32 @@ export async function captureAndCacheThumbnail(
     let blob: Blob | null = null;
     let contentType = "image/jpeg";
 
-    // 1. Direct fetch with CORS mode and 6s timeout protection
-    const directTimeout = createTimeoutSignal(6000);
-    try {
-      const res = await fetch(url, { mode: "cors", signal: directTimeout.signal });
-      if (res.ok) {
-        const candidate = await res.blob();
-        if (candidate && candidate.size > 0) {
-          blob = candidate;
-          contentType = res.headers.get("content-type") || candidate.type || "image/jpeg";
+    const isSameOrigin =
+      url.startsWith('/') ||
+      url.startsWith('blob:') ||
+      url.startsWith('data:') ||
+      (typeof window !== 'undefined' && Boolean(window.location?.origin) && url.startsWith(window.location.origin));
+
+    // 1. Direct fetch with CORS mode ONLY if same-origin (to prevent browser console CORS errors)
+    if (isSameOrigin) {
+      const directTimeout = createTimeoutSignal(6000);
+      try {
+        const res = await fetch(url, { mode: "cors", signal: directTimeout.signal });
+        if (res.ok) {
+          const candidate = await res.blob();
+          if (candidate && candidate.size > 0) {
+            blob = candidate;
+            contentType = res.headers.get("content-type") || candidate.type || "image/jpeg";
+          }
         }
+      } catch {
+        // Direct CORS fetch failed, timed out, or blocked
+      } finally {
+        directTimeout.cleanup();
       }
-    } catch {
-      // Direct CORS fetch failed, timed out, or blocked
-    } finally {
-      directTimeout.cleanup();
     }
 
-    // 2. Fall back to proxy if direct fetch failed, returned non-200, or empty blob
+    // 2. Fall back to proxy if direct fetch skipped (cross-origin) or failed
     if (!blob || blob.size === 0) {
       const proxyUrl = proxyBaseUrl
         ? `${proxyBaseUrl.replace(/\/$/, "")}/api/proxy/image?url=${encodeURIComponent(url)}`
@@ -88,11 +99,14 @@ export async function captureAndCacheThumbnail(
       }
     }
 
-    // 3. Persist valid blob to Dexie only if non-empty
+    // 3. Persist valid blob to Dexie only if non-empty, otherwise record failed capture
     if (blob && blob.size > 0) {
       await saveCachedThumbnail(url, blob, contentType);
+    } else {
+      failedCaptures.add(url);
     }
   } catch (err) {
+    failedCaptures.add(url);
     console.error("Failed to capture and cache thumbnail:", err);
   } finally {
     inFlightCaptures.delete(url);

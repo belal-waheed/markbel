@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Cross-Client Thumbnail Resilience, Repository Media Enrichment, Browser Sync Heuristics &amp; Database Self-Healing
+            Safe Private Favicons, Cross-Origin Proxy Streamlining, Edge Redirect Support &amp; Web Push Guidance
           </span>
         </div>
         <button

@@ -9,7 +9,10 @@ export const notificationsRouter = new Hono<{ Bindings: Bindings; Variables: Var
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 notificationsRouter.get("/api/notifications/vapid-key", (c) => {
-  return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY || "" });
+  if (!c.env.VAPID_PUBLIC_KEY) {
+    return c.json({ supported: false, publicKey: "", message: "VAPID key not configured on server" });
+  }
+  return c.json({ supported: true, publicKey: c.env.VAPID_PUBLIC_KEY });
 });
 
 notificationsRouter.post("/api/devices/register", authMiddleware, async (c) => {

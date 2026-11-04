@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isSafePublicUrl,
+  getPublicFaviconUrl,
   sanitizeAndCleanUrl,
   cleanText,
   SSRFValidationError,
@@ -170,6 +171,31 @@ describe('urlSafety Unit Tests (AAA Pattern)', () => {
       expect(error).toBeInstanceOf(Error);
       expect(error.name).toBe('SSRFValidationError');
       expect(error.message).toBe('Forbidden private IP address');
+    });
+  });
+
+  describe('getPublicFaviconUrl (Safe Favicon Fallback Resolution)', () => {
+    it('returns undefined for private IPs, loopbacks, and invalid URLs', () => {
+      // Arrange & Act & Assert
+      expect(getPublicFaviconUrl('http://192.168.1.1')).toBeUndefined();
+      expect(getPublicFaviconUrl('http://localhost:3000')).toBeUndefined();
+      expect(getPublicFaviconUrl('http://10.0.0.1')).toBeUndefined();
+      expect(getPublicFaviconUrl('10.0.0.1')).toBeUndefined();
+      expect(getPublicFaviconUrl('http://127.0.0.1:8080/dashboard')).toBeUndefined();
+      expect(getPublicFaviconUrl(null)).toBeUndefined();
+      expect(getPublicFaviconUrl(undefined)).toBeUndefined();
+      expect(getPublicFaviconUrl('')).toBeUndefined();
+      expect(getPublicFaviconUrl('not-a-valid-url')).toBeUndefined();
+    });
+
+    it('returns Google S2 favicon URL for public domains', () => {
+      // Arrange & Act & Assert
+      expect(getPublicFaviconUrl('https://github.com')).toBe(
+        'https://www.google.com/s2/favicons?domain=github.com&sz=128'
+      );
+      expect(getPublicFaviconUrl('https://example.com/some/deep/page')).toBe(
+        'https://www.google.com/s2/favicons?domain=example.com&sz=128'
+      );
     });
   });
 });

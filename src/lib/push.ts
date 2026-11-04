@@ -42,7 +42,7 @@ export async function enableWebPush(): Promise<string | null> {
     const vapidPublicKey = res.publicKey;
 
     if (!vapidPublicKey) {
-      console.warn("[Web Push] Missing VAPID public key from backend.");
+      console.debug("[Web Push] Missing VAPID public key from backend.");
       return null;
     }
 

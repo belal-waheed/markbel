@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.17
+                  What's New in Markbel v2.5.18
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Cross-Client Media Resilience: Deterministic Card Thumbnails, Repository Media Enrichment, Browser Sync Heuristics &amp; Database Self-Healing
+                Safe Private Favicons, Cross-Origin Image Streamlining, Negative Cache Storm Prevention, Web Push Notice &amp; Edge Redirects
               </p>
             </div>
           </div>
@@ -69,6 +69,48 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Safe Private Favicons, Cross-Origin Streamlining & Edge Redirects */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Safe Private IP Favicons, Cross-Origin Streamlining &amp; Edge Redirects
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] font-mono">
+                  v2.5.18
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                Eliminated console 404 errors for private IP/localhost bookmarks via SSRF-gated public favicon resolution, prevented cross-origin CORS console errors by routing remote image persistence directly to the edge proxy, implemented negative-cache failure tracking to eliminate retry storms on broken thumbnails, added multi-hop redirect handling with Referer preservation in the edge media proxy for anime3rb/vid3rb sources, surfaced actionable web push cloud configuration notices, and pruned deprecated legacy scripts.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Private IP Favicon Guard</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Cross-Origin Direct Proxy</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Negative Cache Storm Prevention</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Edge 3xx Redirect Hops</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Web Push Configuration Notice</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Feature: Cross-Client Deterministic Media Resilience & Self-Healing Sweep */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

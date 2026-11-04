@@ -27,7 +27,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
       res = await fetch(url, {
         method: 'HEAD',
         signal: controller.signal,
-        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.17' },
+        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.18' },
         redirect: 'follow',
       });
       // Fallback to range GET if server disallows HEAD (405) or blocks it (403)
@@ -35,7 +35,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
         res = await fetch(url, {
           method: 'GET',
           signal: controller.signal,
-          headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.17', Range: 'bytes=0-1024' },
+          headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.18', Range: 'bytes=0-1024' },
           redirect: 'follow',
         });
       }
@@ -44,7 +44,7 @@ export async function probeUrlHealth(url: string): Promise<LinkHealthResult> {
       res = await fetch(url, {
         method: 'GET',
         signal: controller.signal,
-        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.17', Range: 'bytes=0-1024' },
+        headers: { 'User-Agent': 'MarkbelHealthCheck/2.5.18', Range: 'bytes=0-1024' },
         redirect: 'follow',
       });
     } finally {
