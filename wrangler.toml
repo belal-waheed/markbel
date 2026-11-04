@@ -15,6 +15,10 @@ binding = "DB"
 database_name = "markbel-db"
 database_id = "2dd655d0-8119-43fa-ad51-5e466d6bdb7f"
 
+# Cloudflare Cron Triggers (Link Health & 404 Rot Detector)
+[triggers]
+crons = ["0 * * * *"]
+
 # Cloudflare Email Service Binding
 [[send_email]]
 name = "Mail_Pass"

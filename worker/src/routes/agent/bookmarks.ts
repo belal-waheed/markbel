@@ -14,6 +14,7 @@ import {
   generateSearchSnippet,
   getErrorMessage,
 } from "./common";
+import { probeUrlHealth } from "../../lib/linkHealth";
 
 // Zod Input Validation Schemas
 const searchParamsSchema = z.object({
@@ -23,6 +24,7 @@ const searchParamsSchema = z.object({
   is_archived: z.enum(["true", "false", "all"]).optional().default("false"),
   is_pinned: z.enum(["true", "false"]).optional(),
   include_content: z.enum(["true", "false"]).optional().default("false"),
+  search_mode: z.enum(["standard", "fulltext"]).optional().default("standard"),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -73,7 +75,84 @@ const handleBookmarksSearch = async (c: any) => {
       return c.json({ error: "Invalid search query parameters", details: queryResult.error.format() }, 400);
     }
 
-    const { q, group, is_read, is_archived, is_pinned, include_content, limit, offset } = queryResult.data;
+    const { q, group, is_read, is_archived, is_pinned, include_content, search_mode, limit, offset } = queryResult.data;
+
+    // Search query matching title, URL, description, site name, and article content
+    const rawQuery = q ? q.trim() : "";
+    const terms = rawQuery ? rawQuery.split(/\s+/).filter(Boolean).slice(0, 5) : [];
+
+    // FTS5 MATCH mode (Cloudflare D1 / SQLite FTS5)
+    if (search_mode === "fulltext" && rawQuery) {
+      const ftsQuery = terms.map((t) => `"${t.replace(/"/g, "")}"*`).join(" ");
+      const ftsConditions: string[] = ["b.user_id = ?", "b.deleted_at IS NULL", "bookmarks_fts MATCH ?"];
+      const ftsParams: (string | number)[] = [userId, ftsQuery];
+
+      if (is_archived === "true") {
+        ftsConditions.push("b.is_archived = 1");
+      } else if (is_archived !== "all") {
+        ftsConditions.push("b.is_archived = 0");
+      }
+
+      if (is_read === "true") {
+        ftsConditions.push("b.is_read = 1");
+      } else if (is_read === "false") {
+        ftsConditions.push("b.is_read = 0");
+      }
+
+      if (is_pinned === "true") {
+        ftsConditions.push("b.is_pinned = 1");
+      } else if (is_pinned === "false") {
+        ftsConditions.push("b.is_pinned = 0");
+      }
+
+      if (group) {
+        ftsConditions.push("LOWER(b.group_name) = LOWER(?)");
+        ftsParams.push(group);
+      }
+
+      try {
+        const countSql = `SELECT COUNT(*) as total FROM bookmarks_fts fts JOIN bookmarks b ON b.id = fts.id WHERE ${ftsConditions.join(" AND ")}`;
+        const countRow = await c.env.DB.prepare(countSql).bind(...ftsParams).first<CountDbRow>();
+        const total = Number(countRow?.total || 0);
+
+        const selectSql = `SELECT b.*, snippet(bookmarks_fts, -1, '<mark>', '</mark>', '...', 20) as fts_snippet, bm25(bookmarks_fts) as rank
+          FROM bookmarks_fts fts
+          JOIN bookmarks b ON b.id = fts.id
+          WHERE ${ftsConditions.join(" AND ")}
+          ORDER BY rank ASC, b.is_pinned DESC, b.updated_at DESC
+          LIMIT ? OFFSET ?`;
+
+        const queryParams = [...ftsParams, limit, offset];
+        const res = await c.env.DB.prepare(selectSql).bind(...queryParams).all<BookmarkDbRow>();
+        const rows = res.results || [];
+
+        if (rows.length > 0 || total > 0) {
+          const items = rows.map((row) => {
+            const norm = normalizeSyncRecord(row, "bookmark");
+            if (include_content !== "true") {
+              norm.articleContent = "";
+              norm.article_content = "";
+            }
+            if (row.fts_snippet) {
+              norm.snippet = String(row.fts_snippet);
+            } else if (terms.length > 0) {
+              const snippet = generateSearchSnippet(row.description, row.article_content, terms);
+              if (snippet) norm.snippet = snippet;
+            }
+            return norm;
+          });
+
+          return c.json({
+            items,
+            total,
+            limit,
+            offset,
+          });
+        }
+      } catch (ftsErr) {
+        console.warn("[FTS5 Search Fallback to Standard]:", ftsErr);
+      }
+    }
 
     const conditions: string[] = ["user_id = ?", "deleted_at IS NULL"];
     const params: (string | number)[] = [userId];
@@ -104,10 +183,6 @@ const handleBookmarksSearch = async (c: any) => {
       conditions.push("LOWER(group_name) = LOWER(?)");
       params.push(group);
     }
-
-    // Search query matching title, URL, description, site name, and article content
-    const rawQuery = q ? q.trim() : "";
-    const terms = rawQuery ? rawQuery.split(/\s+/).filter(Boolean).slice(0, 5) : [];
 
     if (terms.length > 0) {
       for (const term of terms) {
@@ -704,3 +779,79 @@ agentBookmarksRouter.post("/bookmarks/batch", requireScope("bookmarks:write"), r
     return c.json({ error: message }, 500);
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LINK ROT & HEALTH CHECK PROBER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+agentBookmarksRouter.post(
+  "/bookmarks/:id/check-health",
+  requireScope("bookmarks:write"),
+  requireVaultRole(["owner", "editor"]),
+  async (c) => {
+    try {
+      const userId = c.get("vaultOwnerId") || c.get("userId");
+      const id = c.req.param("id");
+
+      const row = await c.env.DB.prepare(
+        "SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
+      )
+        .bind(id, userId)
+        .first<BookmarkDbRow>();
+
+      if (!row) {
+        return c.json({ error: "Bookmark not found" }, 404);
+      }
+
+      const { isBroken, httpStatus } = await probeUrlHealth(row.url);
+      const now = new Date().toISOString();
+      const newVersion = (row.version || 0) + 1;
+
+      await c.env.DB.prepare(
+        "UPDATE bookmarks SET is_broken = ?, http_status = ?, last_checked_at = ?, version = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+      )
+        .bind(isBroken ? 1 : 0, httpStatus, now, newVersion, now, id, userId)
+        .run();
+
+      const changeId = `probe-${id}-${Date.now()}`;
+      const updatedRecord = {
+        ...row,
+        is_broken: isBroken ? 1 : 0,
+        http_status: httpStatus,
+        last_checked_at: now,
+        version: newVersion,
+        updated_at: now,
+      };
+
+      await c.env.DB.prepare(
+        `INSERT INTO sync_changes (
+          user_id, entity_type, entity_id, operation, entity_version, client_change_id, actor_type, actor_name, record_json, changed_at
+        ) VALUES (?, 'bookmark', ?, 'update', ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          userId,
+          id,
+          newVersion,
+          changeId,
+          c.get("actorType") || "agent",
+          c.get("actorName") || "LinkRotDetector",
+          JSON.stringify(updatedRecord),
+          now
+        )
+        .run();
+
+      return c.json({
+        id,
+        url: row.url,
+        isBroken,
+        httpStatus,
+        lastCheckedAt: now,
+        version: newVersion,
+      });
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, "Failed to check bookmark health");
+      console.error("[Agent Health Check Error]:", message);
+      return c.json({ error: message }, 500);
+    }
+  }
+);

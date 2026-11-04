@@ -15,6 +15,10 @@ export interface BookmarkDbRow extends Record<string, unknown> {
   word_count: number;
   canonical_url: string;
   article_content: string;
+  is_broken?: number;
+  http_status?: number | null;
+  last_checked_at?: string | null;
+  fts_snippet?: string;
   group_name: string;
   is_read: number;
   read_at: string;

@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Offline Reader Mode, Edge Article Extraction, Cmd+K Command Palette &amp; Batch Group Actions
+            Offline Full-Text Search (FTS5), Link Rot &amp; 404 Health Prober, and Two-Way Browser Bookmarks Sync
           </span>
         </div>
         <button

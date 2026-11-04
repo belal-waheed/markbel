@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndRankBookmarks, SearchBookmarkItem } from './searchCatalog';
+import {
+  filterAndRankBookmarks,
+  searchCatalogFullText,
+  extractHighlightSnippet,
+  SearchBookmarkItem,
+} from './searchCatalog';
+import { extractArticleTokens } from '../db/db';
 
 describe('searchCatalog - filterAndRankBookmarks', () => {
   const sampleCatalog: SearchBookmarkItem[] = [
@@ -187,5 +193,81 @@ describe('searchCatalog - filterAndRankBookmarks', () => {
     const results = filterAndRankBookmarks(customCatalog, 'react');
     expect(results.length).toBe(1);
     expect(results[0].id).toBe('matching');
+  });
+
+  describe('searchCatalogFullText & Scope Filtering', () => {
+    const fullTextCatalog: SearchBookmarkItem[] = [
+      {
+        id: 'article-1',
+        title: 'Introduction to Physics',
+        url: 'https://science.org/physics',
+        description: 'General introductory concepts',
+        articleContent: 'The fundamental phenomenon of quantum entanglement describes particles interacting across spacetime.',
+      },
+      {
+        id: 'article-2',
+        title: 'Quantum Computing Overview',
+        url: 'https://tech.io/quantum',
+        description: 'Next gen computers',
+        articleContent: 'Classical computers use bits, quantum machines utilize qubits.',
+      },
+      {
+        id: 'article-3',
+        title: 'Web Performance Optimization',
+        url: 'https://web.dev/fast',
+        description: 'Rendering latency and memory management',
+      },
+    ];
+
+    it('matches terms inside full article body even if absent from title and description', () => {
+      // Act
+      const results = searchCatalogFullText(fullTextCatalog, 'entanglement', 'all');
+
+      // Assert
+      expect(results.length).toBe(1);
+      expect(results[0].item.id).toBe('article-1');
+      expect(results[0].snippet).toBeDefined();
+      expect(results[0].snippet?.toLowerCase()).toContain('entanglement');
+    });
+
+    it('scope="titles" restricts matches strictly to title and url', () => {
+      // Act: 'entanglement' is only in articleContent
+      const titleResults = searchCatalogFullText(fullTextCatalog, 'entanglement', 'titles');
+      expect(titleResults.length).toBe(0);
+
+      // Act: 'quantum' is in title of article-2
+      const matchedTitle = searchCatalogFullText(fullTextCatalog, 'quantum', 'titles');
+      expect(matchedTitle.length).toBe(1);
+      expect(matchedTitle[0].item.id).toBe('article-2');
+    });
+
+    it('scope="articles" targets articleContent and descriptions', () => {
+      // Act
+      const results = searchCatalogFullText(fullTextCatalog, 'qubits', 'articles');
+      expect(results.length).toBe(1);
+      expect(results[0].item.id).toBe('article-2');
+    });
+
+    it('extractHighlightSnippet produces contextual ellipses around matched terms', () => {
+      const longText = 'Before the match ' + 'padding '.repeat(10) + 'CRITICAL_TERM' + ' padding'.repeat(10) + ' after the match';
+      const snippet = extractHighlightSnippet(longText, ['critical_term'], 60);
+
+      expect(snippet).toBeDefined();
+      expect(snippet).toContain('CRITICAL_TERM');
+      expect(snippet?.startsWith('...')).toBe(true);
+      expect(snippet?.endsWith('...')).toBe(true);
+    });
+
+    it('extractArticleTokens normalizes words and removes punctuation', () => {
+      const text = 'Hello, World! Dexie-js v8 article full-text indexing, 2026.';
+      const tokens = extractArticleTokens(text);
+
+      expect(tokens).toContain('hello');
+      expect(tokens).toContain('world');
+      expect(tokens).toContain('dexie');
+      expect(tokens).toContain('indexing');
+      expect(tokens).toContain('2026');
+      expect(tokens.every((t) => t.length >= 2)).toBe(true);
+    });
   });
 });

@@ -25,6 +25,9 @@ export interface LocalBookmark {
   notifiedAt?: string;
   isArchived?: boolean;
   archiveGroup?: string;
+  isBroken?: boolean;
+  httpStatus?: number;
+  lastCheckedAt?: string;
   actor_type?: 'owner' | 'collaborator' | string;
   version: number;
   createdAt: string;
@@ -75,6 +78,11 @@ export interface CachedThumbnail {
   updatedAt: string;
 }
 
+export interface ArticleToken {
+  token: string;
+  bookmarkId: string;
+}
+
 export class MarkbelDatabase extends Dexie {
   bookmarks!: Table<LocalBookmark, string>;
   groups!: Table<LocalGroup, string>;
@@ -84,6 +92,7 @@ export class MarkbelDatabase extends Dexie {
 
   scheduledNotifications!: Table<any, string>;
   cachedThumbnails!: Table<CachedThumbnail, string>;
+  articleTokens!: Table<ArticleToken, string>;
 
   constructor() {
     super('MarkbelDatabase');
@@ -127,6 +136,11 @@ export class MarkbelDatabase extends Dexie {
 
     this.version(7).stores({
       bookmarks: 'id, userId, url, group, isArchived, isRead, contentType, deletedAt'
+    }).upgrade(() => {});
+
+    this.version(8).stores({
+      bookmarks: 'id, userId, url, group, isArchived, isRead, isBroken, contentType, deletedAt',
+      articleTokens: 'token, bookmarkId, [token+bookmarkId]'
     }).upgrade(() => {});
   }
 }
@@ -565,4 +579,52 @@ export async function pruneCachedThumbnails(maxCount: number = 300): Promise<num
     return 0;
   }
 }
+
+/**
+ * Normalizes text and extracts unique search tokens (lowercase, alphanumeric, length >= 2)
+ */
+export function extractArticleTokens(text?: string | null): string[] {
+  if (!text) return [];
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && w.length <= 50);
+  return Array.from(new Set(words));
+}
+
+/**
+ * Indexes article content in the Dexie client-side inverted index
+ */
+export async function indexArticleContent(bookmarkId: string, articleContent?: string | null): Promise<void> {
+  if (!bookmarkId) return;
+  try {
+    const tokens = extractArticleTokens(articleContent);
+    await db.transaction('rw', db.articleTokens, async () => {
+      await db.articleTokens.where('bookmarkId').equals(bookmarkId).delete();
+      if (tokens.length > 0) {
+        const rows: ArticleToken[] = tokens.map((token) => ({
+          token,
+          bookmarkId,
+        }));
+        await db.articleTokens.bulkPut(rows);
+      }
+    });
+  } catch (err) {
+    console.warn('[Dexie Article Token Index Error]:', err);
+  }
+}
+
+/**
+ * Deletes indexed article tokens for a bookmark
+ */
+export async function deleteArticleTokens(bookmarkId: string): Promise<void> {
+  if (!bookmarkId) return;
+  try {
+    await db.articleTokens.where('bookmarkId').equals(bookmarkId).delete();
+  } catch (err) {
+    console.warn('[Dexie Delete Article Tokens Error]:', err);
+  }
+}
+
 

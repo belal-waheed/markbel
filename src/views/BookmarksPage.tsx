@@ -363,8 +363,10 @@ export default function BookmarksPage() {
   const filteredBookmarks = useMemo(() => {
     let result = bookmarks;
 
-    // Filter by Group
-    if (activeGroup) {
+    // Filter by Group or Special Filter
+    if (activeGroup === "__broken__") {
+      result = result.filter((b) => b.isBroken);
+    } else if (activeGroup) {
       result = result.filter((b) => (b.group || "Unsorted") === activeGroup);
     }
 
@@ -709,7 +711,7 @@ export default function BookmarksPage() {
               </h1>
             </button>
             <h2 className="text-base font-bold text-[var(--color-text-primary)] truncate hidden md:block">
-              {activeGroup ? activeGroup : "All Bookmarks"}
+              {activeGroup === "__broken__" ? "Broken Links" : activeGroup ? activeGroup : "All Bookmarks"}
             </h2>
           </div>
 
@@ -788,6 +790,8 @@ export default function BookmarksPage() {
                 <p className="text-xs text-[var(--color-text-muted)] max-w-xs mb-4">
                   {debouncedSearchQuery
                     ? `No matches found for "${debouncedSearchQuery}".`
+                    : activeGroup === "__broken__"
+                    ? "No broken links detected! Your links are healthy."
                     : activeGroup
                     ? `No bookmarks in group "${activeGroup}".`
                     : "Your vault is empty. Click below to add your first link!"}

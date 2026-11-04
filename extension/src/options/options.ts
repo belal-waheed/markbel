@@ -40,6 +40,10 @@ const inputApiUrl = document.getElementById('input-api-url') as HTMLInputElement
 const btnResetApi = document.getElementById('btn-reset-api') as HTMLButtonElement;
 const apiStatusBanner = document.getElementById('api-status-banner') as HTMLElement;
 
+const toggleBrowserSync = document.getElementById('toggle-browser-sync') as HTMLInputElement | null;
+const btnImportBrowserBookmarks = document.getElementById('btn-import-browser-bookmarks') as HTMLButtonElement | null;
+const importBookmarksStatus = document.getElementById('import-bookmarks-status') as HTMLElement | null;
+
 /**
  * Initialize Settings Page
  */
@@ -55,6 +59,13 @@ async function init(): Promise<void> {
   // Load configured API URL
   const currentBase = await getApiBase();
   inputApiUrl.value = currentBase;
+
+  // Load two-way sync setting
+  if (toggleBrowserSync) {
+    chrome.storage.local.get(['twoWayBookmarksSyncEnabled'], (res) => {
+      toggleBrowserSync.checked = Boolean(res.twoWayBookmarksSyncEnabled);
+    });
+  }
 
   // Setup shortcut hint based on browser
   if (shortcutHintText) {
@@ -220,6 +231,42 @@ function setupEventListeners(): void {
     await clearSession();
     await renderSessionState();
   });
+
+  // Two-way sync toggle
+  if (toggleBrowserSync) {
+    toggleBrowserSync.addEventListener('change', async () => {
+      await chrome.storage.local.set({ twoWayBookmarksSyncEnabled: toggleBrowserSync.checked });
+      if (toggleBrowserSync.checked) {
+        chrome.runtime.sendMessage({ type: 'SYNC_OUTBOX' }).catch(() => {});
+      }
+    });
+  }
+
+  // Import browser bookmarks button
+  if (btnImportBrowserBookmarks) {
+    btnImportBrowserBookmarks.addEventListener('click', async () => {
+      btnImportBrowserBookmarks.disabled = true;
+      if (importBookmarksStatus) {
+        importBookmarksStatus.textContent = 'Importing browser bookmarks...';
+        importBookmarksStatus.style.color = '#00f0ff';
+      }
+
+      chrome.runtime.sendMessage({ type: 'MARKBEL_IMPORT_BROWSER_BOOKMARKS' }, (res) => {
+        btnImportBrowserBookmarks.disabled = false;
+        if (res && res.success) {
+          if (importBookmarksStatus) {
+            importBookmarksStatus.textContent = `Import complete: ${res.imported} added, ${res.skipped} already in vault.`;
+            importBookmarksStatus.style.color = '#10b981';
+          }
+        } else {
+          if (importBookmarksStatus) {
+            importBookmarksStatus.textContent = res?.error || 'Failed to import bookmarks.';
+            importBookmarksStatus.style.color = '#ef4444';
+          }
+        }
+      });
+    });
+  }
 }
 
 function showBanner(bannerEl: HTMLElement, message: string, type: 'error' | 'success'): void {

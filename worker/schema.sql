@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     word_count INTEGER DEFAULT 0,
     canonical_url TEXT DEFAULT '',
     article_content TEXT DEFAULT '',
+    is_broken INTEGER DEFAULT 0,
+    http_status INTEGER DEFAULT NULL,
+    last_checked_at TEXT DEFAULT NULL,
     group_name TEXT NOT NULL DEFAULT 'Unsorted',
     is_read INTEGER DEFAULT 0,
     read_at TEXT DEFAULT '',
@@ -146,4 +149,32 @@ CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_vault_collab_owner ON vault_collaborators(owner_id);
 CREATE INDEX IF NOT EXISTS idx_vault_collab_user ON vault_collaborators(collaborator_user_id);
 CREATE INDEX IF NOT EXISTS idx_vault_collab_token ON vault_collaborators(invite_token);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_link_health ON bookmarks(deleted_at, last_checked_at);
+
+-- Full-Text Search Virtual Table (FTS5) & Automatic Sync Triggers
+CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
+    id UNINDEXED,
+    user_id UNINDEXED,
+    title,
+    description,
+    site_name,
+    article_content,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS bookmarks_ai AFTER INSERT ON bookmarks BEGIN
+    INSERT INTO bookmarks_fts (id, user_id, title, description, site_name, article_content)
+    VALUES (new.id, new.user_id, new.title, new.description, new.site_name, COALESCE(new.article_content, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
+    DELETE FROM bookmarks_fts WHERE id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS bookmarks_au AFTER UPDATE ON bookmarks BEGIN
+    DELETE FROM bookmarks_fts WHERE id = old.id;
+    INSERT INTO bookmarks_fts (id, user_id, title, description, site_name, article_content)
+    VALUES (new.id, new.user_id, new.title, new.description, new.site_name, COALESCE(new.article_content, ''));
+END;
+
 

@@ -132,6 +132,31 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                 Playlist
               </span>
             )}
+            {b.isBroken && (
+              <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <span className="text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 flex items-center gap-1">
+                  Broken ({b.httpStatus || 404})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')}
+                  className="text-[9px] font-medium text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/20 transition-colors"
+                  title="Open in Wayback Machine"
+                >
+                  Wayback
+                </button>
+                {onOpenReader && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenReader(b)}
+                    className="text-[9px] font-medium text-[var(--color-accent)] bg-blue-500/10 hover:bg-blue-500/20 px-1.5 py-0.2 rounded border border-blue-500/20 transition-colors"
+                    title="Read Saved Content"
+                  >
+                    Read
+                  </button>
+                )}
+              </div>
+            )}
             {!b.isRead && (
               <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" title="Unread" />
             )}
@@ -372,6 +397,35 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             <p className="text-[11px] sm:text-xs text-[var(--color-text-muted)] leading-relaxed line-clamp-2">
               {b.description}
             </p>
+          )}
+
+          {/* Link Rot / Health Warning Badge */}
+          {b.isBroken && (
+            <div className="pt-1 flex items-center justify-between gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+              <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                Link Rot ({b.httpStatus || 404})
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 font-semibold transition-colors"
+                  title="Open in Wayback Machine"
+                >
+                  Wayback
+                </button>
+                {onOpenReader && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenReader(b)}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-[var(--color-accent)] border border-blue-500/20 font-semibold transition-colors"
+                    title="Read Saved Content"
+                  >
+                    Read
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Reminder Badge */}

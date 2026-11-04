@@ -9,6 +9,7 @@ import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from './content';
 import { syncManager } from '@/db/SyncManager';
 import { db } from '@/db/db';
+import { browserBookmarkSync } from './bookmarkSync';
 
 function broadcastCatalogUpdated(): void {
   chrome.tabs.query({}).then((tabs) => {
@@ -20,17 +21,52 @@ function broadcastCatalogUpdated(): void {
   }).catch(() => {});
 }
 
+async function syncAndReflect(): Promise<void> {
+  try {
+    await syncManager.sync(true);
+    broadcastCatalogUpdated();
+    const bookmarks = await db.bookmarks.filter((b) => !b.deletedAt && !b.isArchived).toArray();
+    await browserBookmarkSync.reflectCloudBookmarksToBrowser(bookmarks);
+  } catch (err) {
+    console.warn('[Markbel Background] syncAndReflect error:', err);
+  }
+}
+
+// Native Browser Bookmarks Listeners (Two-Way Sync)
+if (typeof chrome !== 'undefined' && chrome.bookmarks) {
+  chrome.bookmarks.onCreated.addListener((id, bookmark) => {
+    browserBookmarkSync.handleNativeCreated(id, bookmark).catch(() => {});
+  });
+
+  chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
+    browserBookmarkSync.handleNativeRemoved(id, removeInfo).catch(() => {});
+  });
+
+  chrome.bookmarks.onChanged.addListener((id, changeInfo) => {
+    browserBookmarkSync.handleNativeChanged(id, changeInfo).catch(() => {});
+  });
+}
+
 // Initialize sync engine for background syncing
-syncManager.sync(true).then(() => {
-  broadcastCatalogUpdated();
-}).catch(() => {});
+syncAndReflect().catch(() => {});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SYNC_OUTBOX') {
-    syncManager.sync(true).then(() => {
-      broadcastCatalogUpdated();
-    }).catch(() => {});
+    syncAndReflect().catch(() => {});
     sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === 'MARKBEL_IMPORT_BROWSER_BOOKMARKS') {
+    browserBookmarkSync
+      .importAllBrowserBookmarks()
+      .then((res) => {
+        syncAndReflect().catch(() => {});
+        sendResponse({ success: true, ...res });
+      })
+      .catch((err) => {
+        sendResponse({ success: false, error: err?.message });
+      });
     return true;
   }
 
@@ -90,9 +126,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync-alarm') {
-    syncManager.sync(true).then(() => {
-      broadcastCatalogUpdated();
-    }).catch(() => {});
+    syncAndReflect().catch(() => {});
   }
 });
 

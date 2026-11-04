@@ -59,6 +59,26 @@
       </div>
     </section>
 
+    <!-- Native Browser Bookmarks Sync Section -->
+    <section class="settings-card">
+      <h2>Two-Way Browser Bookmarks Sync</h2>
+      <p class="section-desc">Bidirectionally synchronize bookmarks between your browser's "Markbel Vault" folder and your Markbel Cloud Vault.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 12px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 500;">
+          <input type="checkbox" id="toggle-browser-sync">
+          <span>Enable Two-Way Browser Bookmarks Sync</span>
+        </label>
+        
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="btn-import-browser-bookmarks" class="btn-secondary">
+            Import All Browser Bookmarks
+          </button>
+          <span id="import-bookmarks-status" style="font-size: 12px; color: #a1a1aa;"></span>
+        </div>
+      </div>
+    </section>
+
     <!-- Edge API Endpoint Section -->
     <section class="settings-card">
       <h2>API Endpoint</h2>

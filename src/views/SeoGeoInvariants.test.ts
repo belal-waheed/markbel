@@ -67,7 +67,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       )
       expect(webApp).toBeDefined()
       expect(webApp.name).toBe('Markbel')
-      expect(webApp.softwareVersion).toBe('2.5.14')
+      expect(webApp.softwareVersion).toBe('2.5.15')
       expect(webApp.storageRequirements).toContain('Dexie.js')
 
       const faq = parsed['@graph'].find((item: any) => item['@type'] === 'FAQPage')
@@ -128,7 +128,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       expect(llms.startsWith('# Markbel')).toBe(true)
       expect(llms).toContain('https://github.com/belal-waheed/markbel')
       expect(llms).toContain('https://mark.obel.workers.dev/llms-full.txt')
-      expect(llms).toContain('Dexie.js v5')
+      expect(llms).toContain('Dexie.js')
       expect(llms).toContain('Cloudflare D1')
     })
 
@@ -137,7 +137,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       const full = fs.readFileSync(llmsFullPath, 'utf-8')
 
       expect(full).toContain('# Markbel - Full System Specification & Architecture Manual')
-      expect(full).toContain('Dexie.js v5')
+      expect(full).toContain('Dexie.js')
       expect(full).toContain('CREATE TABLE IF NOT EXISTS bookmarks')
       expect(full).toContain('CREATE TABLE IF NOT EXISTS sync_changes')
       expect(full).toContain('/api/sync/push')

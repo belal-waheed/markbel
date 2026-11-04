@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { LocalBookmark } from '../../db/db'
-import { filterAndRankBookmarks } from '../../lib/searchCatalog'
+import { searchCatalogFullText, SearchScope } from '../../lib/searchCatalog'
 import { useModalBackNavigation } from '../../lib/useModalBackNavigation'
 
 export interface CommandPaletteProps {
@@ -43,6 +43,7 @@ interface BookmarkItem {
   id: string
   type: 'bookmark'
   bookmark: LocalBookmark
+  snippet?: string
 }
 
 type PaletteItem = CommandItem | BookmarkItem
@@ -67,6 +68,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   ])
 
   const [query, setQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<SearchScope>('all')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -190,16 +192,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     )
   }, [baseCommands, query])
 
-  // Matched Bookmarks via filterAndRankBookmarks
+  // Matched Bookmarks via searchCatalogFullText
   const matchedBookmarks = useMemo(() => {
     const q = query.trim()
-    const results = filterAndRankBookmarks(bookmarks, q, undefined, 8)
-    return results.map<BookmarkItem>((b) => ({
-      id: `bm-${b.id}`,
+    const results = searchCatalogFullText(bookmarks, q, searchScope, undefined, 8)
+    return results.map<BookmarkItem>((res) => ({
+      id: `bm-${res.item.id}`,
       type: 'bookmark',
-      bookmark: b
+      bookmark: res.item,
+      snippet: res.snippet
     }))
-  }, [bookmarks, query])
+  }, [bookmarks, query, searchScope])
 
   // Combined selectable items list
   const allItems = useMemo<PaletteItem[]>(() => {
@@ -287,6 +290,46 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           <kbd className="hidden sm:inline-block text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]">
             ESC
           </kbd>
+        </div>
+
+        {/* Scope Selector Chips */}
+        <div className="px-3 sm:px-4 py-1.5 border-b border-[var(--color-border-default)]/60 bg-[var(--color-bg-element)]/30 flex items-center gap-2 overflow-x-auto text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] shrink-0 mr-1">
+            Scope:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchScope('all')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors shrink-0 ${
+              searchScope === 'all'
+                ? 'bg-[var(--color-accent)] text-white shadow-xs'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-element)]'
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchScope('titles')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors shrink-0 ${
+              searchScope === 'titles'
+                ? 'bg-[var(--color-accent)] text-white shadow-xs'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-element)]'
+            }`}
+          >
+            Titles & URLs
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchScope('articles')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors shrink-0 ${
+              searchScope === 'articles'
+                ? 'bg-[var(--color-accent)] text-white shadow-xs'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-element)]'
+            }`}
+          >
+            Full Article Body
+          </button>
         </div>
 
         {/* Scrollable Results List */}
@@ -401,7 +444,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             </div>
                           )}
 
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <span className="text-xs sm:text-sm font-medium text-[var(--color-text-primary)] block truncate">
                               {b.title || b.url}
                             </span>
@@ -410,7 +453,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               <span className="px-1.5 py-0.2 rounded bg-[var(--color-bg-element)] text-[var(--color-text-muted)] border border-[var(--color-border-default)] shrink-0">
                                 {b.group || 'Unsorted'}
                               </span>
+                              {b.isBroken && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30 shrink-0 font-medium">
+                                  Broken ({b.httpStatus || 404})
+                                </span>
+                              )}
                             </div>
+                            {bmItem.snippet && (
+                              <p className="text-[11px] text-[var(--color-text-muted)] line-clamp-1 mt-1 bg-[var(--color-bg-element)]/60 px-1.5 py-0.5 rounded border border-[var(--color-border-default)]/40 font-mono">
+                                {bmItem.snippet}
+                              </p>
+                            )}
                           </div>
                         </div>
 

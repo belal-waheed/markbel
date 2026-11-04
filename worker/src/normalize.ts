@@ -36,6 +36,12 @@ export interface NormalizedBookmarkRecord {
   is_archived: number;
   archiveGroup: string;
   archive_group: string;
+  isBroken?: boolean;
+  is_broken?: number;
+  httpStatus?: number | null;
+  http_status?: number | null;
+  lastCheckedAt?: string | null;
+  last_checked_at?: string | null;
   actorType: string;
   actor_type: string;
   actorName: string;
@@ -97,6 +103,26 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
         ? Boolean(raw.is_archived)
         : false;
 
+    const isBroken =
+      raw.isBroken !== undefined
+        ? Boolean(raw.isBroken)
+        : raw.is_broken !== undefined
+        ? Boolean(raw.is_broken)
+        : false;
+
+    const httpStatus =
+      raw.httpStatus !== undefined
+        ? (raw.httpStatus as number | null)
+        : raw.http_status !== undefined
+        ? (raw.http_status as number | null)
+        : null;
+
+    const lastCheckedAt = raw.lastCheckedAt
+      ? String(raw.lastCheckedAt)
+      : raw.last_checked_at
+      ? String(raw.last_checked_at)
+      : null;
+
     const title = String(raw.title || "");
     const url = String(raw.url || "");
     const description = String(raw.description || "");
@@ -144,6 +170,9 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
       remindAt,
       isArchived,
       archiveGroup,
+      isBroken,
+      httpStatus,
+      lastCheckedAt,
       actorType,
       actorName,
       version,
@@ -165,6 +194,9 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
       remind_at: remindAt,
       is_archived: isArchived ? 1 : 0,
       archive_group: archiveGroup,
+      is_broken: isBroken ? 1 : 0,
+      http_status: httpStatus,
+      last_checked_at: lastCheckedAt,
       actor_type: actorType,
       actor_name: actorName,
       created_at: createdAt,

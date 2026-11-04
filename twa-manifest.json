@@ -10,8 +10,8 @@
   "startUrl": "/",
   "iconUrl": "https://mark.obel.workers.dev/pwa-512x512.png",
   "maskableIconUrl": "https://mark.obel.workers.dev/pwa-512x512.png",
-  "appVersionCode": 14,
-  "appVersionName": "2.5.14",
+  "appVersionCode": 15,
+  "appVersionName": "2.5.15",
   "shareTarget": {
     "action": "/share",
     "method": "GET",

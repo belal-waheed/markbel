@@ -8,6 +8,7 @@ import { notificationsRouter } from "./routes/notifications";
 import { shareRouter } from "./routes/share";
 import { agentRouter } from "./routes/agent";
 import { collaboratorsRouter } from "./routes/collaborators";
+import { handleScheduledLinkHealthCheck } from "./lib/linkHealth";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -68,5 +69,11 @@ app.notFound(async (c) => {
 });
 
 export type { Bindings, Variables };
-export { isSafePublicUrl, isSignedCdnExpired, sniffImageMimeType };
-export default app;
+export { isSafePublicUrl, isSignedCdnExpired, sniffImageMimeType, handleScheduledLinkHealthCheck, app };
+
+export default {
+  fetch: (request: Request, env: Bindings, ctx: ExecutionContext) => app.fetch(request, env, ctx),
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(handleScheduledLinkHealthCheck(env));
+  },
+};

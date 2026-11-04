@@ -11,6 +11,7 @@ import {
   LogOut,
   LogIn,
   ShieldAlert,
+  AlertTriangle,
   User,
   Sparkles,
   Smartphone,
@@ -118,6 +119,10 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
     return filterAndSortGroups(mergedGroups, navPrefs)
   }, [mergedGroups, navPrefs])
 
+  const brokenCount = useMemo(() => {
+    return bookmarks.filter((b) => b.isBroken && !b.deletedAt && !b.isArchived).length
+  }, [bookmarks])
+
   const handleTogglePinLocal = (name: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const next = toggleGroupPin(name)
@@ -197,6 +202,27 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
           >
             <Archive className="w-4 h-4" />
             Archive
+          </button>
+          <button
+            onClick={() => {
+              setActiveGroup("__broken__");
+              setIsSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeGroup === "__broken__"
+                ? "bg-amber-500/15 text-amber-500 font-semibold"
+                : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <span>Broken Links</span>
+            </div>
+            {brokenCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                {brokenCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {

@@ -1,6 +1,6 @@
 {
   "name": "@markbel/mcp",
-  "version": "2.5.14",
+  "version": "2.5.15",
   "description": "Official Model Context Protocol (MCP) server for Markbel bookmarking and knowledge vault",
   "type": "module",
   "bin": {

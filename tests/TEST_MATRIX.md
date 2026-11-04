@@ -1,7 +1,7 @@
 # Markbel Test Matrix & Network Resilience Source of Truth
 
 > **Authoritative Specification & Verification Reference**  
-> **Status:** Production / v2.5.14  
+> **Status:** Production / v2.5.15  
 > **Scope:** Multi-domain client targets, Cloudflare Edge Worker, and MCP server under degraded network topologies.
 
 ---
