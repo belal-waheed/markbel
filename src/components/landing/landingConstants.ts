@@ -1,6 +1,6 @@
 export type PlatformType = 'android' | 'chrome' | 'firefox' | 'ios' | 'desktop'
 
-export const CURRENT_RELEASE_VERSION = 'v2.9.0'
+export const CURRENT_RELEASE_VERSION = 'v2.9.1'
 
 export interface PlatformInfo {
   type: PlatformType

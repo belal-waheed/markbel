@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.9.0
+                  What's New in Markbel v2.9.1
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Mobile UI/UX overhaul, 3-dots action sheet, 1-col responsive feed, dynamic virtualizer height, and Android alignment
+                Autohiding top header on scroll, touch ghost-click shield, Capacitor haptics, keyboard auto-dismiss, and native share sheet
               </p>
             </div>
           </div>
@@ -69,6 +69,43 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Autohide Header, Ghost-Click Shield & Capacitor Capabilities (v2.9.1) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Autohiding Top Header, Touch Ghost-Click Shield &amp; Native Capacitor Capabilities
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.9.1
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Eliminated mobile touch ghost-clicks by removing premature pointerdown unmount on the document and converting the 3-dots action sheet backdrop into an event-absorbing shield with e.preventDefault() and a 250ms transient click guard; implemented a scroll-direction aware collapsible top header that glides off-screen on downward scroll and glides back on upward scroll; automatically dismisses the mobile keyboard on scroll; integrated @capacitor/haptics for tactile ticks on action sheet open, +1 episode advance, read/unread, and sync; added native Share API sheet to the action sheet; wired Android hardware back button to dismiss the action sheet via useModalBackNavigation; bumped Android build.gradle to versionName 2.9.1 and versionCode 30; and synchronized Capacitor assets.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Autohiding Top App Bar on Scroll</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Touch Ghost-Click Shield &amp; 250ms Guard</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Capacitor Haptics &amp; Keyboard Auto-Dismiss</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Native Share Sheet &amp; Android Back Trap</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature: Mobile UI/UX Overhaul & Architectural Remediation (v2.9.0) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

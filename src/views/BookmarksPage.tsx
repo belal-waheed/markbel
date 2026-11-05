@@ -22,6 +22,7 @@ import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories
 import { filterAndRankBookmarks } from "../lib/searchCatalog";
 import { parseSeriesProgression, formatEpisodicBadge } from "../lib/seriesProgression";
 import { syncCompletedBookmarkToTickTick } from "../lib/ticktickSync";
+import { hapticImpact, hapticSuccess, hapticSelection, hideKeyboard } from "../lib/nativeBridge";
 import {
   getNavigationPreferences,
   NavigationPreferences,
@@ -168,6 +169,7 @@ export default function BookmarksPage() {
   // Group & Tab Navigation Handlers (Push to history)
   const handleGroupChange = useCallback((newGroup: string | null) => {
     setActiveGroup(newGroup);
+    setIsHeaderVisible(true);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (newGroup) {
@@ -181,6 +183,7 @@ export default function BookmarksPage() {
 
   const handleTabChange = useCallback((newTab: FilterTab) => {
     setCurrentTab(newTab);
+    setIsHeaderVisible(true);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (newTab && newTab !== "all") {
@@ -470,6 +473,40 @@ export default function BookmarksPage() {
   // Scroll Parent Ref for Viewport Virtualization
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Autohiding Top Header on Scroll & Soft Keyboard Auto-Dismiss
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const scrollEl = parentRef.current;
+    if (!scrollEl) return;
+
+    const handleScroll = () => {
+      const currentScrollTop = scrollEl.scrollTop;
+      const deltaY = currentScrollTop - lastScrollTopRef.current;
+
+      // Dismiss soft keyboard when user scrolls down into content
+      if (deltaY > 8 && currentScrollTop > 40) {
+        hideKeyboard();
+      }
+
+      if (currentScrollTop <= 20) {
+        setIsHeaderVisible(true);
+      } else if (deltaY > 8 && currentScrollTop > 40) {
+        setIsHeaderVisible(false);
+      } else if (deltaY < -12) {
+        setIsHeaderVisible(true);
+      }
+
+      lastScrollTopRef.current = currentScrollTop;
+    };
+
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollEl.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   // Responsive Grid Column Detection (Phone: 1, Tablet: 2, Laptop: 3, Desktop: 4)
   const getColumnCount = () => {
     if (typeof window === "undefined") return 4;
@@ -513,9 +550,11 @@ export default function BookmarksPage() {
 
   // Manual Trigger Sync
   const triggerSync = async () => {
+    hapticImpact('light');
     setIsSyncing(true);
     try {
       await syncManager.sync(true);
+      hapticSuccess();
     } finally {
       setIsSyncing(false);
     }
@@ -527,11 +566,13 @@ export default function BookmarksPage() {
   }, []);
 
   const handleTogglePin = useCallback(async (b: LocalBookmark) => {
+    hapticSelection();
     await bookmarkRepository.update(b.id, { isPinned: !b.isPinned });
     syncManager.sync(true);
   }, []);
 
   const handleToggleRead = useCallback(async (b: LocalBookmark) => {
+    hapticSelection();
     const isRead = !b.isRead;
     await bookmarkRepository.update(b.id, {
       isRead,
@@ -796,7 +837,13 @@ export default function BookmarksPage() {
         )}
 
         {/* Top Header */}
-        <header className="flex-none min-h-[4rem] pt-[calc(1rem+env(safe-area-inset-top,0px))] bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header
+          className={`flex-none bg-[var(--color-bg-surface)] px-4 sm:px-6 flex items-center justify-between gap-4 transition-all duration-300 ease-in-out overflow-hidden ${
+            isHeaderVisible
+              ? 'min-h-[4rem] max-h-20 opacity-100 border-b border-[var(--color-border-default)] pt-[calc(1rem+env(safe-area-inset-top,0px))]'
+              : 'min-h-0 max-h-0 opacity-0 border-b-0 py-0 pointer-events-none'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -816,7 +863,7 @@ export default function BookmarksPage() {
                   Markbel
                 </h1>
                 <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-[var(--color-brand-subtle)] text-[var(--color-accent)] border border-[var(--color-accent)]/20 leading-none">
-                  v2.9.0
+                  v2.9.1
                 </span>
               </div>
             </button>

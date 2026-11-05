@@ -23,6 +23,8 @@ import BookmarkImage from './BookmarkImage'
 import { getPublicFaviconUrl, isSafeFaviconUrl } from '@/lib/urlSafety'
 import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from '@/lib/mediaHeuristics'
 import { parseSeriesProgression, formatEpisodicBadge } from '../lib/seriesProgression'
+import { useModalBackNavigation } from '../lib/useModalBackNavigation'
+import { hapticImpact, hapticSelection, shareUrl } from '../lib/nativeBridge'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
 
@@ -74,6 +76,29 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const [menuCoords, setMenuCoords] = useState<{ top: number; right: number } | null>(null)
+  const isShieldActiveRef = useRef(false)
+
+  // Safe dismiss with transient click shield to absorb trailing synthetic touch events
+  const closeMenu = useCallback(() => {
+    isShieldActiveRef.current = true
+    setIsMenuOpen(false)
+    setTimeout(() => {
+      isShieldActiveRef.current = false
+    }, 250)
+  }, [])
+
+  // Android hardware back button integration
+  useModalBackNavigation([{ isOpen: isMenuOpen, close: closeMenu }])
+
+  // Card click wrapped with shield guard to eliminate touch ghost clicks
+  const handleCardClick = useCallback((e?: React.MouseEvent) => {
+    if (isShieldActiveRef.current) {
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
+      return
+    }
+    onClick(b.url)
+  }, [onClick, b.url])
 
   const seriesInfo = useMemo(() => {
     if (b.seriesEpisode) {
@@ -144,32 +169,52 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         top: opensUpward ? rect.top - 6 : rect.bottom + 6,
         right: Math.max(12, window.innerWidth - rect.right),
       })
+      hapticImpact('light')
       setIsMenuOpen(true)
     } else {
-      setIsMenuOpen(false)
+      closeMenu()
     }
-  }, [isMenuOpen])
+  }, [isMenuOpen, closeMenu])
 
-  // Close Menu on Click Outside / Scroll / Escape
+  // Close Menu on Scroll / Escape (PointerDown on document removed to eliminate touch ghost clicks!)
   useEffect(() => {
     if (!isMenuOpen) return
 
-    const handlePointerDown = () => setIsMenuOpen(false)
-    const handleScroll = () => setIsMenuOpen(false)
+    const handleScroll = () => closeMenu()
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMenuOpen(false)
+      if (e.key === 'Escape') closeMenu()
     }
 
-    document.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('scroll', handleScroll, { capture: true })
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isMenuOpen])
+  }, [isMenuOpen, closeMenu])
+
+  // Event-absorbing shield callbacks for portal backdrop
+  const handleBackdropPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleBackdropTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation()
+  }, [])
+
+  const handleBackdropTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    closeMenu()
+  }, [closeMenu])
+
+  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    closeMenu()
+  }, [closeMenu])
 
   // Shared Action Sheet / Dropdown Menu Items
   const menuContent = useMemo(() => (
@@ -179,7 +224,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticSelection()
           onClick(b.url)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -188,13 +234,30 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         <span>Open in New Tab</span>
       </button>
 
+      {/* Share Bookmark */}
+      <button
+        type="button"
+        onClick={async (e) => {
+          e.stopPropagation()
+          closeMenu()
+          hapticSelection()
+          await shareUrl({ title: b.title, url: b.url })
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+        aria-label="Share Bookmark"
+      >
+        <Share2 className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+        <span>Share Bookmark</span>
+      </button>
+
       {/* Read Offline */}
       {onOpenReader && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticSelection()
             onOpenReader(b)
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -210,7 +273,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticSelection()
           onToggleRead(b)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -233,7 +297,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticSelection()
           onTogglePin(b)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -248,7 +313,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticImpact('medium')
             onAdvanceSeries(b)
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer text-left"
@@ -263,7 +329,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticSelection()
             onRollbackSeries(b)
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-zinc-400 hover:bg-zinc-500/10 rounded-lg transition-colors cursor-pointer text-left"
@@ -279,7 +346,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticSelection()
             onSnoozeReminder(b)
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
@@ -294,7 +362,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticSelection()
             onDismissReminder(b)
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -310,7 +379,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setIsMenuOpen(false)
+            closeMenu()
+            hapticSelection()
             window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
@@ -327,7 +397,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticSelection()
           onEdit(b)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -341,7 +412,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticSelection()
           onArchive(b)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
@@ -355,7 +427,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          setIsMenuOpen(false)
+          closeMenu()
+          hapticImpact('medium')
           onDelete(b)
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-status-error)] hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer text-left"
@@ -364,7 +437,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         <span>Delete Bookmark</span>
       </button>
     </div>
-  ), [b, seriesInfo, onOpenReader, onToggleRead, onTogglePin, onAdvanceSeries, onRollbackSeries, onSnoozeReminder, onDismissReminder, onEdit, onArchive, onDelete, onClick])
+  ), [b, seriesInfo, onOpenReader, onToggleRead, onTogglePin, onAdvanceSeries, onRollbackSeries, onSnoozeReminder, onDismissReminder, onEdit, onArchive, onDelete, onClick, closeMenu])
 
   // Action Sheet Portal for Mobile & Anchored Popover for Desktop
   const actionSheetPortal = useMemo(() => {
@@ -375,15 +448,24 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     return createPortal(
       <div
         className="fixed inset-0 z-50 pointer-events-auto"
-        onClick={(e) => {
-          e.stopPropagation()
-          setIsMenuOpen(false)
-        }}
+        onPointerDown={handleBackdropPointerDown}
+        onTouchStart={handleBackdropTouchStart}
+        onTouchEnd={handleBackdropTouchEnd}
+        onClick={handleBackdropClick}
       >
         {/* Mobile Native Bottom Action Sheet */}
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in duration-150 flex flex-col justify-end">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in duration-150 flex flex-col justify-end"
+          onPointerDown={handleBackdropPointerDown}
+          onTouchStart={handleBackdropTouchStart}
+          onTouchEnd={handleBackdropTouchEnd}
+          onClick={handleBackdropClick}
+        >
           <div
             className="bg-[var(--color-bg-surface)] border-t border-[var(--color-border-default)] rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[85vh] overflow-y-auto space-y-2 animate-in slide-in-from-bottom duration-200"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-[var(--color-border-strong)] rounded-full mx-auto mb-2" />
@@ -413,6 +495,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             right: menuCoords ? `${menuCoords.right}px` : undefined,
             transform: opensUpward ? 'translateY(-100%)' : undefined,
           }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {menuContent}
@@ -420,7 +505,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
       </div>,
       document.body
     )
-  }, [isMenuOpen, menuCoords, faviconUrl, b.title, domain, menuContent])
+  }, [isMenuOpen, menuCoords, faviconUrl, b.title, domain, menuContent, handleBackdropPointerDown, handleBackdropTouchStart, handleBackdropTouchEnd, handleBackdropClick])
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. COMPACT LIST ROW VIEW
@@ -428,7 +513,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   if (viewMode === 'list') {
     return (
       <div
-        onClick={() => onClick(b.url)}
+        onClick={handleCardClick}
         className={`studio-card studio-card-hover p-2 sm:px-3 sm:py-2.5 flex items-center justify-between gap-3 group cursor-pointer active:scale-[0.99] transition-all min-h-[48px] ${
           b.isRead ? 'opacity-70 hover:opacity-100' : ''
         } ${isSelected ? 'ring-2 ring-[var(--color-accent)] bg-[var(--color-brand-subtle)]' : ''}`}
@@ -547,7 +632,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           {seriesInfo && onAdvanceSeries && (
             <button
               type="button"
-              onClick={() => onAdvanceSeries(b)}
+              onClick={() => {
+                hapticImpact('medium')
+                onAdvanceSeries(b)
+              }}
               className="px-2 py-1 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
               title="Advance to next episode (+1)"
             >
@@ -580,7 +668,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   if (hasHeroImage) {
     return (
       <div
-        onClick={() => onClick(b.url)}
+        onClick={handleCardClick}
         className={`studio-card studio-card-hover flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative ${
           b.isRead ? 'opacity-75 hover:opacity-100' : ''
         } ${isSelected ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
@@ -704,7 +792,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                   {onAdvanceSeries && (
                     <button
                       type="button"
-                      onClick={() => onAdvanceSeries(b)}
+                      onClick={() => {
+                        hapticImpact('medium')
+                        onAdvanceSeries(b)
+                      }}
                       className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-0.5 transition-all active:scale-95"
                       title="Advance to next episode (+1)"
                     >
@@ -783,7 +874,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <div
-      onClick={() => onClick(b.url)}
+      onClick={handleCardClick}
       className={`studio-card studio-card-hover p-3.5 sm:p-4 flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative min-h-[170px] ${
         b.isRead ? 'opacity-75 hover:opacity-100' : ''
       } ${isSelected ? 'ring-2 ring-[var(--color-accent)] bg-[var(--color-brand-subtle)]' : ''}`}
@@ -887,7 +978,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
               {onAdvanceSeries && (
                 <button
                   type="button"
-                  onClick={() => onAdvanceSeries(b)}
+                  onClick={() => {
+                    hapticImpact('medium')
+                    onAdvanceSeries(b)
+                  }}
                   className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-0.5 transition-all active:scale-95"
                   title="Advance to next episode (+1)"
                 >
