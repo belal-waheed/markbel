@@ -70,7 +70,7 @@ export function extractYouTubeId(url: string): string {
 }
 
 export function extractPageMetadata(
-  doc: Document | { querySelector(selector: string): any; title?: string } = typeof document !== 'undefined' ? document : ({} as any),
+  doc: Document | { querySelector(selector: string): any; querySelectorAll?(selector: string): any; title?: string } = typeof document !== 'undefined' ? document : ({} as any),
   win: Window | { location: { href: string; hostname: string }; getSelection?(): any } = typeof window !== 'undefined' ? window : ({} as any)
 ): ExtractedPageMetadata {
   const url = win.location?.href || '';
@@ -143,6 +143,54 @@ export function extractPageMetadata(
         if (candidate && !isLowQualityImage(candidate)) {
           image = candidate;
         }
+      }
+    }
+  }
+
+  // Anime3rb JSON-LD schema & in-DOM poster extraction
+  if (hostname.includes('anime3rb.com') || (typeof doc?.querySelector === 'function' && doc.querySelector('script[type="application/ld+json"]'))) {
+    if (typeof doc?.querySelectorAll === 'function') {
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      for (let i = 0; i < scripts.length; i++) {
+        try {
+          const raw = scripts[i].textContent || (scripts[i] as any).innerText || '{}';
+          const parsed = JSON.parse(raw);
+          const items = Array.isArray(parsed) ? parsed : [parsed];
+          for (const item of items) {
+            const seriesImg = item?.partOfSeries?.image;
+            if (seriesImg) {
+              const candidate = typeof seriesImg === 'string' ? seriesImg : seriesImg.url;
+              if (candidate && !isLowQualityImage(candidate)) {
+                image = candidate;
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (!image && typeof doc?.querySelector === 'function') {
+      const animePosterEl = doc.querySelector('img[alt*="بوستر"], img[alt*="poster"], .anime-poster img');
+      if (animePosterEl) {
+        const posterSrc =
+          (typeof animePosterEl.getAttribute === 'function'
+            ? (animePosterEl.getAttribute('src') || animePosterEl.getAttribute('data-src'))
+            : null) || (animePosterEl as any).src;
+        if (posterSrc && !isLowQualityImage(posterSrc)) {
+          image = posterSrc;
+        }
+      }
+    }
+  }
+
+  // Map video.vid3rb.com/video/<uuid> directly to thumbnails.vid3rb.com static JPEG poster
+  if (image && image.includes('video.vid3rb.com/video/')) {
+    const uuidMatch = image.match(/video\/([a-f0-9\-]+)/i);
+    if (uuidMatch && uuidMatch[1]) {
+      const prefix = uuidMatch[1].split('-')[0];
+      if (prefix) {
+        image = `https://thumbnails.vid3rb.com/${prefix}/thumbnail.001.jpeg`;
       }
     }
   }

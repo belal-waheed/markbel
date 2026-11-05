@@ -105,6 +105,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'MARKBEL_SAVE_BOOKMARK') {
+    const payload = message.payload || {};
+    saveBookmark(payload)
+      .then((res) => {
+        broadcastCatalogUpdated();
+        syncAndReflect().catch(() => {});
+        sendResponse({ success: true, ...res });
+      })
+      .catch((err) => {
+        sendResponse({ success: false, error: err?.message || 'Failed to save bookmark' });
+      });
+    return true;
+  }
+
   if (message.type === 'MARKBEL_OPEN_TAB') {
     chrome.tabs.create({ url: message.url, active: message.active ?? true }).then(() => {
       sendResponse({ success: true });

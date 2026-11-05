@@ -245,9 +245,9 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
       expect(isVideoStreamUrl('https://stream.example.com/video/chunk.ts?time=120')).toBe(true);
     });
 
-    it('identifies streaming endpoints on known video hosts like video.vid3rb.com', () => {
-      expect(isVideoStreamUrl('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(true);
-      expect(isVideoStreamUrl('https://videodelivery.net/video/9483248329')).toBe(true);
+    it('identifies streaming manifests on video delivery networks while permitting 302 image endpoints', () => {
+      expect(isVideoStreamUrl('https://videodelivery.net/manifest/video.m3u8')).toBe(true);
+      expect(isVideoStreamUrl('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(false);
     });
 
     it('returns false for legitimate images and non-video assets', () => {
@@ -308,9 +308,14 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
     });
 
     it('identifies video stream URLs as low quality images', () => {
-      expect(isLowQualityImage('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(true);
       expect(isLowQualityImage('https://stream.example.com/playlist.m3u8')).toBe(true);
       expect(isLowQualityImage('https://stream.example.com/segment.ts')).toBe(true);
+    });
+
+    it('recognizes anime3rb and vid3rb posters as high quality images', () => {
+      expect(isLowQualityImage('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(false);
+      expect(isLowQualityImage('https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg')).toBe(false);
+      expect(isLowQualityImage('https://images.anime3rb.com/titles/poster.jpg')).toBe(false);
     });
 
     it('returns false for real cover and banner images', () => {

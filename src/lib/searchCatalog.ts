@@ -18,6 +18,32 @@ export interface SearchBookmarkItem {
 }
 
 export type SearchScope = 'all' | 'titles' | 'articles';
+export type SearchSortOption = 'newest' | 'oldest' | 'alphabetical' | 'alpha' | 'episodic';
+
+/**
+ * Safely parses timestamps across ISO-8601 strings, SQLite formats ('YYYY-MM-DD HH:MM:SS'),
+ * milliseconds numbers, and epoch timestamps without producing NaN.
+ */
+export function safeParseTimestamp(createdAt?: string | number | null): number {
+  if (!createdAt) return 0;
+  if (typeof createdAt === 'number') {
+    return isNaN(createdAt) ? 0 : createdAt;
+  }
+  const str = String(createdAt).trim();
+  if (!str) return 0;
+  if (/^\d+$/.test(str)) {
+    const num = Number(str);
+    return isNaN(num) ? 0 : num;
+  }
+  let normalized = str;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(normalized)) {
+    normalized = normalized.replace(' ', 'T') + (normalized.includes('Z') || normalized.includes('+') ? '' : 'Z');
+  }
+  const parsed = Date.parse(normalized);
+  if (!isNaN(parsed)) return parsed;
+  const direct = new Date(str).getTime();
+  return isNaN(direct) ? 0 : direct;
+}
 
 export interface FullTextSearchResult<T extends SearchBookmarkItem = SearchBookmarkItem> {
   item: T;
@@ -63,6 +89,44 @@ export function extractHighlightSnippet(
   return snippet;
 }
 
+function compareItems5Tier<T extends SearchBookmarkItem>(
+  itemA: T,
+  itemB: T,
+  sortOption: SearchSortOption = 'newest'
+): number {
+  // Tier 2: Pinned floats to top
+  const pinA = itemA.isPinned ? 1 : 0;
+  const pinB = itemB.isPinned ? 1 : 0;
+  if (pinB !== pinA) return pinB - pinA;
+
+  const timeA = safeParseTimestamp(itemA.createdAt);
+  const timeB = safeParseTimestamp(itemB.createdAt);
+  const epA = itemA.seriesEpisode ?? 0;
+  const epB = itemB.seriesEpisode ?? 0;
+  const titleA = itemA.title || '';
+  const titleB = itemB.title || '';
+
+  if (sortOption === 'oldest') {
+    if (timeA !== timeB) return timeA - timeB;
+    if (epA !== epB) return epA - epB;
+    return titleA.localeCompare(titleB);
+  }
+  if (sortOption === 'alphabetical' || sortOption === 'alpha') {
+    const titleCmp = titleA.localeCompare(titleB);
+    if (titleCmp !== 0) return titleCmp;
+    return timeB - timeA;
+  }
+  if (sortOption === 'episodic') {
+    if (epA !== epB) return epA - epB;
+    if (timeB !== timeA) return timeB - timeA;
+    return titleA.localeCompare(titleB);
+  }
+  // 'newest' default: Tier 3 safe date recency, Tier 4 episodic ordering, Tier 5 title A-Z
+  if (timeB !== timeA) return timeB - timeA;
+  if (epA !== epB) return epA - epB;
+  return titleA.localeCompare(titleB);
+}
+
 /**
  * Searches and ranks bookmarks with full-text deep search support across title, url, group,
  * description, and extracted article body.
@@ -72,7 +136,8 @@ export function searchCatalogFullText<T extends SearchBookmarkItem = SearchBookm
   query: string,
   scope: SearchScope = 'all',
   groupFilter?: string,
-  limit: number = 30
+  limit: number = 30,
+  sortOption: SearchSortOption = 'newest'
 ): FullTextSearchResult<T>[] {
   if (!catalog || catalog.length === 0) return [];
 
@@ -93,17 +158,7 @@ export function searchCatalogFullText<T extends SearchBookmarkItem = SearchBookm
 
   // 2. Empty Query
   if (!qClean) {
-    const sorted = [...filtered].sort((a, b) => {
-      const pinA = a.isPinned ? 1 : 0;
-      const pinB = b.isPinned ? 1 : 0;
-      if (pinB !== pinA) return pinB - pinA;
-
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      if (timeB !== timeA) return timeB - timeA;
-
-      return (a.title || '').localeCompare(b.title || '');
-    });
+    const sorted = [...filtered].sort((a, b) => compareItems5Tier(a, b, sortOption));
     return applyLimit(sorted.map((item) => ({ item, score: 0 })));
   }
 
@@ -209,15 +264,10 @@ export function searchCatalogFullText<T extends SearchBookmarkItem = SearchBookm
     }
   }
 
-  // 5. Sort by Score Descending, then createdAt descending
+  // 5. Sort by Tier 1 Score Descending, then 5-Tier Comparator
   scoredItems.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-
-    const timeA = a.item.createdAt ? new Date(a.item.createdAt).getTime() : 0;
-    const timeB = b.item.createdAt ? new Date(b.item.createdAt).getTime() : 0;
-    if (timeB !== timeA) return timeB - timeA;
-
-    return (a.item.title || '').localeCompare(b.item.title || '');
+    return compareItems5Tier(a.item, b.item, sortOption);
   });
 
   return applyLimit(scoredItems);
@@ -231,8 +281,9 @@ export function filterAndRankBookmarks<T extends SearchBookmarkItem = SearchBook
   query: string,
   groupFilter?: string,
   limit: number = 30,
-  scope: SearchScope = 'all'
+  scope: SearchScope = 'all',
+  sortOption: SearchSortOption = 'newest'
 ): T[] {
-  const results = searchCatalogFullText(catalog, query, scope, groupFilter, limit);
+  const results = searchCatalogFullText(catalog, query, scope, groupFilter, limit, sortOption);
   return results.map((r) => r.item);
 }

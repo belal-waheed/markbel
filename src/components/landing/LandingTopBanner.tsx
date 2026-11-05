@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Alt+O Spotlight Token Theming, Dual-Mode Visual Cards &amp; Missing Image Healing
+            60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key New Bookmark &amp; Deterministic 5-Tier Sorting
           </span>
         </div>
         <button

@@ -4,9 +4,103 @@
  * Features dual-mode rendering (Visual Cards vs Compact List) and theme synchronization.
  */
 
-import { filterAndRankBookmarks, type SearchBookmarkItem } from '@/lib/searchCatalog';
+import { filterAndRankBookmarks, type SearchBookmarkItem, type SearchSortOption } from '@/lib/searchCatalog';
 import { isLowQualityImage } from '@/lib/mediaHeuristics';
 import { parseSeriesProgression, formatEpisodicBadge } from '@/lib/seriesProgression';
+
+export const PILLAR_GROUPS = [
+  'Anime',
+  'Dev',
+  'Music',
+  'Deen',
+  'Insta',
+  'Tools',
+  'Design',
+  'System',
+  'Unsorted',
+] as const;
+
+export function detectDefaultGroup(url: string): string {
+  const u = (url || '').toLowerCase();
+  if (
+    u.includes('youtube.com') ||
+    u.includes('youtu.be') ||
+    u.includes('anime3rb') ||
+    u.includes('crunchyroll') ||
+    u.includes('myanimelist') ||
+    u.includes('manga') ||
+    u.includes('aniwatch') ||
+    u.includes('9anime') ||
+    u.includes('egydead')
+  ) {
+    return 'Anime';
+  }
+  if (
+    u.includes('github.com') ||
+    u.includes('gitlab.com') ||
+    u.includes('stackoverflow.com') ||
+    u.includes('npmjs.com') ||
+    u.includes('dev.to') ||
+    u.includes('typescript') ||
+    u.includes('react')
+  ) {
+    return 'Dev';
+  }
+  if (
+    u.includes('spotify.com') ||
+    u.includes('soundcloud.com') ||
+    u.includes('music.apple.com') ||
+    u.includes('deezer.com')
+  ) {
+    return 'Music';
+  }
+  if (
+    u.includes('quran') ||
+    u.includes('sunnah') ||
+    u.includes('islam') ||
+    u.includes('hadith') ||
+    u.includes('dorar.net')
+  ) {
+    return 'Deen';
+  }
+  if (
+    u.includes('instagram.com') ||
+    u.includes('threads.net') ||
+    u.includes('tiktok.com') ||
+    u.includes('twitter.com') ||
+    u.includes('x.com')
+  ) {
+    return 'Insta';
+  }
+  if (
+    u.includes('figma.com') ||
+    u.includes('dribbble.com') ||
+    u.includes('behance.net') ||
+    u.includes('unsplash.com')
+  ) {
+    return 'Design';
+  }
+  if (
+    u.includes('tool') ||
+    u.includes('calc') ||
+    u.includes('convert') ||
+    u.includes('regex') ||
+    u.includes('json') ||
+    u.includes('speedtest')
+  ) {
+    return 'Tools';
+  }
+  if (
+    u.includes('settings') ||
+    u.includes('admin') ||
+    u.includes('router') ||
+    u.includes('192.168.') ||
+    u.includes('localhost')
+  ) {
+    return 'System';
+  }
+  return 'Unsorted';
+}
 
 export function escapeHtml(str: string): string {
   return (str || '')
@@ -102,6 +196,23 @@ export class MarkbelSpotlight {
   private themeToggleButton: HTMLButtonElement | null = null;
   private viewToggleButton: HTMLButtonElement | null = null;
 
+  // New Bookmark HUD and Sort Elements
+  public currentView: 'search' | 'new-bookmark' = 'search';
+  private sortOption: SearchSortOption = 'newest';
+  private searchViewContainer: HTMLElement | null = null;
+  private newBookmarkViewContainer: HTMLElement | null = null;
+  private newButton: HTMLButtonElement | null = null;
+  private sortSelect: HTMLSelectElement | null = null;
+  private nbTitleInput: HTMLInputElement | null = null;
+  private nbUrlInput: HTMLInputElement | null = null;
+  private nbNotesTextarea: HTMLTextAreaElement | null = null;
+  private nbPinCheckbox: HTMLInputElement | null = null;
+  private nbGroupsContainer: HTMLElement | null = null;
+  private nbSelectedGroup: string = 'Unsorted';
+  private nbSaveButton: HTMLButtonElement | null = null;
+  private nbCancelButton: HTMLButtonElement | null = null;
+  private footerHints: HTMLElement | null = null;
+
   private isVisible: boolean = false;
   private catalog: SearchBookmarkItem[] | null = null;
   private filtered: SearchBookmarkItem[] = [];
@@ -122,14 +233,23 @@ export class MarkbelSpotlight {
     }
 
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      chrome.storage.local.get(['markbel_theme_mode', 'markbel_spotlight_view_mode'], (res: { [key: string]: any }) => {
-        if (res?.markbel_theme_mode === 'light' || res?.markbel_theme_mode === 'dark') {
-          this.setTheme(res.markbel_theme_mode as 'light' | 'dark', false);
+      chrome.storage.local.get(
+        ['markbel_theme_mode', 'markbel_spotlight_view_mode', 'markbel_spotlight_sort_option'],
+        (res: { [key: string]: any }) => {
+          if (res?.markbel_theme_mode === 'light' || res?.markbel_theme_mode === 'dark') {
+            this.setTheme(res.markbel_theme_mode as 'light' | 'dark', false);
+          }
+          if (res?.markbel_spotlight_view_mode === 'compact' || res?.markbel_spotlight_view_mode === 'visual') {
+            this.setViewMode(res.markbel_spotlight_view_mode as 'compact' | 'visual', false);
+          }
+          if (res?.markbel_spotlight_sort_option) {
+            this.sortOption = res.markbel_spotlight_sort_option as SearchSortOption;
+            if (this.sortSelect) {
+              this.sortSelect.value = this.sortOption;
+            }
+          }
         }
-        if (res?.markbel_spotlight_view_mode === 'compact' || res?.markbel_spotlight_view_mode === 'visual') {
-          this.setViewMode(res.markbel_spotlight_view_mode as 'compact' | 'visual', false);
-        }
-      });
+      );
 
       chrome.storage.onChanged?.addListener((changes, area) => {
         if (area === 'local') {
@@ -140,6 +260,14 @@ export class MarkbelSpotlight {
           const newMode = changes.markbel_spotlight_view_mode?.newValue;
           if (newMode === 'compact' || newMode === 'visual') {
             this.setViewMode(newMode, false);
+          }
+          const newSort = changes.markbel_spotlight_sort_option?.newValue;
+          if (newSort) {
+            this.sortOption = newSort as SearchSortOption;
+            if (this.sortSelect) {
+              this.sortSelect.value = this.sortOption;
+            }
+            if (this.isVisible) this.render();
           }
         }
       });
@@ -654,6 +782,196 @@ export class MarkbelSpotlight {
         color: var(--sp-text-secondary);
         letter-spacing: 0.02em;
       }
+      .spotlight-new-btn {
+        background: var(--sp-accent-soft);
+        color: var(--sp-accent);
+        border: 1px solid var(--sp-border-strong);
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        transition: all 0.12s ease;
+      }
+      .spotlight-new-btn:hover {
+        background: var(--sp-accent);
+        color: #ffffff;
+      }
+      .spotlight-new-btn kbd {
+        background: var(--sp-kbd-bg);
+        border: 1px solid var(--sp-kbd-border);
+        padding: 0 4px;
+        font-size: 9px;
+      }
+      .spotlight-sort-select {
+        background: var(--sp-bg-muted);
+        color: var(--sp-text-secondary);
+        border: 1px solid var(--sp-border);
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 4px 6px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.12s ease;
+      }
+      .spotlight-sort-select:hover {
+        background: var(--sp-bg-hover);
+        color: var(--sp-text-primary);
+        border-color: var(--sp-border-strong);
+      }
+      .spotlight-new-bookmark-view {
+        padding: 16px 20px;
+        background: var(--sp-bg-surface);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .spotlight-nb-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .spotlight-nb-heading {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--sp-text-primary);
+      }
+      .spotlight-nb-back-icon-btn {
+        background: transparent;
+        border: none;
+        color: var(--sp-text-muted);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .spotlight-nb-back-icon-btn:hover {
+        background: var(--sp-bg-hover);
+        color: var(--sp-text-primary);
+      }
+      .spotlight-nb-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .spotlight-nb-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .spotlight-nb-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--sp-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .spotlight-nb-input, .spotlight-nb-textarea {
+        background: var(--sp-bg-muted);
+        border: 1px solid var(--sp-border);
+        color: var(--sp-text-primary);
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.12s ease;
+      }
+      .spotlight-nb-input:focus, .spotlight-nb-textarea:focus {
+        border-color: var(--sp-accent);
+        box-shadow: 0 0 0 2px var(--sp-accent-soft);
+      }
+      .spotlight-nb-textarea {
+        resize: vertical;
+        min-height: 48px;
+      }
+      .spotlight-nb-groups {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .spotlight-nb-group-chip {
+        background: var(--sp-bg-surface);
+        border: 1px solid var(--sp-border);
+        color: var(--sp-text-secondary);
+        padding: 3px 9px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .spotlight-nb-group-chip:hover {
+        background: var(--sp-bg-hover);
+        color: var(--sp-text-primary);
+      }
+      .spotlight-nb-group-chip.active {
+        background: var(--sp-accent) !important;
+        color: #ffffff !important;
+        border-color: var(--sp-accent) !important;
+        font-weight: 600;
+      }
+      .spotlight-nb-field-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .spotlight-nb-checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--sp-text-secondary);
+        cursor: pointer;
+        user-select: none;
+      }
+      .spotlight-nb-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .spotlight-nb-cancel-btn {
+        background: transparent;
+        border: 1px solid var(--sp-border);
+        color: var(--sp-text-secondary);
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .spotlight-nb-cancel-btn:hover {
+        background: var(--sp-bg-hover);
+        color: var(--sp-text-primary);
+      }
+      .spotlight-nb-save-btn {
+        background: var(--sp-accent);
+        border: 1px solid var(--sp-accent);
+        color: #ffffff;
+        padding: 5px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .spotlight-nb-save-btn:hover {
+        opacity: 0.92;
+        transform: translateY(-1px);
+      }
+      .spotlight-action-row {
+        background: var(--sp-accent-soft);
+        border-left: 3px solid var(--sp-accent) !important;
+      }
       .hidden {
         display: none !important;
       }
@@ -671,7 +989,14 @@ export class MarkbelSpotlight {
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
+          <button type="button" class="spotlight-new-btn" title="New Bookmark (n)">+ New <kbd>n</kbd></button>
           <input type="text" class="spotlight-input" placeholder="Search bookmarks (title, group, url)..." autocomplete="off" spellcheck="false" />
+          <select class="spotlight-sort-select" title="Sort Order">
+            <option value="newest"${this.sortOption === 'newest' ? ' selected' : ''}>Newest First</option>
+            <option value="oldest"${this.sortOption === 'oldest' ? ' selected' : ''}>Oldest First</option>
+            <option value="alphabetical"${this.sortOption === 'alphabetical' ? ' selected' : ''}>Title A-Z</option>
+            <option value="episodic"${this.sortOption === 'episodic' ? ' selected' : ''}>Episodic Order</option>
+          </select>
           <span class="spotlight-count hidden"></span>
           <button type="button" class="spotlight-clear hidden" title="Clear search">&times;</button>
           <button type="button" class="spotlight-icon-btn spotlight-view-toggle" title="${
@@ -681,12 +1006,49 @@ export class MarkbelSpotlight {
             this.themeMode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'
           }">${this.themeMode === 'dark' ? SUN_ICON : MOON_ICON}</button>
         </div>
-        <div class="spotlight-chips-row"></div>
-        <div class="spotlight-results view-${this.viewMode}" role="listbox"></div>
+        <div class="spotlight-search-view">
+          <div class="spotlight-chips-row"></div>
+          <div class="spotlight-results view-${this.viewMode}" role="listbox"></div>
+        </div>
+        <div class="spotlight-new-bookmark-view hidden">
+          <div class="spotlight-nb-header">
+            <h3 class="spotlight-nb-heading">New Bookmark</h3>
+            <button type="button" class="spotlight-nb-back-icon-btn" title="Back to Search (Esc)">&times;</button>
+          </div>
+          <div class="spotlight-nb-body">
+            <div class="spotlight-nb-field">
+              <label class="spotlight-nb-label">Title</label>
+              <input type="text" class="spotlight-nb-input spotlight-nb-title" placeholder="Page title..." />
+            </div>
+            <div class="spotlight-nb-field">
+              <label class="spotlight-nb-label">URL</label>
+              <input type="text" class="spotlight-nb-input spotlight-nb-url" placeholder="https://..." />
+            </div>
+            <div class="spotlight-nb-field">
+              <label class="spotlight-nb-label">Group</label>
+              <div class="spotlight-nb-groups"></div>
+            </div>
+            <div class="spotlight-nb-field">
+              <label class="spotlight-nb-label">Notes / Description</label>
+              <textarea class="spotlight-nb-textarea spotlight-nb-notes" rows="2" placeholder="Optional notes..."></textarea>
+            </div>
+            <div class="spotlight-nb-field-row">
+              <label class="spotlight-nb-checkbox-label">
+                <input type="checkbox" class="spotlight-nb-pin" />
+                <span>Pin to Top</span>
+              </label>
+            </div>
+          </div>
+          <div class="spotlight-nb-footer">
+            <button type="button" class="spotlight-nb-cancel-btn">Back to Search (Esc)</button>
+            <button type="button" class="spotlight-nb-save-btn">Save Bookmark (Enter)</button>
+          </div>
+        </div>
         <div class="spotlight-footer">
           <div class="spotlight-hints">
             <span><kbd>&uarr;&darr;</kbd> Navigate</span>
             <span><kbd>&crarr;</kbd> Open</span>
+            <span><kbd>n</kbd> New</span>
             <span><kbd>Ctrl+&crarr;</kbd> New Tab</span>
             <span><kbd>Ctrl+C</kbd> Copy URL</span>
             <span><kbd>Esc</kbd> Close</span>
@@ -708,6 +1070,19 @@ export class MarkbelSpotlight {
     this.themeToggleButton = this.shadow.querySelector('.spotlight-theme-toggle');
     this.viewToggleButton = this.shadow.querySelector('.spotlight-view-toggle');
 
+    this.searchViewContainer = this.shadow.querySelector('.spotlight-search-view');
+    this.newBookmarkViewContainer = this.shadow.querySelector('.spotlight-new-bookmark-view');
+    this.newButton = this.shadow.querySelector('.spotlight-new-btn');
+    this.sortSelect = this.shadow.querySelector('.spotlight-sort-select');
+    this.nbTitleInput = this.shadow.querySelector('.spotlight-nb-title');
+    this.nbUrlInput = this.shadow.querySelector('.spotlight-nb-url');
+    this.nbNotesTextarea = this.shadow.querySelector('.spotlight-nb-notes');
+    this.nbPinCheckbox = this.shadow.querySelector('.spotlight-nb-pin');
+    this.nbGroupsContainer = this.shadow.querySelector('.spotlight-nb-groups');
+    this.nbSaveButton = this.shadow.querySelector('.spotlight-nb-save-btn');
+    this.nbCancelButton = this.shadow.querySelector('.spotlight-nb-cancel-btn');
+    this.footerHints = this.shadow.querySelector('.spotlight-hints');
+
     // Attach overlay events
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) {
@@ -725,6 +1100,41 @@ export class MarkbelSpotlight {
     this.viewToggleButton?.addEventListener('click', () => {
       const nextMode = this.viewMode === 'visual' ? 'compact' : 'visual';
       this.setViewMode(nextMode, true);
+    });
+
+    // New button click
+    this.newButton?.addEventListener('click', () => {
+      this.switchToNewBookmark();
+    });
+
+    // Sort select change
+    this.sortSelect?.addEventListener('change', (e) => {
+      this.sortOption = (e.target as HTMLSelectElement).value as SearchSortOption;
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.set({ markbel_spotlight_sort_option: this.sortOption });
+      }
+      this.selectedIndex = 0;
+      this.render();
+    });
+
+    // New Bookmark Back & Save buttons
+    this.nbCancelButton?.addEventListener('click', () => {
+      this.switchToSearch();
+    });
+    this.shadow.querySelector('.spotlight-nb-back-icon-btn')?.addEventListener('click', () => {
+      this.switchToSearch();
+    });
+    this.nbSaveButton?.addEventListener('click', () => {
+      this.saveNewBookmark();
+    });
+    this.nbGroupsContainer?.addEventListener('click', (e) => {
+      const chip = (e.target as HTMLElement).closest('.spotlight-nb-group-chip');
+      if (!chip) return;
+      const grp = chip.getAttribute('data-group');
+      if (grp) {
+        this.nbSelectedGroup = grp;
+        this.renderNbGroups();
+      }
     });
 
     this.searchInput?.addEventListener('input', () => {
@@ -800,10 +1210,42 @@ export class MarkbelSpotlight {
     // Global Keydown Inside Shadow DOM
     this.shadow.addEventListener('keydown', (event: Event) => {
       const e = event as KeyboardEvent;
+
+      if (this.currentView === 'new-bookmark') {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.switchToSearch();
+          return;
+        }
+        if (
+          e.key === 'Enter' &&
+          (e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.tagName !== 'TEXTAREA')
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.saveNewBookmark();
+          return;
+        }
+        return;
+      }
+
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         this.hide();
+        return;
+      }
+
+      // 'n' / 'N' when search input is empty or with Ctrl/Alt
+      const queryVal = this.searchInput?.value || '';
+      if (
+        (!queryVal.trim() && (e.key === 'n' || e.key === 'N')) ||
+        ((e.ctrlKey || e.altKey) && (e.key === 'n' || e.key === 'N'))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.switchToNewBookmark();
         return;
       }
 
@@ -867,6 +1309,10 @@ export class MarkbelSpotlight {
   }
 
   private executeItemAction(item: SearchBookmarkItem, newTab: boolean, active: boolean): void {
+    if (item.id === '__action_save_current_page__') {
+      this.switchToNewBookmark();
+      return;
+    }
     if (newTab) {
       chrome.runtime.sendMessage({
         type: 'MARKBEL_OPEN_TAB',
@@ -877,6 +1323,122 @@ export class MarkbelSpotlight {
     } else {
       this.hide();
       window.location.href = item.url;
+    }
+  }
+
+  public switchToNewBookmark(): void {
+    this.currentView = 'new-bookmark';
+    if (this.searchViewContainer) this.searchViewContainer.classList.add('hidden');
+    if (this.newBookmarkViewContainer) this.newBookmarkViewContainer.classList.remove('hidden');
+
+    const defaultTitle = typeof document !== 'undefined' ? (document.title || '') : '';
+    const defaultUrl = typeof window !== 'undefined' && window.location ? (window.location.href || '') : '';
+    this.nbSelectedGroup = detectDefaultGroup(defaultUrl);
+
+    if (this.nbTitleInput) this.nbTitleInput.value = defaultTitle;
+    if (this.nbUrlInput) this.nbUrlInput.value = defaultUrl;
+    if (this.nbNotesTextarea) this.nbNotesTextarea.value = '';
+    if (this.nbPinCheckbox) this.nbPinCheckbox.checked = false;
+
+    this.renderNbGroups();
+    this.updateFooterHints();
+
+    setTimeout(() => {
+      this.nbTitleInput?.focus();
+      this.nbTitleInput?.select();
+    }, 20);
+  }
+
+  public switchToSearch(): void {
+    this.currentView = 'search';
+    if (this.newBookmarkViewContainer) this.newBookmarkViewContainer.classList.add('hidden');
+    if (this.searchViewContainer) this.searchViewContainer.classList.remove('hidden');
+
+    this.updateFooterHints();
+    setTimeout(() => {
+      this.searchInput?.focus();
+      this.searchInput?.select();
+    }, 20);
+  }
+
+  private renderNbGroups(): void {
+    if (!this.nbGroupsContainer) return;
+    this.nbGroupsContainer.innerHTML = PILLAR_GROUPS.map((g) => {
+      const isActive = g.toLowerCase() === this.nbSelectedGroup.toLowerCase();
+      const groupToken = getGroupColorToken(g);
+      return `<button type="button" class="spotlight-nb-group-chip ${isActive ? 'active' : ''}" data-group="${escapeHtml(g)}" style="${isActive ? '' : `color: ${groupToken.color}; border-color: ${groupToken.border};`}">${escapeHtml(g)}</button>`;
+    }).join('');
+  }
+
+  private updateFooterHints(): void {
+    if (!this.footerHints) return;
+    if (this.currentView === 'new-bookmark') {
+      this.footerHints.innerHTML = `
+        <span><kbd>&crarr;</kbd> Save Bookmark</span>
+        <span><kbd>Esc</kbd> Back to Search</span>
+        <span><kbd>Tab</kbd> Next Field</span>
+      `;
+    } else {
+      this.footerHints.innerHTML = `
+        <span><kbd>&uarr;&darr;</kbd> Navigate</span>
+        <span><kbd>&crarr;</kbd> Open</span>
+        <span><kbd>n</kbd> New</span>
+        <span><kbd>Ctrl+&crarr;</kbd> New Tab</span>
+        <span><kbd>Ctrl+C</kbd> Copy URL</span>
+        <span><kbd>Esc</kbd> Close</span>
+      `;
+    }
+  }
+
+  private saveNewBookmark(): void {
+    const title = this.nbTitleInput?.value.trim() || (typeof document !== 'undefined' ? document.title : '') || '';
+    const url = this.nbUrlInput?.value.trim() || (typeof window !== 'undefined' ? window.location?.href : '') || '';
+    const description = this.nbNotesTextarea?.value.trim() || '';
+    const isPinned = Boolean(this.nbPinCheckbox?.checked);
+    const group = this.nbSelectedGroup || 'Unsorted';
+
+    if (!url) {
+      this.showActionFeedback('URL is required');
+      return;
+    }
+
+    if (this.nbSaveButton) {
+      this.nbSaveButton.disabled = true;
+      this.nbSaveButton.textContent = 'Saving...';
+    }
+
+    if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage(
+        {
+          type: 'MARKBEL_SAVE_BOOKMARK',
+          payload: {
+            title: title || url,
+            url,
+            description,
+            group,
+            isPinned,
+          },
+        },
+        (res) => {
+          if (this.nbSaveButton) {
+            this.nbSaveButton.disabled = false;
+            this.nbSaveButton.textContent = 'Save Bookmark (Enter)';
+          }
+          if (res && res.success) {
+            this.showActionFeedback('Bookmark saved to Markbel!');
+            this.refreshCatalog();
+            this.switchToSearch();
+          } else {
+            this.showActionFeedback('Failed: ' + (res?.error || 'Could not save'));
+          }
+        }
+      );
+    } else {
+      if (this.nbSaveButton) {
+        this.nbSaveButton.disabled = false;
+        this.nbSaveButton.textContent = 'Save Bookmark (Enter)';
+      }
+      this.switchToSearch();
     }
   }
 
@@ -915,11 +1477,27 @@ export class MarkbelSpotlight {
     if (!this.resultsList) return;
 
     const query = this.searchInput?.value || '';
-    this.filtered = filterAndRankBookmarks(this.catalog || [], query, this.activeGroup);
+    const ranked = filterAndRankBookmarks(this.catalog || [], query, this.activeGroup, 30, 'all', this.sortOption);
+
+    if (query.trim()) {
+      const pageTitle = typeof document !== 'undefined' ? (document.title || '') : '';
+      const pageUrl = typeof window !== 'undefined' && window.location ? (window.location.href || '') : '';
+      const saveActionItem: SearchBookmarkItem = {
+        id: '__action_save_current_page__',
+        title: `+ Save Current Page as New Bookmark`,
+        url: pageUrl,
+        description: pageTitle || pageUrl,
+        group: 'Action',
+        isPinned: true,
+      };
+      this.filtered = [saveActionItem, ...ranked];
+    } else {
+      this.filtered = ranked;
+    }
 
     if (this.countBadge) {
       if (query.trim()) {
-        this.countBadge.textContent = `${this.filtered.length} found`;
+        this.countBadge.textContent = `${ranked.length} found`;
         this.countBadge.classList.remove('hidden');
       } else {
         this.countBadge.classList.add('hidden');
@@ -945,6 +1523,26 @@ export class MarkbelSpotlight {
     this.resultsList.innerHTML = this.filtered
       .map((item, idx) => {
         const isSelected = idx === this.selectedIndex;
+        if (item.id === '__action_save_current_page__') {
+          return `
+            <div class="spotlight-item spotlight-action-row ${isSelected ? 'selected' : ''}" data-index="${idx}" role="option" aria-selected="${isSelected}">
+              <div class="spotlight-item-thumb-box" style="background: var(--sp-accent-soft); color: var(--sp-accent); font-size: 16px; font-weight: 700; border-color: var(--sp-accent);">
+                +
+              </div>
+              <div class="spotlight-item-info">
+                <div class="spotlight-item-header">
+                  <span class="spotlight-item-title" style="color: var(--sp-accent); font-weight: 700;">+ Save Current Page as New Bookmark</span>
+                </div>
+                <div class="spotlight-item-meta">
+                  <span class="spotlight-tag-pill" style="color: #ffffff; background: var(--sp-accent); border: 1px solid var(--sp-accent);">Quick Action</span>
+                  <span class="spotlight-domain-row">
+                    <span>${escapeHtml(item.description || item.url)}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
         const groupColor = getGroupColorToken(item.group);
         const seriesBadge = detectSeriesBadge(item);
         const contentType = inferContentType(item);
@@ -1082,6 +1680,7 @@ export class MarkbelSpotlight {
     this.previousActiveElement = document.activeElement as HTMLElement | null;
     this.host.style.display = 'block';
     this.isVisible = true;
+    this.switchToSearch();
 
     if (!this.catalog) {
       this.fetchCatalog();
@@ -1102,6 +1701,7 @@ export class MarkbelSpotlight {
 
     this.host.style.display = 'none';
     this.isVisible = false;
+    this.switchToSearch();
 
     if (this.searchInput) {
       this.searchInput.value = '';

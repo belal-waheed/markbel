@@ -241,5 +241,21 @@ describe("Metadata Scraper & Platform Adapters Suite (Modular Worker Engine)", (
       expect(result?.title).toBe("Anime Episode");
       expect(result?.image).toBe("https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg");
     });
+
+    it("extracts Anime3rb JSON-LD partOfSeries.image and DOM poster fallback", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(
+          `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"TVEpisode","name":"Frieren Ep 1","partOfSeries":{"@type":"TVSeries","image":"https://images.anime3rb.com/titles/frieren.webp"}}</script></head><body></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } }
+        );
+      });
+
+      const url = new URL("https://anime3rb.com/episode/sousou-no-frieren/1");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Frieren Ep 1");
+      expect(result?.image).toBe("https://images.anime3rb.com/titles/frieren.webp");
+    });
   });
 });

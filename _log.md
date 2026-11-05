@@ -382,3 +382,26 @@ tags:
 - Deployed frontend and edge worker triggers to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `e6f61152-292c-4c5d-9f7d-d28f46c37d34`).
 
 
+
+### Phase 27: 60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key Creation & Universal Media Fix (2026-11-05)
+- Fixed virtualizer `scrollMargin: 160` on both grid and list virtualizers in `src/views/BookmarksPage.tsx` to offset `BookmarkFilterBar` height and prevent row clipping/jumping.
+- Removed `ref={gridVirtualizer.measureElement}` from grid rows and pinned `estimateSize: () => 320` (grid) and `() => 72` (list) with `overscan: 4`, completely eliminating the `ResizeObserver` thrashing loop during asynchronous thumbnail loading.
+- Implemented in-memory hot cache (`memoryBlobCache = new Map<string, string>()`) in `src/components/BookmarkImage.tsx` returning cached blob URLs synchronously without IndexedDB round-trips during fast scrolling.
+- Throttled thumbnail background capture through bounded `requestIdleCallback` (fallback 250ms delay) with max 2 concurrent downloads (`MAX_CONCURRENT_CAPTURES = 2`).
+- Added CSS `contain: content;` to `.studio-card` in `src/index.css` to enable GPU layer composition.
+- Memoized bookmark card properties in `src/components/BookmarkCard.tsx` (`useMemo`).
+- Added global window keyboard listener for `'n'` / `'N'` to trigger new bookmark creation directly from the main vault view.
+- Overhauled `extension/src/spotlight/MarkbelSpotlight.ts` with a state machine (`currentView: 'search' | 'new-bookmark'`).
+  - Added `'n'` / `'N'` hotkey in search view to transition to bookmark creation when search query is empty.
+  - Added `[+ New (n)]` button in header bar.
+  - Added `[+ Save Current Page as New Bookmark]` quick action at index 0 when typing query.
+  - Embedded New Bookmark card HUD with Title, URL, Group chips (all 8 pillars: `Anime`, `Dev`, `Music`, `Deen`, `Insta`, `Tools`, `Design`, `System`, `Unsorted`) with smart auto-detection, Notes textarea, Pin toggle, Save (`Enter`), and Cancel (`Esc`).
+  - Added `MARKBEL_SAVE_BOOKMARK` message listener in `extension/src/background.ts`.
+  - Added header Sort Selector (`Newest First`, `Oldest First`, `Title A-Z`, `Episodic Order`) persisted in `chrome.storage.local`.
+- Implemented `safeParseTimestamp(createdAt)` and 5-tier deterministic sorting in `src/lib/searchCatalog.ts`.
+- Removed `video.vid3rb.com/video/` false positive from `isVideoStreamUrl()` in `src/lib/mediaHeuristics.ts`.
+- Added Anime3rb JSON-LD `partOfSeries.image` and DOM poster extraction in `extension/src/metadata/extractPageMetadata.ts` and `worker/src/lib/metadataScraper.ts`.
+- Bumped version to `2.8.0` across all manifests, HTML, release notes, and documentation.
+- Generated fresh Chromium and Firefox extension packages and synced unpacked mirror to `D:\apps\0-setup\markbel-extension\`.
+- Deployed frontend and edge worker triggers to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `dcb44fe8-6daa-4ec0-b72e-65c39a461b36`).
+- Verified 100% test coverage: 47 test suites, 649 unit tests passed; 0 TypeScript compilation errors.

@@ -494,8 +494,9 @@ export default function BookmarksPage() {
   const listVirtualizer = useVirtualizer({
     count: filteredBookmarks.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 76,
-    overscan: 5,
+    estimateSize: () => 72,
+    overscan: 4,
+    scrollMargin: 160,
   });
 
   const rowCount = Math.ceil(filteredBookmarks.length / columnCount);
@@ -503,8 +504,9 @@ export default function BookmarksPage() {
   const gridVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 310,
-    overscan: 3,
+    estimateSize: () => 320,
+    overscan: 4,
+    scrollMargin: 160,
   });
 
   // Manual Trigger Sync
@@ -628,6 +630,28 @@ export default function BookmarksPage() {
     onBulkArchive: onBulkArchive,
     hasOpenModal,
   });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (hasOpenModal || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const active = typeof document !== "undefined" ? document.activeElement : null;
+      if (
+        active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "TEXTAREA" ||
+          active.tagName === "SELECT" ||
+          (active as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [hasOpenModal]);
 
   const handleDismissReminder = async (b: LocalBookmark) => {
     await bookmarkRepository.update(b.id, { remindAt: "" });
@@ -989,7 +1013,6 @@ export default function BookmarksPage() {
                     <div
                       key={`${virtualRow.key}-${columnCount}`}
                       data-index={virtualRow.index}
-                      ref={gridVirtualizer.measureElement}
                       style={{
                         position: "absolute",
                         top: 0,

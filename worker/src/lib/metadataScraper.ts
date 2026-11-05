@@ -677,6 +677,9 @@ export async function extractMetadata(
                 } else if (item.image?.url) image = item.image.url;
                 else if (item.thumbnailUrl) image = item.thumbnailUrl;
                 else if (item.video?.[0]?.thumbnailUrl) image = item.video[0].thumbnailUrl;
+                else if (item.partOfSeries?.image) {
+                  image = typeof item.partOfSeries.image === "string" ? item.partOfSeries.image : item.partOfSeries.image.url;
+                }
               }
             }
           } catch {}
@@ -720,10 +723,24 @@ export async function extractMetadata(
             "";
         }
 
+        // C. Fallback: In-DOM Anime & Series Poster Extraction
+        if (!image) {
+          const domPoster = $('img[alt*="بوستر"], img[alt*="poster"], .anime-poster img').first();
+          if (domPoster.length > 0) {
+            image = domPoster.attr("src") || domPoster.attr("data-src") || "";
+          }
+        }
+
         if (image) {
           if (image.includes("video.vid3rb.com/video/")) {
             const resolved = await resolveVideoThumbnail(image);
-            image = resolved || "";
+            if (resolved) {
+              image = resolved;
+            } else {
+              const uuidMatch = image.match(/video\/([a-f0-9\-]+)/i);
+              const prefix = uuidMatch?.[1]?.split("-")?.[0];
+              image = prefix ? `https://thumbnails.vid3rb.com/${prefix}/thumbnail.001.jpeg` : image;
+            }
           } else if (isVideoStreamUrl(image) || isLowQualityImage(image)) {
             image = "";
           }

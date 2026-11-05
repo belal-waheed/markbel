@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.7.2  
+> **Status:** Production / v2.8.0  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -430,6 +430,29 @@ Each milestone must pass the strict Markbel release pipeline:
   - Executed batch update resolving all video endpoints to static JPEG poster thumbnails (`thumbnails.vid3rb.com/.../thumbnail.001.jpeg`) and high-resolution anime series covers (`sousou-no-frieren`, `shangri-la-frontier`, `tensei-shitara-slime`, `black-clover`).
   - Verified remote D1 database has 0 `video.vid3rb.com` URLs remaining in `image` column.
 - **Verification Gate:** 639/639 Vitest tests passing across 47 test suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh extension packages built (`npm run build:extension:all`), unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev`.
+
+### 60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key Bookmark Creation, Deterministic 5-Tier Sorting & Universal Media Fix (v2.8.0):
+- **60 FPS Scroll Virtualization & Main Thread Unblocking:**
+  - Resolved `scrollMargin` offset (160px) in `@tanstack/react-virtual` for both grid and list virtualizers in `src/views/BookmarksPage.tsx` preventing row clipping under `BookmarkFilterBar`.
+  - Removed `measureElement` thrashing from grid row wrappers, fixing row height estimates to static 320px (grid) and 72px (list) with `overscan: 4`, completely eliminating `ResizeObserver` loops during async image loads.
+  - Implemented module-level in-memory hot cache (`memoryBlobCache = new Map<string, string>()`) in `src/components/BookmarkImage.tsx` providing synchronous blob URL lookups without hitting IndexedDB during fast scroll runs.
+  - Scheduled thumbnail captures via bounded `requestIdleCallback` (fallback 250ms delay) throttled to maximum 2 concurrent network downloads.
+  - Applied CSS `contain: content;` to `.studio-card` in `src/index.css` for isolated GPU paint boundaries.
+  - Memoized computed card properties (`instant`, `effectiveImage`, `hasHeroImage`, `domain`, `faviconUrl`, `typeBadge`) in `src/components/BookmarkCard.tsx`.
+  - Added global window keyboard listener for `'n'` / `'N'` to instantly open bookmark modal from the main vault.
+- **Alt+O Spotlight In-HUD Bookmark Creation & Deterministic 5-Tier Sorting:**
+  - Added state machine (`currentView: 'search' | 'new-bookmark'`) in `extension/src/spotlight/MarkbelSpotlight.ts`.
+  - Search view: pressing `'n'` / `'N'` on an empty search query transitions directly to New Bookmark view; added `[+ New (n)]` button in header bar; dynamic `[+ Save Current Page as New Bookmark]` quick action at index 0 when typing query.
+  - New Bookmark view: embedded Shadow DOM form card with Title, URL, Group chips (all 8 pillars: `Anime`, `Dev`, `Music`, `Deen`, `Insta`, `Tools`, `Design`, `System`, `Unsorted`) with smart group auto-selection, Notes/Description, Pin to Top toggle, Save (`Enter`), and Cancel (`Esc`).
+  - Added `MARKBEL_SAVE_BOOKMARK` message handler in `extension/src/background.ts`.
+  - Implemented header Sort Selector (`Newest First`, `Oldest First`, `Title A-Z`, `Episodic Order`) persisted in `chrome.storage.local`.
+  - Implemented `safeParseTimestamp(createdAt)` in `src/lib/searchCatalog.ts` handling ISO-8601, SQLite timestamps (`YYYY-MM-DD HH:MM:SS`), and timestamps without NaN, driving deterministic 5-tier ranking.
+- **Anime3rb & Universal Media Pipeline Fix:**
+  - Corrected `isVideoStreamUrl()` in `src/lib/mediaHeuristics.ts` by removing `video.vid3rb.com/video/` (recognized as 302 image redirect endpoint rather than video stream).
+  - Permitted `thumbnails.vid3rb.com` and `images.anime3rb.com` as high-quality image assets in `isLowQualityImage()`.
+  - Added JSON-LD schema `partOfSeries.image` and DOM poster fallback extraction in `extension/src/metadata/extractPageMetadata.ts` and `worker/src/lib/metadataScraper.ts`.
+- **Verification Gate:** 649/649 Vitest tests passing across 47 test suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh browser extension packages produced (`npm run build:extension:all`) and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev` (Version ID `dcb44fe8-6daa-4ec0-b72e-65c39a461b36`).
+
 
 
 

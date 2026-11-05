@@ -519,5 +519,70 @@ describe('ExtensionContent - extractPageMetadata & DOM Extraction Subsystem', ()
       // Assert
       expect(result.image).toBe('https://scontent.cdninstagram.com/large.jpg');
     });
+
+    it('extracts high-res series poster from Anime3rb JSON-LD schema', () => {
+      const mockDoc = {
+        title: 'Frieren Episode 4 - Anime3rb',
+        querySelector: (selector: string) => {
+          if (selector === 'script[type="application/ld+json"]') return {};
+          return null;
+        },
+        querySelectorAll: (selector: string) => {
+          if (selector === 'script[type="application/ld+json"]') {
+            return [
+              {
+                textContent: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'TVEpisode',
+                  name: 'Sousou no Frieren Episode 4',
+                  partOfSeries: {
+                    '@type': 'TVSeries',
+                    name: 'Sousou no Frieren',
+                    image: 'https://images.anime3rb.com/titles/sousou-no-frieren.webp',
+                  },
+                }),
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const mockWin = {
+        location: {
+          href: 'https://anime3rb.com/episode/sousou-no-frieren/4',
+          hostname: 'anime3rb.com',
+        },
+        getSelection: () => null,
+      };
+
+      const result = extractPageMetadata(mockDoc as any, mockWin as any);
+      expect(result.image).toBe('https://images.anime3rb.com/titles/sousou-no-frieren.webp');
+    });
+
+    it('maps video.vid3rb.com/video/<uuid> og:image directly to thumbnails.vid3rb.com static JPEG poster', () => {
+      const mockDoc = {
+        title: 'Episode Stream - Anime3rb',
+        querySelector: (selector: string) => {
+          if (selector === 'meta[property="og:image"]') {
+            return {
+              getAttribute: (attr: string) => (attr === 'content' ? 'https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6' : null),
+            };
+          }
+          return null;
+        },
+      };
+
+      const mockWin = {
+        location: {
+          href: 'https://anime3rb.com/episode/frieren/5',
+          hostname: 'anime3rb.com',
+        },
+        getSelection: () => null,
+      };
+
+      const result = extractPageMetadata(mockDoc as any, mockWin as any);
+      expect(result.image).toBe('https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg');
+    });
   });
 });

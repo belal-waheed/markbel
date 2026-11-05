@@ -84,39 +84,49 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     }
     return parseSeriesProgression(b.url, b.title);
   }, [b.url, b.title, b.seriesEpisode, b.seriesSeason, b.seriesKey, b.contentType]);
-  const instant = extractInstantMediaMetadata(b.url)
-  const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image)
-  let effectiveImage = ''
-  if (instant.image) {
-    effectiveImage = (!isPolluted && b.image) ? b.image : instant.image
-  } else if (!isPolluted && b.image) {
-    effectiveImage = b.image
-  }
+  const instant = React.useMemo(() => extractInstantMediaMetadata(b.url), [b.url]);
 
-  const hasHeroImage = Boolean(effectiveImage && !isLowQualityImage(effectiveImage) && !isVideoStreamUrl(effectiveImage))
-  const domain = getDomain(b.url)
-  const safeFavicon = isSafeFaviconUrl(b.favicon) ? b.favicon : undefined
-  const faviconUrl = safeFavicon || getPublicFaviconUrl(b.url)
+  const effectiveImage = React.useMemo(() => {
+    const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image);
+    if (instant.image) {
+      return (!isPolluted && b.image) ? b.image : instant.image;
+    } else if (!isPolluted && b.image) {
+      return b.image;
+    }
+    return '';
+  }, [b.image, instant.image]);
+
+  const hasHeroImage = React.useMemo(
+    () => Boolean(effectiveImage && !isLowQualityImage(effectiveImage) && !isVideoStreamUrl(effectiveImage)),
+    [effectiveImage]
+  );
+
+  const domain = React.useMemo(() => getDomain(b.url), [b.url]);
+
+  const faviconUrl = React.useMemo(() => {
+    const safeFavicon = isSafeFaviconUrl(b.favicon) ? b.favicon : undefined;
+    return safeFavicon || getPublicFaviconUrl(b.url);
+  }, [b.favicon, b.url]);
 
   // Media type pill metadata
-  const typeBadge = (() => {
+  const typeBadge = React.useMemo(() => {
     if (b.contentType === 'playlist') {
-      return { label: 'Playlist', icon: ListVideo, color: 'text-rose-400 bg-rose-500/20 border-rose-500/30' }
+      return { label: 'Playlist', icon: ListVideo, color: 'text-rose-400 bg-rose-500/20 border-rose-500/30' };
     }
     if (b.contentType === 'video' || b.url.includes('youtube.com') || b.url.includes('youtu.be')) {
-      return { label: 'Video', icon: ListVideo, color: 'text-red-400 bg-red-500/20 border-red-500/30' }
+      return { label: 'Video', icon: ListVideo, color: 'text-red-400 bg-red-500/20 border-red-500/30' };
     }
     if (b.url.includes('github.com')) {
-      return { label: 'Code', icon: Code2, color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' }
+      return { label: 'Code', icon: Code2, color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' };
     }
     if (b.url.includes('x.com') || b.url.includes('twitter.com') || b.url.includes('instagram.com')) {
-      return { label: 'Social', icon: Share2, color: 'text-purple-400 bg-purple-500/20 border-purple-500/30' }
+      return { label: 'Social', icon: Share2, color: 'text-purple-400 bg-purple-500/20 border-purple-500/30' };
     }
     if (b.contentType === 'article') {
-      return { label: 'Article', icon: BookOpen, color: 'text-blue-400 bg-blue-500/20 border-blue-500/30' }
+      return { label: 'Article', icon: BookOpen, color: 'text-blue-400 bg-blue-500/20 border-blue-500/30' };
     }
-    return null
-  })()
+    return null;
+  }, [b.contentType, b.url]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. COMPACT LIST ROW VIEW

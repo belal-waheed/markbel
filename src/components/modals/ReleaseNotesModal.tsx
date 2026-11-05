@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.7.2
+                  What's New in Markbel v2.8.0
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Alt+O Spotlight design token theming, dual-mode visual cards, Instagram in-DOM poster extraction &amp; remote thumbnail repair
+                60 FPS scroll virtualization, in-HUD Alt+O 'n' key bookmark creation, deterministic 5-tier sorting &amp; Anime3rb media extraction
               </p>
             </div>
           </div>
@@ -69,8 +69,50 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-          {/* Feature: Alt+O Spotlight Theming & Dual-Mode Visual Cards (v2.7.2) */}
+          {/* Feature: 60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key & Deterministic Sorting (v2.8.0) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  60 FPS Virtualized Scrolling, In-HUD Alt+O 'n' Key Creation, 5-Tier Sorting &amp; Anime3rb Poster Extraction
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.8.0
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Overhauled virtual list and grid rendering with exact scrollMargin offsets, eliminated ResizeObserver measurement thrashing, GPU-delegated layer containment on studio cards, in-memory hot blob caching to bypass IndexedDB during rapid scrolling, and requestIdleCallback background thumbnail caching with a 2-concurrent download limit; added seamless in-HUD New Bookmark creation inside Alt+O Spotlight activated by pressing 'n' with pre-filled metadata and 8-pillar group chips; implemented deterministic 5-tier search ranking with header sort selector (Newest, Oldest, Title A-Z, Episodic); and repaired Anime3rb/Vid3rb extraction with direct browser rendering, JSON-LD partOfSeries schema parsing, and DOM poster fallbacks.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>60 FPS Virtualization &amp; Hot Blob Cache</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>In-HUD Spotlight 'n' Key Creation Form</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>5-Tier Deterministic Sorting &amp; Selector</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Anime3rb JSON-LD &amp; DOM Poster Pipeline</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Global 'n' Key Shortcut in Web Vault</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature: Alt+O Spotlight Theming & Dual-Mode Visual Cards (v2.7.2) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5" />
             </div>

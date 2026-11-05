@@ -379,7 +379,7 @@ describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
           url: 'https://example.com/stream-page',
           title: 'Stream',
           group: 'Video',
-          image: 'https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6',
+          image: 'https://stream.example.com/hls/playlist.m3u8',
           favicon: 'https://example.com/favicon.ico',
           version: 1,
           createdAt: '2026-01-01T00:00:00Z',

@@ -10,6 +10,8 @@ import {
   getGroupColorToken,
   inferContentType,
   detectSeriesBadge,
+  detectDefaultGroup,
+  PILLAR_GROUPS,
   escapeHtml,
 } from '../../extension/src/spotlight/MarkbelSpotlight';
 
@@ -192,6 +194,44 @@ describe('Extension In-Page Spotlight (Alt+O) Subsystem', () => {
       spotlight.setViewMode('compact');
       expect(resultsList?.classList.contains('view-compact')).toBe(true);
       expect(resultsList?.classList.contains('view-visual')).toBe(false);
+
+      spotlight.hide();
+    });
+
+    it('detectDefaultGroup maps domains to correct 8-pillar groups', () => {
+      expect(detectDefaultGroup('https://anime3rb.com/episode/sousou-no-frieren/4')).toBe('Anime');
+      expect(detectDefaultGroup('https://github.com/belal-waheed/markbel')).toBe('Dev');
+      expect(detectDefaultGroup('https://open.spotify.com/track/123')).toBe('Music');
+      expect(detectDefaultGroup('https://quran.com/1')).toBe('Deen');
+      expect(detectDefaultGroup('https://www.instagram.com/reel/123/')).toBe('Insta');
+      expect(detectDefaultGroup('https://www.figma.com/file/123')).toBe('Design');
+      expect(detectDefaultGroup('https://regex101.com')).toBe('Tools');
+      expect(detectDefaultGroup('http://192.168.1.1/settings')).toBe('System');
+      expect(detectDefaultGroup('https://generic-news-blog.org')).toBe('Unsorted');
+    });
+
+    it('transitions between search view and new-bookmark HUD', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host');
+      const shadow = (host as any).shadowRoot;
+      const searchView = shadow.querySelector('.spotlight-search-view');
+      const nbView = shadow.querySelector('.spotlight-new-bookmark-view');
+
+      expect(spotlight.currentView).toBe('search');
+      expect(searchView?.classList.contains('hidden')).toBe(false);
+      expect(nbView?.classList.contains('hidden')).toBe(true);
+
+      spotlight.switchToNewBookmark();
+      expect(spotlight.currentView).toBe('new-bookmark');
+      expect(searchView?.classList.contains('hidden')).toBe(true);
+      expect(nbView?.classList.contains('hidden')).toBe(false);
+
+      spotlight.switchToSearch();
+      expect(spotlight.currentView).toBe('search');
+      expect(searchView?.classList.contains('hidden')).toBe(false);
+      expect(nbView?.classList.contains('hidden')).toBe(true);
 
       spotlight.hide();
     });

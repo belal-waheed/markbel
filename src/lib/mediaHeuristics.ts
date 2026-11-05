@@ -95,8 +95,7 @@ export function upgradeInsecureImageUrl(imageUrl?: string | null): string | unde
 
 /**
  * Detects whether a URL represents a video stream or manifest rather than an image asset.
- * Catches HLS (.m3u8), MPEG-DASH (.mpd), MPEG-TS (.ts) segments, and streaming endpoints
- * on known video hosts (such as video.vid3rb.com/video/...).
+ * Catches HLS (.m3u8), MPEG-DASH (.mpd), MPEG-TS (.ts) segments, and streaming manifests.
  */
 export function isVideoStreamUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -118,12 +117,10 @@ export function isVideoStreamUrl(url?: string | null): boolean {
       return true;
     }
 
-    // Video stream endpoints on known video hosts (e.g. video.vid3rb.com/video/<uuid>)
+    // Direct video stream manifests on video delivery networks
     if (
-      (parsed.hostname === 'video.vid3rb.com' ||
-        parsed.hostname.endsWith('.vid3rb.com') ||
-        parsed.hostname.includes('videodelivery.net')) &&
-      pathname.includes('/video/')
+      parsed.hostname.includes('videodelivery.net') &&
+      (pathname.includes('/manifest/') || pathname.endsWith('.m3u8'))
     ) {
       return true;
     }
@@ -148,6 +145,15 @@ export function isLowQualityImage(url?: string | null): boolean {
 
   // Vector data URI cards and generated previews are valid high-fidelity assets
   if (trimmed.startsWith('data:image/')) return false;
+
+  // Anime3rb & Vid3rb posters and thumbnails are valid high-fidelity cover assets
+  if (
+    trimmed.includes('thumbnails.vid3rb.com') ||
+    trimmed.includes('images.anime3rb.com') ||
+    trimmed.includes('video.vid3rb.com/video/')
+  ) {
+    return false;
+  }
 
   // Video streams are not valid image assets
   if (isVideoStreamUrl(trimmed)) return true;

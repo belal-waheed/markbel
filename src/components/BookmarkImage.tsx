@@ -9,6 +9,59 @@ export type ImageStage = "DIRECT" | "PROXY" | "FAVICON" | "PLACEHOLDER";
 
 export const inFlightCaptures = new Set<string>();
 export const failedCaptures = new Set<string>();
+export const memoryBlobCache = new Map<string, string>();
+
+export function clearMemoryBlobCache(): void {
+  for (const url of memoryBlobCache.values()) {
+    if (typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      URL.revokeObjectURL(url);
+    }
+  }
+  memoryBlobCache.clear();
+}
+
+const MAX_CONCURRENT_CAPTURES = 2;
+let activeCapturesCount = 0;
+const captureQueue: Array<() => Promise<void>> = [];
+
+function processCaptureQueue() {
+  while (activeCapturesCount < MAX_CONCURRENT_CAPTURES && captureQueue.length > 0) {
+    const task = captureQueue.shift();
+    if (task) {
+      activeCapturesCount++;
+      task().finally(() => {
+        activeCapturesCount--;
+        processCaptureQueue();
+      });
+    }
+  }
+}
+
+/**
+ * Queues thumbnail capture to execute during idle time with max 2 concurrent downloads.
+ */
+export function scheduleCaptureAndCache(url: string, proxyBaseUrl?: string): void {
+  if (
+    !url ||
+    inFlightCaptures.has(url) ||
+    failedCaptures.has(url) ||
+    isLowQualityImage(url) ||
+    isVideoStreamUrl(url)
+  ) return;
+
+  const run = () => {
+    captureQueue.push(async () => {
+      await captureAndCacheThumbnail(url, proxyBaseUrl);
+    });
+    processCaptureQueue();
+  };
+
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(run, { timeout: 1000 });
+  } else {
+    setTimeout(run, 250);
+  }
+}
 
 /**
  * Creates an AbortSignal with timeout, falling back to setTimeout for environments lacking AbortSignal.timeout
@@ -169,19 +222,32 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
 }) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const blobUrlRef = useRef<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [stage, setStage] = useState<ImageStage>(() => getInitialStage(src, fallbackSrc));
-  const [isLoaded, setIsLoaded] = useState(false);
-
   const trimmedSrc = src?.trim();
   const trimmedFallback = fallbackSrc?.trim();
   const secureSrc = upgradeInsecureImageUrl(trimmedSrc) || trimmedSrc;
   const secureFallback = upgradeInsecureImageUrl(trimmedFallback) || trimmedFallback;
   const cleanUrl = secureSrc || trimmedSrc;
 
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => {
+    if (cleanUrl && memoryBlobCache.has(cleanUrl)) {
+      return memoryBlobCache.get(cleanUrl) || null;
+    }
+    return null;
+  });
+  const [stage, setStage] = useState<ImageStage>(() => getInitialStage(src, fallbackSrc));
+  const [isLoaded, setIsLoaded] = useState(() => Boolean(cleanUrl && memoryBlobCache.has(cleanUrl)));
+
   const setAndTrackBlobUrl = (newUrl: string | null) => {
     if (blobUrlRef.current && blobUrlRef.current !== newUrl) {
-      if (typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      // Do not revoke if the old URL is retained in the memory cache
+      let isInCache = false;
+      for (const cached of memoryBlobCache.values()) {
+        if (cached === blobUrlRef.current) {
+          isInCache = true;
+          break;
+        }
+      }
+      if (!isInCache && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
         URL.revokeObjectURL(blobUrlRef.current);
       }
     }
@@ -193,7 +259,9 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   useEffect(() => {
     const nextStage = getInitialStage(src, fallbackSrc);
     setStage(nextStage);
-    setIsLoaded(false);
+    if (!cleanUrl || !memoryBlobCache.has(cleanUrl)) {
+      setIsLoaded(false);
+    }
   }, [src, fallbackSrc]);
 
   // Dexie blob cache lookup on mount or when cleanUrl changes
@@ -201,11 +269,28 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
     let isCancelled = false;
 
     if (cleanUrl) {
+      if (memoryBlobCache.has(cleanUrl)) {
+        setAndTrackBlobUrl(memoryBlobCache.get(cleanUrl)!);
+        setIsLoaded(true);
+        return;
+      }
+
       getCachedThumbnail(cleanUrl)
         .then((cached) => {
           if (isCancelled) return;
           if (cached?.blob && cached.blob.size > 0 && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
             const objectUrl = URL.createObjectURL(cached.blob);
+            if (memoryBlobCache.size > 500) {
+              const oldestKey = memoryBlobCache.keys().next().value;
+              if (oldestKey) {
+                const oldUrl = memoryBlobCache.get(oldestKey);
+                memoryBlobCache.delete(oldestKey);
+                if (oldUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+                  URL.revokeObjectURL(oldUrl);
+                }
+              }
+            }
+            memoryBlobCache.set(cleanUrl, objectUrl);
             setAndTrackBlobUrl(objectUrl);
             setIsLoaded(true);
           } else {
@@ -223,7 +308,6 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
 
     return () => {
       isCancelled = true;
-      setAndTrackBlobUrl(null);
     };
   }, [cleanUrl]);
 
@@ -263,14 +347,22 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   const handleLoad = () => {
     setIsLoaded(true);
     // When an image loads successfully in DIRECT or PROXY stage and is not already a blobUrl,
-    // persist it to Dexie blob cache in the background
+    // defer background caching to requestIdleCallback / setTimeout(250) with bounded concurrency
     if (!blobUrl && cleanUrl && (stage === "DIRECT" || stage === "PROXY")) {
-      captureAndCacheThumbnail(cleanUrl, proxyBaseUrl);
+      scheduleCaptureAndCache(cleanUrl, proxyBaseUrl);
     }
   };
 
   const handleError = async () => {
     setIsLoaded(false);
+
+    if (cleanUrl && memoryBlobCache.has(cleanUrl)) {
+      const staleUrl = memoryBlobCache.get(cleanUrl);
+      memoryBlobCache.delete(cleanUrl);
+      if (staleUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+        URL.revokeObjectURL(staleUrl);
+      }
+    }
 
     // If active blobUrl failed (e.g. corrupt blob), revoke and clear it
     if (blobUrlRef.current) {

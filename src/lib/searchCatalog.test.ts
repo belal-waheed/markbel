@@ -3,6 +3,7 @@ import {
   filterAndRankBookmarks,
   searchCatalogFullText,
   extractHighlightSnippet,
+  safeParseTimestamp,
   SearchBookmarkItem,
 } from './searchCatalog';
 import { extractArticleTokens } from '../db/db';
@@ -268,6 +269,50 @@ describe('searchCatalog - filterAndRankBookmarks', () => {
       expect(tokens).toContain('indexing');
       expect(tokens).toContain('2026');
       expect(tokens.every((t) => t.length >= 2)).toBe(true);
+    });
+  });
+
+  describe('safeParseTimestamp & 5-Tier Sorting', () => {
+    it('safeParseTimestamp handles ISO strings, SQLite format, numeric timestamps, and fallbacks', () => {
+      expect(safeParseTimestamp('2026-03-01T10:00:00Z')).toBe(new Date('2026-03-01T10:00:00Z').getTime());
+      expect(safeParseTimestamp('2026-03-01 10:00:00')).toBeGreaterThan(0);
+      expect(safeParseTimestamp(1700000000000)).toBe(1700000000000);
+      expect(safeParseTimestamp('1700000000000')).toBe(1700000000000);
+      expect(safeParseTimestamp(null)).toBe(0);
+      expect(safeParseTimestamp(undefined)).toBe(0);
+      expect(safeParseTimestamp('invalid-date-string-xyz')).toBe(0);
+    });
+
+    it('sorts bookmarks with sortOption="oldest"', () => {
+      const results = filterAndRankBookmarks(sampleCatalog, '', undefined, 10, 'all', 'oldest');
+      // Pinned items first, but oldest pinned first
+      expect(results[0].isPinned).toBe(true);
+      expect(results[0].id).toBe('2'); // 2026-01-02 before 2026-02-10
+      expect(results[1].id).toBe('7');
+
+      // Unpinned: oldest first
+      expect(results[2].id).toBe('3'); // 2025-12-01
+    });
+
+    it('sorts bookmarks with sortOption="alphabetical"', () => {
+      const results = filterAndRankBookmarks(sampleCatalog, '', undefined, 10, 'all', 'alphabetical');
+      // Pinned items first, sorted A-Z
+      expect(results[0].isPinned).toBe(true);
+      expect(results[0].title).toBe('Pinned Article About Design');
+      expect(results[1].title).toBe('Pinned React Tutorial');
+
+      // Unpinned items sorted A-Z
+      expect(results[2].title).toBe('Advanced Web Architecture');
+    });
+
+    it('sorts episodic series bookmarks by episode progression', () => {
+      const animeCatalog: SearchBookmarkItem[] = [
+        { id: 'ep3', title: 'Frieren Ep 3', url: 'https://anime3rb.com/episode/frieren/3', seriesEpisode: 3, createdAt: '2026-01-03' },
+        { id: 'ep1', title: 'Frieren Ep 1', url: 'https://anime3rb.com/episode/frieren/1', seriesEpisode: 1, createdAt: '2026-01-01' },
+        { id: 'ep2', title: 'Frieren Ep 2', url: 'https://anime3rb.com/episode/frieren/2', seriesEpisode: 2, createdAt: '2026-01-02' },
+      ];
+      const sorted = filterAndRankBookmarks(animeCatalog, '', undefined, 10, 'all', 'episodic');
+      expect(sorted.map(s => s.seriesEpisode)).toEqual([1, 2, 3]);
     });
   });
 });
