@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Clock,
   Archive,
@@ -11,13 +12,12 @@ import {
   BookOpen,
   Code2,
   Share2,
-  Globe,
   ExternalLink,
   AlertTriangle,
   Tv,
   FastForward,
   RotateCcw,
-  History,
+  MoreHorizontal,
 } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { getPublicFaviconUrl, isSafeFaviconUrl } from '@/lib/urlSafety'
@@ -71,7 +71,11 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onDismissReminder,
   onSnoozeReminder,
 }) => {
-  const seriesInfo = React.useMemo(() => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const [menuCoords, setMenuCoords] = useState<{ top: number; right: number } | null>(null)
+
+  const seriesInfo = useMemo(() => {
     if (b.seriesEpisode) {
       return {
         seriesKey: b.seriesKey || '',
@@ -80,53 +84,343 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
         season: b.seriesSeason,
         sourceType: (b.contentType === 'article' ? 'manga' : 'generic') as any,
         nextEpisodeUrl: parseSeriesProgression(b.url, b.title)?.nextEpisodeUrl,
-      };
+      }
     }
-    return parseSeriesProgression(b.url, b.title);
-  }, [b.url, b.title, b.seriesEpisode, b.seriesSeason, b.seriesKey, b.contentType]);
-  const instant = React.useMemo(() => extractInstantMediaMetadata(b.url), [b.url]);
+    return parseSeriesProgression(b.url, b.title)
+  }, [b.url, b.title, b.seriesEpisode, b.seriesSeason, b.seriesKey, b.contentType])
 
-  const effectiveImage = React.useMemo(() => {
-    const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image);
+  const instant = useMemo(() => extractInstantMediaMetadata(b.url), [b.url])
+
+  const effectiveImage = useMemo(() => {
+    const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image)
     if (instant.image) {
-      return (!isPolluted && b.image) ? b.image : instant.image;
+      return (!isPolluted && b.image) ? b.image : instant.image
     } else if (!isPolluted && b.image) {
-      return b.image;
+      return b.image
     }
-    return '';
-  }, [b.image, instant.image]);
+    return ''
+  }, [b.image, instant.image])
 
-  const hasHeroImage = React.useMemo(
+  const hasHeroImage = useMemo(
     () => Boolean(effectiveImage && !isLowQualityImage(effectiveImage) && !isVideoStreamUrl(effectiveImage)),
     [effectiveImage]
-  );
+  )
 
-  const domain = React.useMemo(() => getDomain(b.url), [b.url]);
+  const domain = useMemo(() => getDomain(b.url), [b.url])
 
-  const faviconUrl = React.useMemo(() => {
-    const safeFavicon = isSafeFaviconUrl(b.favicon) ? b.favicon : undefined;
-    return safeFavicon || getPublicFaviconUrl(b.url);
-  }, [b.favicon, b.url]);
+  const faviconUrl = useMemo(() => {
+    const safeFavicon = isSafeFaviconUrl(b.favicon) ? b.favicon : undefined
+    return safeFavicon || getPublicFaviconUrl(b.url)
+  }, [b.favicon, b.url])
 
   // Media type pill metadata
-  const typeBadge = React.useMemo(() => {
+  const typeBadge = useMemo(() => {
     if (b.contentType === 'playlist') {
-      return { label: 'Playlist', icon: ListVideo, color: 'text-rose-400 bg-rose-500/20 border-rose-500/30' };
+      return { label: 'Playlist', icon: ListVideo, color: 'text-rose-400 bg-rose-500/20 border-rose-500/30' }
     }
     if (b.contentType === 'video' || b.url.includes('youtube.com') || b.url.includes('youtu.be')) {
-      return { label: 'Video', icon: ListVideo, color: 'text-red-400 bg-red-500/20 border-red-500/30' };
+      return { label: 'Video', icon: ListVideo, color: 'text-red-400 bg-red-500/20 border-red-500/30' }
     }
     if (b.url.includes('github.com')) {
-      return { label: 'Code', icon: Code2, color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' };
+      return { label: 'Code', icon: Code2, color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' }
     }
     if (b.url.includes('x.com') || b.url.includes('twitter.com') || b.url.includes('instagram.com')) {
-      return { label: 'Social', icon: Share2, color: 'text-purple-400 bg-purple-500/20 border-purple-500/30' };
+      return { label: 'Social', icon: Share2, color: 'text-purple-400 bg-purple-500/20 border-purple-500/30' }
     }
     if (b.contentType === 'article') {
-      return { label: 'Article', icon: BookOpen, color: 'text-blue-400 bg-blue-500/20 border-blue-500/30' };
+      return { label: 'Article', icon: BookOpen, color: 'text-blue-400 bg-blue-500/20 border-blue-500/30' }
     }
-    return null;
-  }, [b.contentType, b.url]);
+    return null
+  }, [b.contentType, b.url])
+
+  // Toggle Action Sheet Menu
+  const toggleMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!isMenuOpen && menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const opensUpward = spaceBelow < 280
+      setMenuCoords({
+        top: opensUpward ? rect.top - 6 : rect.bottom + 6,
+        right: Math.max(12, window.innerWidth - rect.right),
+      })
+      setIsMenuOpen(true)
+    } else {
+      setIsMenuOpen(false)
+    }
+  }, [isMenuOpen])
+
+  // Close Menu on Click Outside / Scroll / Escape
+  useEffect(() => {
+    if (!isMenuOpen) return
+
+    const handlePointerDown = () => setIsMenuOpen(false)
+    const handleScroll = () => setIsMenuOpen(false)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('scroll', handleScroll, { capture: true })
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isMenuOpen])
+
+  // Shared Action Sheet / Dropdown Menu Items
+  const menuContent = useMemo(() => (
+    <div className="space-y-0.5 text-xs">
+      {/* Open Destination */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onClick(b.url)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <ExternalLink className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+        <span>Open in New Tab</span>
+      </button>
+
+      {/* Read Offline */}
+      {onOpenReader && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            onOpenReader(b)
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+          aria-label="Read Offline"
+        >
+          <BookOpen className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+          <span>Read Offline</span>
+        </button>
+      )}
+
+      {/* Toggle Read */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onToggleRead(b)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        {b.isRead ? (
+          <>
+            <CheckCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+            <span>Mark as Unread</span>
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+            <span>Mark as Read</span>
+          </>
+        )}
+      </button>
+
+      {/* Toggle Pin */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onTogglePin(b)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Pin className={`w-4 h-4 shrink-0 ${b.isPinned ? 'fill-amber-500 text-amber-500' : 'text-[var(--color-text-tertiary)]'}`} />
+        <span>{b.isPinned ? 'Unpin Bookmark' : 'Pin to Top'}</span>
+      </button>
+
+      {/* Series Next / Rollback */}
+      {seriesInfo && onAdvanceSeries && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            onAdvanceSeries(b)
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer text-left"
+        >
+          <FastForward className="w-4 h-4 shrink-0" />
+          <span>Advance Series (+1)</span>
+        </button>
+      )}
+
+      {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            onRollbackSeries(b)
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-zinc-400 hover:bg-zinc-500/10 rounded-lg transition-colors cursor-pointer text-left"
+        >
+          <RotateCcw className="w-4 h-4 shrink-0" />
+          <span>Rollback Series ({b.seriesHistory.length} in history)</span>
+        </button>
+      )}
+
+      {/* Reminder Controls */}
+      {b.remindAt && onSnoozeReminder && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            onSnoozeReminder(b)
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
+        >
+          <Clock className="w-4 h-4 shrink-0" />
+          <span>Snooze Reminder (+1d)</span>
+        </button>
+      )}
+
+      {b.remindAt && onDismissReminder && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            onDismissReminder(b)
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+        >
+          <Clock className="w-4 h-4 shrink-0" />
+          <span>Dismiss Reminder</span>
+        </button>
+      )}
+
+      {/* Wayback Machine */}
+      {b.isBroken && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMenuOpen(false)
+            window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>View on Wayback Machine</span>
+        </button>
+      )}
+
+      <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+
+      {/* Edit Bookmark */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onEdit(b)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Edit className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+        <span>Edit Bookmark</span>
+      </button>
+
+      {/* Archive Bookmark */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onArchive(b)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Archive className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+        <span>Archive Bookmark</span>
+      </button>
+
+      {/* Delete Bookmark */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+          onDelete(b)
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-status-error)] hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Trash2 className="w-4 h-4 shrink-0" />
+        <span>Delete Bookmark</span>
+      </button>
+    </div>
+  ), [b, seriesInfo, onOpenReader, onToggleRead, onTogglePin, onAdvanceSeries, onRollbackSeries, onSnoozeReminder, onDismissReminder, onEdit, onArchive, onDelete, onClick])
+
+  // Action Sheet Portal for Mobile & Anchored Popover for Desktop
+  const actionSheetPortal = useMemo(() => {
+    if (typeof document === 'undefined' || !isMenuOpen) return null
+
+    const opensUpward = menuCoords ? (window.innerHeight - menuCoords.top < 280) : false
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 pointer-events-auto"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsMenuOpen(false)
+        }}
+      >
+        {/* Mobile Native Bottom Action Sheet */}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in duration-150 flex flex-col justify-end">
+          <div
+            className="bg-[var(--color-bg-surface)] border-t border-[var(--color-border-default)] rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[85vh] overflow-y-auto space-y-2 animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-[var(--color-border-strong)] rounded-full mx-auto mb-2" />
+            <div className="flex items-center gap-2.5 px-2 pb-2.5 mb-1 border-b border-[var(--color-border-subtle)]">
+              <img
+                src={faviconUrl}
+                alt=""
+                className="w-4 h-4 object-contain shrink-0"
+                onError={(e) => {
+                  ;(e.target as HTMLElement).style.display = 'none'
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <h5 className="text-xs font-bold text-[var(--color-text-primary)] truncate">{b.title}</h5>
+                <span className="text-[10px] font-mono text-[var(--color-text-secondary)] truncate block">{domain}</span>
+              </div>
+            </div>
+            {menuContent}
+          </div>
+        </div>
+
+        {/* Desktop Anchored Popover Menu */}
+        <div
+          className="hidden sm:block fixed z-50 bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl shadow-xl p-1.5 min-w-[210px] animate-in fade-in zoom-in-95 duration-100"
+          style={{
+            top: menuCoords ? `${menuCoords.top}px` : undefined,
+            right: menuCoords ? `${menuCoords.right}px` : undefined,
+            transform: opensUpward ? 'translateY(-100%)' : undefined,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {menuContent}
+        </div>
+      </div>,
+      document.body
+    )
+  }, [isMenuOpen, menuCoords, faviconUrl, b.title, domain, menuContent])
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. COMPACT LIST ROW VIEW
@@ -141,7 +435,6 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
       >
         {/* Left: Checkbox & Micro-Thumbnail / Favicon */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {/* Multiselect Checkbox */}
           {(selectionMode || isSelected) ? (
             <div
               className="w-5 h-5 rounded-md flex items-center justify-center border transition-all cursor-pointer z-10 shrink-0"
@@ -174,7 +467,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             </div>
           )}
 
-          {/* Micro-thumbnail (when image present) or Favicon tile */}
+          {/* Micro-thumbnail or Favicon tile */}
           {hasHeroImage ? (
             <div className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-lg overflow-hidden relative border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]">
               <BookmarkImage
@@ -235,21 +528,6 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                 {formatEpisodicBadge(seriesInfo)}
               </span>
             )}
-            {b.isBroken && (
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <span className="text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
-                  Broken ({b.httpStatus || 404})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')}
-                  className="text-[9px] font-medium text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors"
-                  title="Open in Wayback Machine"
-                >
-                  Wayback
-                </button>
-              </div>
-            )}
             {!b.isRead && (
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shrink-0" title="Unread" />
             )}
@@ -260,7 +538,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           </h4>
         </div>
 
-        {/* Right: Date & Progressive Action Toolbar */}
+        {/* Right: Date, Fast-Forward Series & Clean 3-Dots Action Button */}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] hidden md:inline mr-1">
             {new Date(b.createdAt).toLocaleDateString()}
@@ -270,85 +548,28 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             <button
               type="button"
               onClick={() => onAdvanceSeries(b)}
-              className="px-1.5 py-1 sm:px-2 sm:py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
+              className="px-2 py-1 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
               title="Advance to next episode (+1)"
             >
               <FastForward className="w-3 h-3" />
-              <span className="hidden sm:inline">+1 Next Ep</span>
+              <span className="hidden sm:inline">+1</span>
             </button>
           )}
 
-          {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
-            <button
-              type="button"
-              onClick={() => onRollbackSeries(b)}
-              className="p-1 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium text-zinc-400 bg-zinc-500/15 hover:bg-zinc-500/25 border border-zinc-500/30 flex items-center gap-1 transition-all active:scale-95"
-              title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-          )}
-
+          {/* Clean 3-Dots Action Sheet Button */}
           <button
-            onClick={() => onToggleRead(b)}
-            className={`p-1.5 rounded-md transition-colors ${
-              b.isRead
-                ? 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'
-                : 'text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)]'
-            }`}
-            title={b.isRead ? 'Mark as unread' : 'Mark as read'}
+            ref={menuButtonRef}
+            type="button"
+            onClick={toggleMenu}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+            title="More actions"
+            aria-label={`More actions for ${b.title}`}
           >
-            {b.isRead ? <Check className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
-          </button>
-
-          {onOpenReader && (
-            <button
-              type="button"
-              onClick={() => onOpenReader(b)}
-              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-              title="Read Offline"
-              aria-label="Read Offline"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          <button
-            onClick={() => onTogglePin(b)}
-            className={`p-1.5 rounded-md transition-colors ${
-              b.isPinned
-                ? 'text-amber-500 hover:bg-amber-500/10'
-                : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
-            }`}
-            title={b.isPinned ? 'Unpin' : 'Pin to top'}
-          >
-            <Pin className={`w-3.5 h-3.5 ${b.isPinned ? 'fill-amber-500' : ''}`} />
-          </button>
-
-          <button
-            onClick={() => onArchive(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-            title="Archive"
-          >
-            <Archive className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => onEdit(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] rounded-md transition-colors"
-            title="Edit"
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => onDelete(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-status-error)] hover:bg-red-500/10 rounded-md transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
+            <MoreHorizontal className="w-4 h-4" />
           </button>
         </div>
+
+        {actionSheetPortal}
       </div>
     )
   }
@@ -360,13 +581,13 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     return (
       <div
         onClick={() => onClick(b.url)}
-        className={`studio-card studio-card-hover flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all overflow-hidden ${
+        className={`studio-card studio-card-hover flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative ${
           b.isRead ? 'opacity-75 hover:opacity-100' : ''
         } ${isSelected ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
       >
         <div>
           {/* 16:9 Image Thumbnail with Smooth Hover Zoom */}
-          <div className="relative aspect-video w-full overflow-hidden bg-[var(--color-bg-muted)]">
+          <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-[var(--color-bg-muted)]">
             <div className="w-full h-full transition-transform duration-300 ease-out group-hover:scale-[1.03]">
               <BookmarkImage
                 src={effectiveImage}
@@ -431,15 +652,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                     {b.readingTime}m
                   </span>
                 ) : null}
-                {seriesInfo && (
-                  <span className="text-[10px] font-mono font-bold text-white bg-indigo-600/85 backdrop-blur-md px-1.5 py-0.5 rounded-md shadow-xs border border-indigo-400/30 flex items-center gap-1">
-                    <Tv className="w-3 h-3 text-indigo-200" />
-                    {formatEpisodicBadge(seriesInfo)}
-                  </span>
-                )}
               </div>
 
-              {/* Pin Indicator & Unread Dot */}
+              {/* Pin Indicator & Unread Cyan Dot */}
               <div className="flex items-center gap-1.5 pointer-events-auto">
                 {!b.isRead && (
                   <span
@@ -447,20 +662,14 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                     title="Unread"
                   />
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onTogglePin(b)
-                  }}
-                  className={`p-1.5 rounded-md backdrop-blur-md transition-all active:scale-95 shadow-xs ${
-                    b.isPinned
-                      ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
-                      : 'bg-black/60 text-white/80 hover:text-white hover:bg-black/80'
-                  }`}
-                  title={b.isPinned ? 'Unpin' : 'Pin to top'}
-                >
-                  <Pin className={`w-3.5 h-3.5 ${b.isPinned ? 'fill-amber-950' : ''}`} />
-                </button>
+                {b.isPinned && (
+                  <div
+                    className="p-1.5 rounded-md backdrop-blur-md bg-amber-400 text-amber-950 shadow-xs"
+                    title="Pinned"
+                  >
+                    <Pin className="w-3.5 h-3.5 fill-amber-950" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -484,19 +693,27 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                   {b.group || 'Unsorted'}
                 </span>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleRead(b)
-                }}
-                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors border ${
-                  b.isRead
-                    ? 'bg-transparent border-[var(--color-border-subtle)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'
-                    : 'bg-[var(--color-brand-subtle)] border-transparent text-[var(--color-accent)] hover:opacity-90'
-                }`}
-              >
-                {b.isRead ? 'Read' : 'Mark Read'}
-              </button>
+
+              {/* Series Compact Pill with direct +1 Advance button */}
+              {seriesInfo && (
+                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
+                    <Tv className="w-3 h-3" />
+                    {formatEpisodicBadge(seriesInfo)}
+                  </span>
+                  {onAdvanceSeries && (
+                    <button
+                      type="button"
+                      onClick={() => onAdvanceSeries(b)}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-0.5 transition-all active:scale-95"
+                      title="Advance to next episode (+1)"
+                    >
+                      <FastForward className="w-3 h-3" />
+                      <span>+1</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <h4 className="font-semibold text-xs sm:text-sm text-[var(--color-text-primary)] leading-snug line-clamp-2 group-hover:text-[var(--color-accent)] transition-colors">
@@ -508,150 +725,55 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
               </p>
             )}
 
-            {/* Link Rot / Broken Link Warning Badge */}
+            {/* Link Rot Indicator */}
             {b.isBroken && (
-              <div className="pt-1 flex items-center justify-between gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+              <div className="pt-0.5 flex items-center gap-1.5 text-xs">
                 <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                   Link Rot ({b.httpStatus || 404})
                 </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 font-semibold transition-colors"
-                    title="Open in Wayback Machine"
-                  >
-                    Wayback
-                  </button>
-                  {onOpenReader && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenReader(b)}
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-brand-subtle)] hover:opacity-90 text-[var(--color-accent)] border border-[var(--color-accent)]/20 font-semibold transition-colors"
-                      title="Read Saved Content"
-                    >
-                      Read
-                    </button>
-                  )}
-                </div>
               </div>
             )}
 
             {/* Reminder Badge */}
-            {seriesInfo && (
-              <div className="pt-1 flex items-center justify-between gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
-                <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
-                  <Tv className="w-3 h-3" />
-                  {formatEpisodicBadge(seriesInfo)}
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {onAdvanceSeries && (
-                    <button
-                      type="button"
-                      onClick={() => onAdvanceSeries(b)}
-                      className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1 transition-all active:scale-95"
-                      title="Advance to next episode (+1)"
-                    >
-                      <FastForward className="w-3 h-3" />
-                      <span>+1 Next Ep</span>
-                    </button>
-                  )}
-                  {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
-                    <button
-                      type="button"
-                      onClick={() => onRollbackSeries(b)}
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/15 hover:bg-zinc-500/25 text-zinc-400 border border-zinc-500/30 flex items-center gap-0.5 transition-all active:scale-95"
-                      title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
-                    >
-                      <RotateCcw className="w-2.5 h-2.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
             {b.remindAt && (
-              <div className="pt-1 flex items-center justify-between gap-1.5 text-xs text-amber-600 font-medium">
-                <div className="flex items-center gap-1.5 truncate">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">
-                    Remind: {new Date(b.remindAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => onSnoozeReminder?.(b)}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-semibold transition-colors"
-                    title="Snooze 1 day"
-                  >
-                    +1d
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDismissReminder?.(b)}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] hover:bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] font-semibold transition-colors"
-                    title="Dismiss reminder"
-                  >
-                    Dismiss
-                  </button>
-                </div>
+              <div className="pt-0.5 flex items-center gap-1.5 text-[11px] text-amber-600 font-medium">
+                <Clock className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  Remind: {new Date(b.remindAt).toLocaleDateString()}
+                </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Card Footer Progressive Action Toolbar */}
-        <div className="px-3 sm:px-3.5 py-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between bg-[var(--color-bg-surface)] gap-1">
-          <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] hidden sm:inline">
-            {new Date(b.createdAt).toLocaleDateString()}
-          </span>
-          <div className="flex items-center gap-1 sm:gap-1.5 w-full sm:w-auto justify-around sm:justify-end">
-            {onOpenReader && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenReader(b)
-                }}
-                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] rounded-md p-1.5 transition-colors active:scale-95"
-                title="Read Offline"
-                aria-label="Read Offline"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-              </button>
+        {/* Clean Editorial Footer with Date & 3-Dots Action Button */}
+        <div className="px-3 sm:px-3.5 py-1.5 border-t border-[var(--color-border-subtle)] flex items-center justify-between bg-[var(--color-bg-surface)] rounded-b-xl gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">
+              {new Date(b.createdAt).toLocaleDateString()}
+            </span>
+            {!b.isRead && (
+              <span className="text-[9px] font-semibold text-[var(--color-accent)] bg-[var(--color-brand-subtle)] px-1.5 py-0.2 rounded border border-[var(--color-accent)]/20">
+                Unread
+              </span>
             )}
+          </div>
+
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onArchive(b)
-              }}
-              className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-md p-1.5 transition-colors active:scale-95"
-              title="Archive"
+              ref={menuButtonRef}
+              type="button"
+              onClick={toggleMenu}
+              className="w-10 h-10 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+              title="More actions"
+              aria-label={`More actions for ${b.title}`}
             >
-              <Archive className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit(b)
-              }}
-              className="text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] rounded-md p-1.5 transition-colors active:scale-95"
-              title="Edit"
-            >
-              <Edit className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(b)
-              }}
-              className="text-[var(--color-text-tertiary)] hover:text-[var(--color-status-error)] hover:bg-red-500/10 rounded-md p-1.5 transition-colors active:scale-95"
-              title="Delete"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
+              <MoreHorizontal className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {actionSheetPortal}
       </div>
     )
   }
@@ -662,13 +784,13 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   return (
     <div
       onClick={() => onClick(b.url)}
-      className={`studio-card studio-card-hover p-4 sm:p-4.5 flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all min-h-[220px] ${
+      className={`studio-card studio-card-hover p-3.5 sm:p-4 flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative min-h-[170px] ${
         b.isRead ? 'opacity-75 hover:opacity-100' : ''
       } ${isSelected ? 'ring-2 ring-[var(--color-accent)] bg-[var(--color-brand-subtle)]' : ''}`}
     >
       <div>
         {/* Top Header: Favicon, Domain Chip, Category, Pin & Checkbox */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[var(--color-border-subtle)]/70">
+        <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--color-border-subtle)]/70">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Multiselect Checkbox */}
             {(selectionMode || isSelected) ? (
@@ -716,7 +838,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             <span className="font-mono text-[11px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] truncate max-w-[120px]">
               {domain}
             </span>
-            <span className="text-[10px] font-medium text-[var(--color-text-tertiary)] bg-[var(--color-bg-muted)] px-2 py-0.5 rounded-full border border-[var(--color-border-subtle)] truncate max-w-[90px]">
+            <span className="text-[10px] font-medium text-[var(--color-text-tertiary)] bg-[var(--color-bg-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)] truncate max-w-[90px]">
               {b.group || 'Unsorted'}
             </span>
           </div>
@@ -731,178 +853,101 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             {!b.isRead && (
               <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" title="Unread" />
             )}
-            <button
-              onClick={() => onTogglePin(b)}
-              className={`p-1 rounded-md transition-colors ${
-                b.isPinned
-                  ? 'text-amber-500 hover:bg-amber-500/10'
-                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
-              }`}
-              title={b.isPinned ? 'Unpin' : 'Pin to top'}
-            >
-              <Pin className={`w-3.5 h-3.5 ${b.isPinned ? 'fill-amber-500' : ''}`} />
-            </button>
+            {b.isPinned && (
+              <div className="p-1 text-amber-500" title="Pinned">
+                <Pin className="w-3.5 h-3.5 fill-amber-500" />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Editorial Headline & Excerpt */}
-        <div className="pt-2.5 space-y-1.5">
-          <h4 className="font-semibold text-[15px] sm:text-[15.5px] leading-[1.35] text-[var(--color-text-primary)] line-clamp-3 group-hover:text-[var(--color-accent)] transition-colors">
+        <div className="pt-2 space-y-1.5">
+          <h4 className="font-semibold text-[14px] sm:text-[15px] leading-snug text-[var(--color-text-primary)] line-clamp-3 group-hover:text-[var(--color-accent)] transition-colors">
             {b.title}
           </h4>
 
           {b.description ? (
-            <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed line-clamp-3">
+            <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed line-clamp-2">
               {b.description}
             </p>
           ) : (
-            <p className="text-xs italic text-[var(--color-text-tertiary)] line-clamp-2">
-              No description provided. Click to open destination or read offline.
+            <p className="text-xs italic text-[var(--color-text-tertiary)] line-clamp-1">
+              No description provided.
             </p>
           )}
 
-          {/* Link Rot / Broken Link Warning Badge */}
+          {/* Series Compact Pill with direct +1 Advance button */}
+          {seriesInfo && (
+            <div className="pt-1 flex items-center gap-1 text-xs" onClick={(e) => e.stopPropagation()}>
+              <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
+                <Tv className="w-3 h-3" />
+                {formatEpisodicBadge(seriesInfo)}
+              </span>
+              {onAdvanceSeries && (
+                <button
+                  type="button"
+                  onClick={() => onAdvanceSeries(b)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-0.5 transition-all active:scale-95"
+                  title="Advance to next episode (+1)"
+                >
+                  <FastForward className="w-3 h-3" />
+                  <span>+1</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Link Rot Warning Badge */}
           {b.isBroken && (
-            <div className="pt-2 flex items-center justify-between gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+            <div className="pt-1 flex items-center gap-1.5 text-xs">
               <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 Link Rot ({b.httpStatus || 404})
               </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 font-semibold transition-colors"
-                  title="Open in Wayback Machine"
-                >
-                  Wayback
-                </button>
-                {onOpenReader && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenReader(b)}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-brand-subtle)] hover:opacity-90 text-[var(--color-accent)] border border-[var(--color-accent)]/20 font-semibold transition-colors"
-                    title="Read Saved Content"
-                  >
-                    Read
-                  </button>
-                )}
-              </div>
             </div>
           )}
 
           {/* Reminder Badge */}
           {b.remindAt && (
-            <div className="pt-2 flex items-center justify-between gap-1.5 text-xs text-amber-600 font-medium">
-              <div className="flex items-center gap-1.5 truncate">
-                <Clock className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">
-                  Remind: {new Date(b.remindAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  onClick={() => onSnoozeReminder?.(b)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-semibold transition-colors"
-                  title="Snooze 1 day"
-                >
-                  +1d
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDismissReminder?.(b)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] hover:bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] font-semibold transition-colors"
-                  title="Dismiss reminder"
-                >
-                  Dismiss
-                </button>
-              </div>
+            <div className="pt-1 flex items-center gap-1.5 text-[11px] text-amber-600 font-medium">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span className="truncate">
+                Remind: {new Date(b.remindAt).toLocaleDateString()}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Editorial Footer Strip */}
-      <div className="pt-3 mt-3 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">
-          {new Date(b.createdAt).toLocaleDateString()}
-        </span>
-
-        {/* Progressive Disclosure Action Toolbar */}
-        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-          {seriesInfo && onAdvanceSeries && (
-            <button
-              type="button"
-              onClick={() => onAdvanceSeries(b)}
-              className="px-1.5 py-1 sm:px-2 sm:py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
-              title="Advance to next episode (+1)"
-            >
-              <FastForward className="w-3 h-3" />
-              <span className="hidden sm:inline">+1 Next Ep</span>
-            </button>
+      {/* Clean Editorial Footer Strip with Date & 3-Dots Action Button */}
+      <div className="pt-2 mt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">
+            {new Date(b.createdAt).toLocaleDateString()}
+          </span>
+          {!b.isRead && (
+            <span className="text-[9px] font-semibold text-[var(--color-accent)] bg-[var(--color-brand-subtle)] px-1.5 py-0.2 rounded border border-[var(--color-accent)]/20">
+              Unread
+            </span>
           )}
+        </div>
 
-          {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
-            <button
-              type="button"
-              onClick={() => onRollbackSeries(b)}
-              className="p-1 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium text-zinc-400 bg-zinc-500/15 hover:bg-zinc-500/25 border border-zinc-500/30 flex items-center gap-1 transition-all active:scale-95"
-              title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-          )}
-
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => onToggleRead(b)}
-            className={`p-1.5 rounded-md transition-colors ${
-              b.isRead
-                ? 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'
-                : 'text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)]'
-            }`}
-            title={b.isRead ? 'Mark as unread' : 'Mark as read'}
+            ref={menuButtonRef}
+            type="button"
+            onClick={toggleMenu}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer"
+            title="More actions"
+            aria-label={`More actions for ${b.title}`}
           >
-            {b.isRead ? <Check className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
-          </button>
-
-          {onOpenReader && (
-            <button
-              type="button"
-              onClick={() => onOpenReader(b)}
-              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] rounded-md transition-colors"
-              title="Read Offline"
-              aria-label="Read Offline"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          <button
-            onClick={() => onArchive(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-            title="Archive"
-          >
-            <Archive className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => onEdit(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] rounded-md transition-colors"
-            title="Edit"
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => onDelete(b)}
-            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-status-error)] hover:bg-red-500/10 rounded-md transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
+            <MoreHorizontal className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      {actionSheetPortal}
     </div>
   )
 })

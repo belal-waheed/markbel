@@ -57,7 +57,7 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
     { id: 'all' as FilterTab, label: 'All', count: counts.all, icon: Layers },
     { id: 'unread' as FilterTab, label: 'Unread', count: counts.unread, icon: BookOpen },
     { id: 'pinned' as FilterTab, label: 'Pinned', count: counts.pinned, icon: Pin },
-    { id: 'due' as FilterTab, label: 'Due & Overdue', count: counts.due, icon: Clock },
+    { id: 'due' as FilterTab, label: 'Due', count: counts.due, icon: Clock },
   ]
 
   const mediaFilters = [
@@ -67,21 +67,21 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
   ]
 
   return (
-    <div className="flex flex-col gap-3 mb-6 bg-[var(--color-bg-surface)] p-3 sm:p-3.5 rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
-      {/* Top Row: Central Command Omnibox + Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-        {/* Full-Width Search Input with Shortcut Badges */}
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--color-text-tertiary)]">
-            <Search className="w-4 h-4" />
+    <div className="flex flex-col gap-2.5 mb-4 sm:mb-6 bg-[var(--color-bg-surface)] p-2.5 sm:p-3.5 rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
+      {/* Top Row: Search Omnibox + Sort & View Controls */}
+      <div className="flex flex-row items-center gap-2">
+        {/* Search Input with Shortcut Badges */}
+        <div className="relative flex-1 min-w-0">
+          <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none text-[var(--color-text-tertiary)]">
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
           <input
             ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search vault, tags, domains, or full-text notes..."
-            className="w-full bg-[var(--color-bg-muted)]/70 hover:bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] focus:border-[var(--color-border-focus)] rounded-lg py-2 pl-9 pr-16 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)] transition-all font-sans"
+            placeholder="Search vault, tags, domains..."
+            className="w-full bg-[var(--color-bg-muted)]/70 hover:bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] focus:border-[var(--color-border-focus)] rounded-lg py-1.5 sm:py-2 pl-8 sm:pl-9 pr-8 sm:pr-16 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)] transition-all font-sans"
           />
           {searchQuery ? (
             <button
@@ -104,20 +104,20 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
         </div>
 
         {/* Right Action Tools: Sort Dropdown & View Mode Switcher */}
-        <div className="flex items-center gap-2 justify-between sm:justify-end shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Sort Selector */}
           {onSortChange && (
-            <div className="flex items-center gap-1.5 bg-[var(--color-bg-muted)] px-2 py-1 rounded-lg border border-[var(--color-border-subtle)] text-xs text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-1 bg-[var(--color-bg-muted)] px-1.5 sm:px-2 py-1 rounded-lg border border-[var(--color-border-subtle)] text-xs text-[var(--color-text-secondary)]">
               <ArrowUpDown className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] shrink-0" />
               <select
                 value={sortOption}
                 onChange={(e) => onSortChange(e.target.value as SortOption)}
-                className="bg-transparent border-none text-xs text-[var(--color-text-primary)] focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent border-none text-[11px] sm:text-xs text-[var(--color-text-primary)] focus:outline-none cursor-pointer pr-0.5 max-w-[80px] sm:max-w-none"
                 aria-label="Sort bookmarks"
               >
-                <option value="newest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Newest First</option>
-                <option value="oldest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Oldest First</option>
-                <option value="alpha" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Title A-Z</option>
+                <option value="newest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Newest</option>
+                <option value="oldest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Oldest</option>
+                <option value="alpha" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">A-Z</option>
                 <option value="readtime" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Read Time</option>
               </select>
             </div>
@@ -128,7 +128,7 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
             <button
               type="button"
               onClick={() => onViewModeChange('grid')}
-              className={`p-1.5 rounded-md transition-all cursor-pointer ${
+              className={`p-1 sm:p-1.5 rounded-md transition-all cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-xs'
                   : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
@@ -141,7 +141,7 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
             <button
               type="button"
               onClick={() => onViewModeChange('list')}
-              className={`p-1.5 rounded-md transition-all cursor-pointer ${
+              className={`p-1 sm:p-1.5 rounded-md transition-all cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-xs'
                   : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
@@ -188,9 +188,9 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
           })}
         </div>
 
-        {/* Unified Category Pills Rail on Mobile (< 640px) */}
+        {/* Category Pills Rail (when supplied) */}
         {categoryPillBar && (
-          <div className="flex sm:hidden items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <div className="w-px h-5 bg-[var(--color-border-subtle)] mx-0.5 shrink-0" />
             {categoryPillBar}
           </div>

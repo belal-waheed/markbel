@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Architectural Remediation, Series Progression &amp; TickTick D1 Sync, and Spotlight Debouncing
+            Mobile UI/UX Overhaul, 3-Dots Action Sheet, 1-Col Responsive Feed &amp; Dynamic Virtualizer
           </span>
         </div>
         <button

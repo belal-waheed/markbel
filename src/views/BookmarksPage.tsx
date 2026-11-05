@@ -283,11 +283,12 @@ export default function BookmarksPage() {
     handleBulkMoveGroup,
   } = useBookmarkBatchOperations();
 
-  // Full-screen mobile swipe gestures
+  // Full-screen mobile swipe gestures: disabled to prevent hijacking horizontal tab/pill scrolling; drawer opens cleanly via hamburger button
   useSwipeGesture({
     onSwipeRight: () => setIsSidebarOpen(true),
     onSwipeLeft: () => setIsSidebarOpen(false),
     minDistance: 45,
+    enabled: false,
   });
 
   // Modal States
@@ -469,11 +470,12 @@ export default function BookmarksPage() {
   // Scroll Parent Ref for Viewport Virtualization
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Responsive Grid Column Detection (Mobile: 2, Tablet/Laptop: 3, Desktop: 4)
+  // Responsive Grid Column Detection (Phone: 1, Tablet: 2, Laptop: 3, Desktop: 4)
   const getColumnCount = () => {
     if (typeof window === "undefined") return 4;
     const w = window.innerWidth;
-    if (w < 768) return 2;
+    if (w < 640) return 1;
+    if (w < 1024) return 2;
     if (w < 1280) return 3;
     return 4;
   };
@@ -490,11 +492,11 @@ export default function BookmarksPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Viewport Virtualizers
+  // Viewport Virtualizers with responsive estimates and accurate dynamic measurement
   const listVirtualizer = useVirtualizer({
     count: filteredBookmarks.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: () => (columnCount === 1 ? 64 : 72),
     overscan: 4,
     scrollMargin: 160,
   });
@@ -504,7 +506,7 @@ export default function BookmarksPage() {
   const gridVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 320,
+    estimateSize: () => (columnCount === 1 ? 200 : 280),
     overscan: 4,
     scrollMargin: 160,
   });
@@ -809,9 +811,14 @@ export default function BookmarksPage() {
               title="About Markbel"
             >
               <MarkbelLogo size={24} className="shadow-xs" />
-              <h1 className="text-base font-bold tracking-tight text-[var(--color-text-primary)] select-none">
-                Markbel
-              </h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-base font-bold tracking-tight text-[var(--color-text-primary)] select-none">
+                  Markbel
+                </h1>
+                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-[var(--color-brand-subtle)] text-[var(--color-accent)] border border-[var(--color-accent)]/20 leading-none">
+                  v2.9.0
+                </span>
+              </div>
             </button>
             <h2 className="text-base font-bold text-[var(--color-text-primary)] truncate hidden md:block">
               {activeGroup === "__broken__"
@@ -868,7 +875,7 @@ export default function BookmarksPage() {
               sortOption={sortOption}
               onSortChange={setSortOption}
               categoryPillBar={
-                navPrefs.showMobileCategoryScroller ? (
+                navPrefs.showMobileCategoryScroller && columnCount > 1 ? (
                   <CategoryPillBar
                     groups={mergedGroups}
                     activeGroup={activeGroup}
@@ -998,6 +1005,7 @@ export default function BookmarksPage() {
                     <div
                       key={`${virtualRow.key}-${columnCount}`}
                       data-index={virtualRow.index}
+                      ref={gridVirtualizer.measureElement}
                       style={{
                         position: "absolute",
                         top: 0,
@@ -1005,10 +1013,10 @@ export default function BookmarksPage() {
                         width: "100%",
                         transform: `translateY(${virtualRow.start - gridVirtualizer.options.scrollMargin}px)`,
                       }}
-                      className="pb-2.5 sm:pb-4 lg:pb-5"
+                      className="pb-3 sm:pb-4 lg:pb-5"
                     >
                       <div
-                        className="grid gap-2.5 sm:gap-4 lg:gap-5"
+                        className="grid gap-3 sm:gap-4 lg:gap-5"
                         style={{
                           gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                         }}
