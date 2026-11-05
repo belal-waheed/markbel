@@ -536,7 +536,14 @@ export default function BookmarksPage() {
       readAt: isRead ? new Date().toISOString() : "",
     });
     if (isRead && b.ticktickTaskId) {
-      syncCompletedBookmarkToTickTick(b).catch(() => {});
+      try {
+        const update = await syncCompletedBookmarkToTickTick(b);
+        if (update && update.ticktickSyncStatus) {
+          await bookmarkRepository.update(b.id, { ticktickSyncStatus: update.ticktickSyncStatus });
+        }
+      } catch (err) {
+        console.warn('Failed to sync TickTick completion:', err);
+      }
     }
     syncManager.sync(true);
   }, []);
@@ -630,28 +637,6 @@ export default function BookmarksPage() {
     onBulkArchive: onBulkArchive,
     hasOpenModal,
   });
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (hasOpenModal || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
-      const active = typeof document !== "undefined" ? document.activeElement : null;
-      if (
-        active &&
-        (active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA" ||
-          active.tagName === "SELECT" ||
-          (active as HTMLElement).isContentEditable)
-      ) {
-        return;
-      }
-      if (e.key === "n" || e.key === "N") {
-        e.preventDefault();
-        setIsAddModalOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [hasOpenModal]);
 
   const handleDismissReminder = async (b: LocalBookmark) => {
     await bookmarkRepository.update(b.id, { remindAt: "" });
@@ -971,7 +956,7 @@ export default function BookmarksPage() {
                         top: 0,
                         left: 0,
                         width: "100%",
-                        transform: `translateY(${virtualRow.start}px)`,
+                        transform: `translateY(${virtualRow.start - listVirtualizer.options.scrollMargin}px)`,
                       }}
                       className="pb-2 sm:pb-2.5"
                     >
@@ -1018,7 +1003,7 @@ export default function BookmarksPage() {
                         top: 0,
                         left: 0,
                         width: "100%",
-                        transform: `translateY(${virtualRow.start}px)`,
+                        transform: `translateY(${virtualRow.start - gridVirtualizer.options.scrollMargin}px)`,
                       }}
                       className="pb-2.5 sm:pb-4 lg:pb-5"
                     >

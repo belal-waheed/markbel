@@ -421,3 +421,20 @@ tags:
 - Packaged fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extensions, and mirrored unpacked build to `D:\apps\0-setup\markbel-extension\`.
 - Deployed frontend and Cloudflare Edge worker (`https://mark.obel.workers.dev`, Version ID `c4e375af-03d4-4dd2-b9cf-8de2543860e0`).
 - Quality gate passed: 47 test suites, 654 unit tests passing, 0 TypeScript errors.
+
+
+### Phase 29: Architectural Remediation, Series & TickTick D1 Schema Parity, and Release v2.8.2 (2026-11-05)
+- Extension Asynchronous Message Port Fix: Corrected `MARKBEL_OPEN_TAB` and `MARKBEL_NAVIGATE_TAB` in `extension/src/background.ts` to return `true`, keeping message port open for async `chrome.tabs` promises.
+- Alt+O Spotlight Debouncing: Enforced 250ms timestamp guard in `MarkbelSpotlight.toggle()` and `extension/src/content.ts` keydown listener, preventing rapid double-triggering across DOM and IPC invocations.
+- TanStack Virtual scrollMargin Alignment: Corrected translateY offset calculation to `virtualRow.start - listVirtualizer.options.scrollMargin` and `virtualRow.start - gridVirtualizer.options.scrollMargin` in `src/views/BookmarksPage.tsx`.
+- Dead Code Pruning: Removed redundant window keydown listener in `BookmarksPage.tsx` and removed unused `src/lib/useKeyboardShortcuts.ts`.
+- TickTick Completion Persistence: Wired `syncCompletedBookmarkToTickTick(b)` result persistence to `bookmarkRepository.update` in `handleToggleRead`.
+- Auth 401 Session Invalidation: Added automatic session logout upon 401 in `auth.tsx` and cross-boundary `chrome.storage.local` token clearing in `clearAllLocalData()` in `db.ts`.
+- Cloudflare D1 Migration 0007: Added 7 columns (`series_key`, `series_episode`, `series_season`, `series_history`, `ticktick_task_id`, `ticktick_project_id`, `ticktick_sync_status`) to `worker/schema.sql` and executed migration remotely on `markbel-db`.
+- Sync Route & Serialization Parity: Updated `worker/src/routes/sync.ts`, `worker/src/normalize.ts`, and `src/db/adapters/WebSyncStorage.ts` to fully persist and map series progression and TickTick sync metadata.
+- D1 SQL IN Query Chunking: Implemented `chunkArray` in `worker/src/routes/sync.ts` limiting pre-fetch queries (`changeIds`, `bookmarkIds`, `missingIds`) to 60 parameters max.
+- MCP Server Version Alignment: Updated `@markbel/mcp` `package.json` and `SERVER_VERSION` to `2.8.2`.
+- Bumped version to `2.8.2` across `package.json`, `extension/manifest.json`, `extension/manifest.firefox.json`, `index.html`, `public/llms.txt`, `public/llms-full.txt`, and `src/components/landing/landingConstants.ts`.
+- Packaged fresh extensions (`markbel-extension.zip`, `markbel-firefox-extension.zip`) and updated unpacked directory `D:\apps\0-setup\markbel-extension\`.
+- Deployed frontend and worker to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `05c40555-045c-4715-be77-43ac9a802970`).
+- Quality gate passed: 47 test suites, 654 unit tests passing, 0 TypeScript typecheck errors.

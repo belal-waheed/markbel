@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.8.1  
+> **Status:** Production / v2.8.2  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -472,3 +472,23 @@ Each milestone must pass the strict Markbel release pipeline:
 
 
 
+
+
+### Architectural Remediation, Series & TickTick D1 Parity & Release Governance (v2.8.2):
+- **Extension Port & Debounce Stabilization:**
+  - Fixed asynchronous message channel port closing in `extension/src/background.ts` by returning `true` for `MARKBEL_OPEN_TAB` and `MARKBEL_NAVIGATE_TAB`.
+  - Added 250ms debounce guard on `toggle()` in `extension/src/spotlight/MarkbelSpotlight.ts` and in `extension/src/content.ts` DOM keydown listener, eliminating dual-activation race conditions.
+- **Virtualizer & UI Correctness:**
+  - Corrected TanStack Virtual `scrollMargin` translateY offset calculation in both List and Grid views in `src/views/BookmarksPage.tsx`.
+  - Removed redundant `keydown` listener listening for 'n'/'N' in `BookmarksPage.tsx` and purged dead file `src/lib/useKeyboardShortcuts.ts`.
+  - Persisted TickTick sync completion status immediately in Dexie on read toggle.
+  - Implemented 401 session invalidation with automatic logout in `src/lib/auth.tsx` and cross-boundary `chrome.storage.local` token clearing in `src/db/db.ts`.
+- **Edge D1 Migration & Parity:**
+  - Executed migration `0007_series_and_ticktick.sql` on Cloudflare D1 `markbel-db` adding 7 series progression and TickTick columns (`series_key`, `series_episode`, `series_season`, `series_history`, `ticktick_task_id`, `ticktick_project_id`, `ticktick_sync_status`).
+  - Updated `worker/schema.sql`, `worker/src/routes/sync.ts`, `worker/src/normalize.ts`, and `src/db/adapters/WebSyncStorage.ts` ensuring full round-trip serialization between Dexie and D1.
+  - Added `chunkArray` in `worker/src/routes/sync.ts` ensuring pre-fetch SQL IN queries never exceed 60 parameters.
+  - Aligned `@markbel/mcp` package version and `SERVER_VERSION` to `2.8.2`.
+- **Release Verification & Deployment:**
+  - 654/654 tests passing across 47 suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`).
+  - Built fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extension packages and synced unpacked mirror to `D:\apps\0-setup\markbel-extension\`.
+  - Built fresh web bundle and deployed edge worker to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `05c40555-045c-4715-be77-43ac9a802970`).

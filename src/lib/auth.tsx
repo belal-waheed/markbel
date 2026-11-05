@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { api, ApiError } from './api.js'
 import { syncManager } from '../db/SyncManager.js'
 import { migrateGuestData, clearAllLocalData } from '../db/db.js'
@@ -61,6 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const logout = useCallback(async () => {
+    localStorage.removeItem('markbel_token')
+    localStorage.removeItem('markbel_user')
+    syncManager.stop()
+    sendTokenToNative(null)
+    setToken(null)
+    setUser(null)
+    await clearAllLocalData().catch((err) => console.warn('[Auth] Clear local data notice:', err))
+  }, [])
+
   useEffect(() => {
     async function bootstrap() {
       const savedToken = localStorage.getItem('markbel_token')
@@ -92,6 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('markbel_user', JSON.stringify(profile))
         }
       } catch (err: any) {
+        if (err?.status === 401) {
+          await logout()
+          setLoading(false)
+          return
+        }
         console.warn('[Auth] Background profile verification notice:', err?.message || err)
         // Keep cached token and user to maintain offline-first capability
       } finally {
@@ -103,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     bootstrap()
-  }, [])
+  }, [logout])
 
   const login = async (email: string, password: string) => {
     setLoading(true)
@@ -139,16 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
-
-  const logout = async () => {
-    localStorage.removeItem('markbel_token')
-    localStorage.removeItem('markbel_user')
-    syncManager.stop()
-    sendTokenToNative(null)
-    setToken(null)
-    setUser(null)
-    await clearAllLocalData().catch((err) => console.warn('[Auth] Clear local data notice:', err))
   }
 
   return (

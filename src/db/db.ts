@@ -322,6 +322,13 @@ export async function clearAllLocalData(): Promise<void> {
     localStorage.removeItem('markbel_user');
     localStorage.removeItem('markbel_last_sync');
   }
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      chrome.storage.local.remove(['authToken', 'authUser']);
+    } catch {
+      // Ignore background or permission errors in non-extension contexts
+    }
+  }
 }
 
 /**

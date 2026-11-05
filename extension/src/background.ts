@@ -125,7 +125,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch((err) => {
       sendResponse({ success: false, error: err?.message });
     });
-    return false;
+    return true;
   }
 
   if (message.type === 'MARKBEL_NAVIGATE_TAB') {
@@ -143,7 +143,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err?.message });
       });
     }
-    return false;
+    return true;
   }
 
   return false;

@@ -8,6 +8,14 @@ import { sanitizeAndCleanUrl } from "../../../src/lib/urlSafety";
 
 export const syncRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+export function chunkArray<T>(arr: T[], size = 60): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 const SyncChangeSchema = z.object({
   changeId: z.string().min(1, "changeId is required"),
   entityType: z.enum(["bookmark", "group"]),
@@ -55,27 +63,29 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
     return c.json({ results: [] });
   }
 
-  // 1. Prefetch existing sync changes for idempotency check in batch
+  // 1. Prefetch existing sync changes for idempotency check in batch (chunked to respect D1 limits)
   const changeIds = changes.map((ch) => ch.changeId);
   const existingSyncMap = new Map<string, { sequence: number; entity_version: number }>();
 
   if (changeIds.length > 0) {
-    const placeholders = changeIds.map(() => "?").join(", ");
-    const { results: existingChanges } = await c.env.DB.prepare(
-      `SELECT client_change_id, sequence, entity_version FROM sync_changes WHERE client_change_id IN (${placeholders})`
-    )
-      .bind(...changeIds)
-      .all();
+    for (const chunk of chunkArray(changeIds, 60)) {
+      const placeholders = chunk.map(() => "?").join(", ");
+      const { results: existingChanges } = await c.env.DB.prepare(
+        `SELECT client_change_id, sequence, entity_version FROM sync_changes WHERE client_change_id IN (${placeholders})`
+      )
+        .bind(...chunk)
+        .all();
 
-    for (const row of existingChanges || []) {
-      existingSyncMap.set((row as any).client_change_id, {
-        sequence: (row as any).sequence,
-        entity_version: (row as any).entity_version,
-      });
+      for (const row of existingChanges || []) {
+        existingSyncMap.set((row as any).client_change_id, {
+          sequence: (row as any).sequence,
+          entity_version: (row as any).entity_version,
+        });
+      }
     }
   }
 
-  // 2. Prefetch current database records for affected bookmarks and groups
+  // 2. Prefetch current database records for affected bookmarks and groups (chunked to respect D1 limits)
   const bookmarkIds = Array.from(
     new Set(changes.filter((c) => c.entityType === "bookmark").map((c) => c.entityId))
   );
@@ -85,15 +95,17 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
 
   const currentBookmarkMap = new Map<string, any>();
   if (bookmarkIds.length > 0) {
-    const placeholders = bookmarkIds.map(() => "?").join(", ");
-    const { results: bookmarks } = await c.env.DB.prepare(
-      `SELECT * FROM bookmarks WHERE user_id = ? AND id IN (${placeholders})`
-    )
-      .bind(userId, ...bookmarkIds)
-      .all();
+    for (const chunk of chunkArray(bookmarkIds, 60)) {
+      const placeholders = chunk.map(() => "?").join(", ");
+      const { results: bookmarks } = await c.env.DB.prepare(
+        `SELECT * FROM bookmarks WHERE user_id = ? AND id IN (${placeholders})`
+      )
+        .bind(userId, ...chunk)
+        .all();
 
-    for (const b of bookmarks || []) {
-      currentBookmarkMap.set((b as any).id, b);
+      for (const b of bookmarks || []) {
+        currentBookmarkMap.set((b as any).id, b);
+      }
     }
   }
 
@@ -118,15 +130,17 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
   if (groupIds.length > 0) {
     const missingIds = groupIds.filter((id) => !currentGroupMap.has(id));
     if (missingIds.length > 0) {
-      const placeholders = missingIds.map(() => "?").join(", ");
-      const { results: groups } = await c.env.DB.prepare(
-        `SELECT * FROM groups WHERE user_id = ? AND id IN (${placeholders})`
-      )
-        .bind(userId, ...missingIds)
-        .all();
+      for (const chunk of chunkArray(missingIds, 60)) {
+        const placeholders = chunk.map(() => "?").join(", ");
+        const { results: groups } = await c.env.DB.prepare(
+          `SELECT * FROM groups WHERE user_id = ? AND id IN (${placeholders})`
+        )
+          .bind(userId, ...chunk)
+          .all();
 
-      for (const g of groups || []) {
-        currentGroupMap.set((g as any).id, g);
+        for (const g of groups || []) {
+          currentGroupMap.set((g as any).id, g);
+        }
       }
     }
   }
@@ -243,8 +257,11 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
               `INSERT INTO bookmarks (
                 id, user_id, title, url, description, image, favicon, site_name, author, published_at,
                 content_type, reading_time, word_count, canonical_url, article_content, group_name,
-                is_read, read_at, is_pinned, remind_at, is_archived, archive_group, version, created_at, updated_at, deleted_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                is_read, read_at, is_pinned, remind_at, is_archived, archive_group,
+                series_key, series_episode, series_season, series_history,
+                ticktick_task_id, ticktick_project_id, ticktick_sync_status,
+                version, created_at, updated_at, deleted_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
               ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 url = excluded.url,
@@ -266,6 +283,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
                 remind_at = excluded.remind_at,
                 is_archived = excluded.is_archived,
                 archive_group = excluded.archive_group,
+                series_key = excluded.series_key,
+                series_episode = excluded.series_episode,
+                series_season = excluded.series_season,
+                series_history = excluded.series_history,
+                ticktick_task_id = excluded.ticktick_task_id,
+                ticktick_project_id = excluded.ticktick_project_id,
+                ticktick_sync_status = excluded.ticktick_sync_status,
                 version = excluded.version,
                 updated_at = excluded.updated_at,
                 deleted_at = NULL
@@ -293,6 +317,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
               payload.remindAt || "",
               payload.isArchived ? 1 : 0,
               payload.archiveGroup || "",
+              payload.seriesKey ?? payload.series_key ?? null,
+              payload.seriesEpisode ?? payload.series_episode ?? null,
+              payload.seriesSeason ?? payload.series_season ?? null,
+              payload.seriesHistory ? (typeof payload.seriesHistory === 'string' ? payload.seriesHistory : JSON.stringify(payload.seriesHistory)) : (payload.series_history ? (typeof payload.series_history === 'string' ? payload.series_history : JSON.stringify(payload.series_history)) : null),
+              payload.ticktickTaskId ?? payload.ticktick_task_id ?? null,
+              payload.ticktickProjectId ?? payload.ticktick_project_id ?? null,
+              payload.ticktickSyncStatus ?? payload.ticktick_sync_status ?? null,
               newVersion,
               createdAt,
               updatedAt
@@ -322,6 +353,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
             remind_at: payload.remindAt || "",
             is_archived: payload.isArchived ? 1 : 0,
             archive_group: payload.archiveGroup || "",
+            series_key: payload.seriesKey ?? payload.series_key ?? null,
+            series_episode: payload.seriesEpisode ?? payload.series_episode ?? null,
+            series_season: payload.seriesSeason ?? payload.series_season ?? null,
+            series_history: payload.seriesHistory ? (typeof payload.seriesHistory === 'string' ? payload.seriesHistory : JSON.stringify(payload.seriesHistory)) : (payload.series_history ? (typeof payload.series_history === 'string' ? payload.series_history : JSON.stringify(payload.series_history)) : null),
+            ticktick_task_id: payload.ticktickTaskId ?? payload.ticktick_task_id ?? null,
+            ticktick_project_id: payload.ticktickProjectId ?? payload.ticktick_project_id ?? null,
+            ticktick_sync_status: payload.ticktickSyncStatus ?? payload.ticktick_sync_status ?? null,
             version: newVersion,
             created_at: createdAt,
             updated_at: updatedAt,
@@ -363,6 +401,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
                 remind_at = COALESCE(?, remind_at),
                 is_archived = COALESCE(?, is_archived),
                 archive_group = COALESCE(?, archive_group),
+                series_key = COALESCE(?, series_key),
+                series_episode = COALESCE(?, series_episode),
+                series_season = COALESCE(?, series_season),
+                series_history = COALESCE(?, series_history),
+                ticktick_task_id = COALESCE(?, ticktick_task_id),
+                ticktick_project_id = COALESCE(?, ticktick_project_id),
+                ticktick_sync_status = COALESCE(?, ticktick_sync_status),
                 version = ?,
                 updated_at = ?
                WHERE id = ? AND user_id = ?`
@@ -387,6 +432,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
               payload.remindAt ?? payload.remind_at ?? null,
               payload.isArchived !== undefined ? (payload.isArchived ? 1 : 0) : null,
               payload.archiveGroup ?? payload.archive_group ?? null,
+              (payload.seriesKey ?? payload.series_key) !== undefined ? (payload.seriesKey ?? payload.series_key) : null,
+              (payload.seriesEpisode ?? payload.series_episode) !== undefined ? (payload.seriesEpisode ?? payload.series_episode) : null,
+              (payload.seriesSeason ?? payload.series_season) !== undefined ? (payload.seriesSeason ?? payload.series_season) : null,
+              payload.seriesHistory !== undefined ? (typeof payload.seriesHistory === 'string' ? payload.seriesHistory : JSON.stringify(payload.seriesHistory)) : (payload.series_history !== undefined ? (typeof payload.series_history === 'string' ? payload.series_history : JSON.stringify(payload.series_history)) : null),
+              (payload.ticktickTaskId ?? payload.ticktick_task_id) !== undefined ? (payload.ticktickTaskId ?? payload.ticktick_task_id) : null,
+              (payload.ticktickProjectId ?? payload.ticktick_project_id) !== undefined ? (payload.ticktickProjectId ?? payload.ticktick_project_id) : null,
+              (payload.ticktickSyncStatus ?? payload.ticktick_sync_status) !== undefined ? (payload.ticktickSyncStatus ?? payload.ticktick_sync_status) : null,
               newVersion,
               updatedAt,
               entityId,
@@ -418,6 +470,13 @@ syncRouter.post("/api/sync/mutations", authMiddleware, async (c) => {
             remind_at: (payload.remindAt ?? payload.remind_at) !== undefined ? (payload.remindAt ?? payload.remind_at) : currentRecord?.remind_at,
             is_archived: payload.isArchived !== undefined ? (payload.isArchived ? 1 : 0) : currentRecord?.is_archived,
             archive_group: (payload.archiveGroup ?? payload.archive_group) !== undefined ? (payload.archiveGroup ?? payload.archive_group) : currentRecord?.archive_group,
+            series_key: (payload.seriesKey ?? payload.series_key) !== undefined ? (payload.seriesKey ?? payload.series_key) : currentRecord?.series_key,
+            series_episode: (payload.seriesEpisode ?? payload.series_episode) !== undefined ? (payload.seriesEpisode ?? payload.series_episode) : currentRecord?.series_episode,
+            series_season: (payload.seriesSeason ?? payload.series_season) !== undefined ? (payload.seriesSeason ?? payload.series_season) : currentRecord?.series_season,
+            series_history: payload.seriesHistory !== undefined ? (typeof payload.seriesHistory === 'string' ? payload.seriesHistory : JSON.stringify(payload.seriesHistory)) : (payload.series_history !== undefined ? (typeof payload.series_history === 'string' ? payload.series_history : JSON.stringify(payload.series_history)) : currentRecord?.series_history),
+            ticktick_task_id: (payload.ticktickTaskId ?? payload.ticktick_task_id) !== undefined ? (payload.ticktickTaskId ?? payload.ticktick_task_id) : currentRecord?.ticktick_task_id,
+            ticktick_project_id: (payload.ticktickProjectId ?? payload.ticktick_project_id) !== undefined ? (payload.ticktickProjectId ?? payload.ticktick_project_id) : currentRecord?.ticktick_project_id,
+            ticktick_sync_status: (payload.ticktickSyncStatus ?? payload.ticktick_sync_status) !== undefined ? (payload.ticktickSyncStatus ?? payload.ticktick_sync_status) : currentRecord?.ticktick_sync_status,
             version: newVersion,
             updated_at: updatedAt,
           };

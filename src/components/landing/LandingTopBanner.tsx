@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Keyboard Event Isolation &amp; Host Page Keystroke Containment in Alt+O Spotlight
+            Architectural Remediation, Series Progression &amp; TickTick D1 Sync, and Spotlight Debouncing
           </span>
         </div>
         <button

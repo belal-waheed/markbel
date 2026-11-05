@@ -36,6 +36,20 @@ export interface NormalizedBookmarkRecord {
   is_archived: number;
   archiveGroup: string;
   archive_group: string;
+  seriesKey?: string | null;
+  series_key?: string | null;
+  seriesEpisode?: number | null;
+  series_episode?: number | null;
+  seriesSeason?: number | null;
+  series_season?: number | null;
+  seriesHistory?: unknown;
+  series_history?: unknown;
+  ticktickTaskId?: string | null;
+  ticktick_task_id?: string | null;
+  ticktickProjectId?: string | null;
+  ticktick_project_id?: string | null;
+  ticktickSyncStatus?: string | null;
+  ticktick_sync_status?: string | null;
   isBroken?: boolean;
   is_broken?: number;
   httpStatus?: number | null;
@@ -147,6 +161,14 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
     const deletedAt = raw.deletedAt ? String(raw.deletedAt) : raw.deleted_at ? String(raw.deleted_at) : null;
     const version = Number(raw.version || 0);
 
+    const seriesKey = raw.seriesKey !== undefined ? (raw.seriesKey ? String(raw.seriesKey) : null) : raw.series_key !== undefined ? (raw.series_key ? String(raw.series_key) : null) : null;
+    const seriesEpisode = raw.seriesEpisode !== undefined ? (raw.seriesEpisode !== null ? Number(raw.seriesEpisode) : null) : raw.series_episode !== undefined ? (raw.series_episode !== null ? Number(raw.series_episode) : null) : null;
+    const seriesSeason = raw.seriesSeason !== undefined ? (raw.seriesSeason !== null ? Number(raw.seriesSeason) : null) : raw.series_season !== undefined ? (raw.series_season !== null ? Number(raw.series_season) : null) : null;
+    const seriesHistory = raw.seriesHistory !== undefined ? raw.seriesHistory : raw.series_history !== undefined ? raw.series_history : null;
+    const ticktickTaskId = raw.ticktickTaskId !== undefined ? (raw.ticktickTaskId as string | null) : raw.ticktick_task_id !== undefined ? (raw.ticktick_task_id as string | null) : null;
+    const ticktickProjectId = raw.ticktickProjectId !== undefined ? (raw.ticktickProjectId as string | null) : raw.ticktick_project_id !== undefined ? (raw.ticktick_project_id as string | null) : null;
+    const ticktickSyncStatus = raw.ticktickSyncStatus !== undefined ? (raw.ticktickSyncStatus as string | null) : raw.ticktick_sync_status !== undefined ? (raw.ticktick_sync_status as string | null) : null;
+
     return {
       ...raw,
       // camelCase fields
@@ -170,6 +192,13 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
       remindAt,
       isArchived,
       archiveGroup,
+      seriesKey,
+      seriesEpisode,
+      seriesSeason,
+      seriesHistory,
+      ticktickTaskId,
+      ticktickProjectId,
+      ticktickSyncStatus,
       isBroken,
       httpStatus,
       lastCheckedAt,
@@ -194,6 +223,13 @@ export function normalizeSyncRecord(record: unknown, entityType: string): unknow
       remind_at: remindAt,
       is_archived: isArchived ? 1 : 0,
       archive_group: archiveGroup,
+      series_key: seriesKey,
+      series_episode: seriesEpisode,
+      series_season: seriesSeason,
+      series_history: seriesHistory,
+      ticktick_task_id: ticktickTaskId,
+      ticktick_project_id: ticktickProjectId,
+      ticktick_sync_status: ticktickSyncStatus,
       is_broken: isBroken ? 1 : 0,
       http_status: httpStatus,
       last_checked_at: lastCheckedAt,

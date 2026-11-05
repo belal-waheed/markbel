@@ -273,6 +273,12 @@ describe('Extension In-Page Spotlight (Alt+O) Subsystem', () => {
       spotlight.toggle();
       expect(spotlight.isOpen()).toBe(true);
 
+      // Debounce window: second immediate call is ignored
+      spotlight.toggle();
+      expect(spotlight.isOpen()).toBe(true);
+
+      // Reset debounce timestamp and toggle again to hide
+      (spotlight as any).lastToggleTime = 0;
       spotlight.toggle();
       expect(spotlight.isOpen()).toBe(false);
     });

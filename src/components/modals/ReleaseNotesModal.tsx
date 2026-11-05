@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.8.1
+                  What's New in Markbel v2.8.2
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Complete keyboard event isolation, host page keystroke containment &amp; window capture interception in Alt+O Spotlight
+                Architectural remediation, series progression &amp; TickTick D1 schema parity, TanStack scrollMargin alignment, and Alt+O debouncing
               </p>
             </div>
           </div>
@@ -69,6 +69,43 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Architectural Remediation & Schema Parity (v2.8.2) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Architectural Remediation, Series &amp; TickTick D1 Sync, and Spotlight Debouncing
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.8.2
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Completed critical architectural remediation across edge worker and client systems. Resolved extension asynchronous message port closing by returning true in tab open and navigation handlers; enforced 250ms debouncing on Alt+O Spotlight launcher across both content script and Shadow DOM to prevent dual-triggering; corrected TanStack Virtual scrollMargin offset calculation in list and grid views; eliminated dead shortcut hooks; wired immediate TickTick completion sync persistence in UI; integrated automatic 401 session invalidation with cross-boundary token cleanup; executed Cloudflare D1 migration 0007 bringing full series progression and TickTick schema parity to serverless SQLite; chunked SQL IN prefetch queries to guarantee safe parameter limits; and aligned @markbel/mcp to v2.8.2.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>D1 Migration 0007 (Series &amp; TickTick)</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Alt+O Debounce Guard &amp; Async Port Fix</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Virtual scrollMargin Alignment</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Prefetch IN Query Chunking (60 max)</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature: Keyboard Event Isolation & Host Page Keystroke Containment (v2.8.1) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

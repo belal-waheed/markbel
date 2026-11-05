@@ -222,6 +222,7 @@ export class MarkbelSpotlight {
 
   private themeMode: 'light' | 'dark' = 'dark';
   private viewMode: 'visual' | 'compact' = 'visual';
+  private lastToggleTime: number = 0;
 
   constructor() {
     this.initThemeAndViewMode();
@@ -1676,6 +1677,8 @@ export class MarkbelSpotlight {
   }
 
   public toggle(): void {
+    if (Date.now() - this.lastToggleTime < 250) return;
+    this.lastToggleTime = Date.now();
     if (this.isVisible) {
       this.hide();
     } else {

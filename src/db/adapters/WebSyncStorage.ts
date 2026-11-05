@@ -214,6 +214,17 @@ export class WebSyncStorage implements SyncStorage {
               ? Boolean(raw.is_archived)
               : false;
 
+          const parseSeriesHistory = (val: unknown): string[] | undefined => {
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string' && val.trim()) {
+              try {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) return parsed;
+              } catch {}
+            }
+            return undefined;
+          };
+
           const bookmarkFields =
             change.entityType === 'bookmark'
               ? {
@@ -228,6 +239,13 @@ export class WebSyncStorage implements SyncStorage {
                   wordCount: raw.wordCount ?? raw.word_count ?? 0,
                   canonicalUrl: raw.canonicalUrl || raw.canonical_url || '',
                   articleContent: raw.articleContent || raw.article_content || '',
+                  seriesKey: raw.seriesKey || raw.series_key || undefined,
+                  seriesEpisode: raw.seriesEpisode ?? raw.series_episode ?? undefined,
+                  seriesSeason: raw.seriesSeason ?? raw.series_season ?? undefined,
+                  seriesHistory: parseSeriesHistory(raw.seriesHistory ?? raw.series_history),
+                  ticktickTaskId: raw.ticktickTaskId ?? raw.ticktick_task_id ?? null,
+                  ticktickProjectId: raw.ticktickProjectId ?? raw.ticktick_project_id ?? null,
+                  ticktickSyncStatus: raw.ticktickSyncStatus ?? raw.ticktick_sync_status ?? null,
                 }
               : {};
 

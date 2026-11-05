@@ -214,12 +214,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   );
 
   // Global Alt+O shortcut for Spotlight launcher
+  let lastAltOTime = 0;
   window.addEventListener(
     'keydown',
     (e) => {
       if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'o' || e.key === 'O' || e.code === 'KeyO')) {
         e.preventDefault();
         e.stopPropagation();
+        const now = Date.now();
+        if (now - lastAltOTime < 250) return;
+        lastAltOTime = now;
         spotlight?.toggle();
       }
     },
