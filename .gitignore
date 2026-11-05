@@ -18,6 +18,7 @@ build/
 *.tsbuildinfo
 *.log
 *.zip
+*.apk
 
 # Desktop Specific
 release/

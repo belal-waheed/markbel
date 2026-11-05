@@ -176,10 +176,16 @@ describe('urlSafety Unit Tests (AAA Pattern)', () => {
   });
 
   describe('getPublicFaviconUrl (Safe Favicon Fallback Resolution)', () => {
+    it('returns /favicon.ico directly for mark.obel.workers.dev and localhost to avoid Google S2 404s', () => {
+      expect(getPublicFaviconUrl('https://mark.obel.workers.dev')).toBe('/favicon.ico');
+      expect(getPublicFaviconUrl('https://mark.obel.workers.dev/app')).toBe('/favicon.ico');
+      expect(getPublicFaviconUrl('http://localhost:3000')).toBe('/favicon.ico');
+      expect(getPublicFaviconUrl('http://localhost:5173')).toBe('/favicon.ico');
+    });
+
     it('returns undefined for private IPs, loopbacks, and invalid URLs', () => {
       // Arrange & Act & Assert
       expect(getPublicFaviconUrl('http://192.168.1.1')).toBeUndefined();
-      expect(getPublicFaviconUrl('http://localhost:3000')).toBeUndefined();
       expect(getPublicFaviconUrl('http://10.0.0.1')).toBeUndefined();
       expect(getPublicFaviconUrl('10.0.0.1')).toBeUndefined();
       expect(getPublicFaviconUrl('http://127.0.0.1:8080/dashboard')).toBeUndefined();

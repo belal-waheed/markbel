@@ -14,10 +14,15 @@ import {
   Globe,
   ExternalLink,
   AlertTriangle,
+  Tv,
+  FastForward,
+  RotateCcw,
+  History,
 } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
 import { getPublicFaviconUrl, isSafeFaviconUrl } from '@/lib/urlSafety'
 import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from '@/lib/mediaHeuristics'
+import { parseSeriesProgression, formatEpisodicBadge } from '../lib/seriesProgression'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
 
@@ -31,6 +36,8 @@ interface BookmarkCardProps {
   onEdit: (b: LocalBookmark) => void
   onDelete: (b: LocalBookmark) => void
   onOpenReader?: (b: LocalBookmark) => void
+  onAdvanceSeries?: (b: LocalBookmark) => void
+  onRollbackSeries?: (b: LocalBookmark) => void
   isSelected?: boolean
   selectionMode?: boolean
   onToggleSelect?: (b: LocalBookmark, multi: boolean) => void
@@ -56,12 +63,27 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onEdit,
   onDelete,
   onOpenReader,
+  onAdvanceSeries,
+  onRollbackSeries,
   isSelected = false,
   selectionMode = false,
   onToggleSelect,
   onDismissReminder,
   onSnoozeReminder,
 }) => {
+  const seriesInfo = React.useMemo(() => {
+    if (b.seriesEpisode) {
+      return {
+        seriesKey: b.seriesKey || '',
+        seriesTitle: b.title,
+        episode: b.seriesEpisode,
+        season: b.seriesSeason,
+        sourceType: (b.contentType === 'article' ? 'manga' : 'generic') as any,
+        nextEpisodeUrl: parseSeriesProgression(b.url, b.title)?.nextEpisodeUrl,
+      };
+    }
+    return parseSeriesProgression(b.url, b.title);
+  }, [b.url, b.title, b.seriesEpisode, b.seriesSeason, b.seriesKey, b.contentType]);
   const instant = extractInstantMediaMetadata(b.url)
   const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image)
   let effectiveImage = ''
@@ -197,6 +219,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                 {typeBadge.label}
               </span>
             )}
+            {seriesInfo && (
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 flex items-center gap-1 shrink-0">
+                <Tv className="w-2.5 h-2.5" />
+                {formatEpisodicBadge(seriesInfo)}
+              </span>
+            )}
             {b.isBroken && (
               <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <span className="text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
@@ -227,6 +255,29 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] hidden md:inline mr-1">
             {new Date(b.createdAt).toLocaleDateString()}
           </span>
+
+          {seriesInfo && onAdvanceSeries && (
+            <button
+              type="button"
+              onClick={() => onAdvanceSeries(b)}
+              className="px-1.5 py-1 sm:px-2 sm:py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
+              title="Advance to next episode (+1)"
+            >
+              <FastForward className="w-3 h-3" />
+              <span className="hidden sm:inline">+1 Next Ep</span>
+            </button>
+          )}
+
+          {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
+            <button
+              type="button"
+              onClick={() => onRollbackSeries(b)}
+              className="p-1 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium text-zinc-400 bg-zinc-500/15 hover:bg-zinc-500/25 border border-zinc-500/30 flex items-center gap-1 transition-all active:scale-95"
+              title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          )}
 
           <button
             onClick={() => onToggleRead(b)}
@@ -370,6 +421,12 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
                     {b.readingTime}m
                   </span>
                 ) : null}
+                {seriesInfo && (
+                  <span className="text-[10px] font-mono font-bold text-white bg-indigo-600/85 backdrop-blur-md px-1.5 py-0.5 rounded-md shadow-xs border border-indigo-400/30 flex items-center gap-1">
+                    <Tv className="w-3 h-3 text-indigo-200" />
+                    {formatEpisodicBadge(seriesInfo)}
+                  </span>
+                )}
               </div>
 
               {/* Pin Indicator & Unread Dot */}
@@ -471,6 +528,37 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
             )}
 
             {/* Reminder Badge */}
+            {seriesInfo && (
+              <div className="pt-1 flex items-center justify-between gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+                <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
+                  <Tv className="w-3 h-3" />
+                  {formatEpisodicBadge(seriesInfo)}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {onAdvanceSeries && (
+                    <button
+                      type="button"
+                      onClick={() => onAdvanceSeries(b)}
+                      className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1 transition-all active:scale-95"
+                      title="Advance to next episode (+1)"
+                    >
+                      <FastForward className="w-3 h-3" />
+                      <span>+1 Next Ep</span>
+                    </button>
+                  )}
+                  {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
+                    <button
+                      type="button"
+                      onClick={() => onRollbackSeries(b)}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/15 hover:bg-zinc-500/25 text-zinc-400 border border-zinc-500/30 flex items-center gap-0.5 transition-all active:scale-95"
+                      title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
+                    >
+                      <RotateCcw className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {b.remindAt && (
               <div className="pt-1 flex items-center justify-between gap-1.5 text-xs text-amber-600 font-medium">
                 <div className="flex items-center gap-1.5 truncate">
@@ -733,6 +821,29 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
         {/* Progressive Disclosure Action Toolbar */}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {seriesInfo && onAdvanceSeries && (
+            <button
+              type="button"
+              onClick={() => onAdvanceSeries(b)}
+              className="px-1.5 py-1 sm:px-2 sm:py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1 transition-all active:scale-95"
+              title="Advance to next episode (+1)"
+            >
+              <FastForward className="w-3 h-3" />
+              <span className="hidden sm:inline">+1 Next Ep</span>
+            </button>
+          )}
+
+          {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
+            <button
+              type="button"
+              onClick={() => onRollbackSeries(b)}
+              className="p-1 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium text-zinc-400 bg-zinc-500/15 hover:bg-zinc-500/25 border border-zinc-500/30 flex items-center gap-1 transition-all active:scale-95"
+              title={`Roll back to previous episode (${b.seriesHistory.length} in history)`}
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          )}
+
           <button
             onClick={() => onToggleRead(b)}
             className={`p-1.5 rounded-md transition-colors ${

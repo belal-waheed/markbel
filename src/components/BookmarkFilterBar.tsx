@@ -37,6 +37,7 @@ interface BookmarkFilterBarProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>
   sortOption?: SortOption
   onSortChange?: (sort: SortOption) => void
+  categoryPillBar?: React.ReactNode
 }
 
 export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
@@ -50,6 +51,7 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
   searchInputRef,
   sortOption = 'newest',
   onSortChange,
+  categoryPillBar,
 }) => {
   const tabs = [
     { id: 'all' as FilterTab, label: 'All', count: counts.all, icon: Layers },
@@ -113,10 +115,10 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
                 className="bg-transparent border-none text-xs text-[var(--color-text-primary)] focus:outline-none cursor-pointer pr-1"
                 aria-label="Sort bookmarks"
               >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="alpha">Title A-Z</option>
-                <option value="readtime">Read Time</option>
+                <option value="newest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Newest First</option>
+                <option value="oldest" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Oldest First</option>
+                <option value="alpha" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Title A-Z</option>
+                <option value="readtime" className="bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]">Read Time</option>
               </select>
             </div>
           )}
@@ -185,6 +187,14 @@ export const BookmarkFilterBar: React.FC<BookmarkFilterBarProps> = ({
             )
           })}
         </div>
+
+        {/* Unified Category Pills Rail on Mobile (< 640px) */}
+        {categoryPillBar && (
+          <div className="flex sm:hidden items-center gap-1 shrink-0">
+            <div className="w-px h-5 bg-[var(--color-border-subtle)] mx-0.5 shrink-0" />
+            {categoryPillBar}
+          </div>
+        )}
 
         {/* Media Quick Filter Pills */}
         <div className="hidden lg:flex items-center gap-1 pl-2 border-l border-[var(--color-border-subtle)] shrink-0">

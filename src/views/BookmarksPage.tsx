@@ -20,6 +20,8 @@ import { BookmarkFilterBar, FilterTab, ViewMode, SortOption } from "../component
 import { CategoryPillBar } from "../components/CategoryPillBar";
 import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories";
 import { filterAndRankBookmarks } from "../lib/searchCatalog";
+import { parseSeriesProgression, formatEpisodicBadge } from "../lib/seriesProgression";
+import { syncCompletedBookmarkToTickTick } from "../lib/ticktickSync";
 import {
   getNavigationPreferences,
   NavigationPreferences,
@@ -531,6 +533,9 @@ export default function BookmarksPage() {
       isRead,
       readAt: isRead ? new Date().toISOString() : "",
     });
+    if (isRead && b.ticktickTaskId) {
+      syncCompletedBookmarkToTickTick(b).catch(() => {});
+    }
     syncManager.sync(true);
   }, []);
 
@@ -638,6 +643,24 @@ export default function BookmarksPage() {
     syncManager.sync(true);
     showToast("Reminder Snoozed", `Snoozed 1 day for "${b.title}"`, "info");
   };
+
+  const handleAdvanceSeries = useCallback(async (b: LocalBookmark) => {
+    const series = parseSeriesProgression(b.url, b.title);
+    if (!series || !series.nextEpisodeUrl) {
+      showToast("Next Episode", "No next episode URL could be automatically determined", "info");
+      return;
+    }
+    await bookmarkRepository.advanceSeriesBookmark(b.id, series.nextEpisodeUrl, "advance");
+    syncManager.sync(true);
+    showToast("Series Advanced", `Progressed to ${formatEpisodicBadge({ episode: series.episode + 1, season: series.season })}`, "success");
+  }, [showToast]);
+
+  const handleRollbackSeries = useCallback(async (b: LocalBookmark) => {
+    if (!b.seriesHistory || b.seriesHistory.length === 0) return;
+    await bookmarkRepository.rollbackSeriesBookmark(b.id);
+    syncManager.sync(true);
+    showToast("Series Rolled Back", "Restored previous episode", "info");
+  }, [showToast]);
 
   const handleArchiveBookmark = async (id: string, archiveGroup?: string) => {
     await bookmarkRepository.update(id, {
@@ -762,7 +785,7 @@ export default function BookmarksPage() {
         )}
 
         {/* Top Header */}
-        <header className="flex-none min-h-[4rem] pt-[env(safe-area-inset-top,0px)] bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="flex-none min-h-[4rem] pt-[calc(1rem+env(safe-area-inset-top,0px))] bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -821,7 +844,7 @@ export default function BookmarksPage() {
         </header>
 
         {/* Scrollable Viewport */}
-        <main ref={parentRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+        <main ref={parentRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           <div className="max-w-[1600px] mx-auto">
             {/* Filter Bar & Search */}
             <BookmarkFilterBar
@@ -835,11 +858,25 @@ export default function BookmarksPage() {
               searchInputRef={searchInputRef}
               sortOption={sortOption}
               onSortChange={setSortOption}
+              categoryPillBar={
+                navPrefs.showMobileCategoryScroller ? (
+                  <CategoryPillBar
+                    groups={mergedGroups}
+                    activeGroup={activeGroup}
+                    onSelectGroup={handleGroupChange}
+                    pinnedCategoryNames={pinnedCategoryNames}
+                    onTogglePin={handleToggleCategoryPin}
+                    totalCount={bookmarks.length}
+                    onOpenNewGroup={handleOpenNewGroup}
+                    compact
+                  />
+                ) : undefined
+              }
             />
 
-            {/* Mobile Category Pill Bar (Hidden on md: desktop) */}
+            {/* Tablet Category Pill Bar (Hidden on mobile < 640px where it is unified inside filter bar, and hidden on md: desktop) */}
             {navPrefs.showMobileCategoryScroller && (
-              <div className="md:hidden">
+              <div className="hidden sm:block md:hidden">
                 <CategoryPillBar
                   groups={mergedGroups}
                   activeGroup={activeGroup}
@@ -929,6 +966,8 @@ export default function BookmarksPage() {
                         onToggleSelect={handleToggleSelect}
                         onDismissReminder={handleDismissReminder}
                         onSnoozeReminder={handleSnoozeReminder}
+                        onAdvanceSeries={handleAdvanceSeries}
+                        onRollbackSeries={handleRollbackSeries}
                       />
                     </div>
                   );
@@ -983,6 +1022,8 @@ export default function BookmarksPage() {
                             onToggleSelect={handleToggleSelect}
                             onDismissReminder={handleDismissReminder}
                             onSnoozeReminder={handleSnoozeReminder}
+                            onAdvanceSeries={handleAdvanceSeries}
+                            onRollbackSeries={handleRollbackSeries}
                           />
                         ))}
                       </div>
@@ -998,7 +1039,7 @@ export default function BookmarksPage() {
       {/* Floating Action Button (Mobile FAB) */}
       <button
         onClick={() => setIsAddModalOpen(true)}
-        className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-40 bg-[var(--color-accent)] text-white p-3.5 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center active:scale-95 transition-all"
+        className="md:hidden fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-6 z-40 bg-[var(--color-accent)] text-white p-3.5 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center active:scale-95 transition-all"
         title="Add Bookmark (N)"
       >
         <Plus className="w-5 h-5" />

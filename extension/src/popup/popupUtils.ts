@@ -72,9 +72,16 @@ export function isRestrictedBrowserUrl(url?: string | null): boolean {
 export function resolveInitialMode(params: {
   isAuthenticated: boolean;
   isAlreadyInVault: boolean;
+  url?: string | null;
 }): { view: PopupView; mode: PopupMode } {
   if (!params.isAuthenticated) {
     return { view: 'auth', mode: 'save' };
+  }
+  if (
+    params.url !== undefined &&
+    (!params.url || params.url === 'about:blank' || isRestrictedBrowserUrl(params.url))
+  ) {
+    return { view: 'search', mode: 'search' };
   }
   if (params.isAlreadyInVault) {
     return { view: 'search', mode: 'search' };

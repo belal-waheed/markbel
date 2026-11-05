@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Image Pipeline Hardening, Video Stream Purge, Private IP Favicon Sanitizer &amp; Edge Media Proxy Resilience
+            Series Progression Engine, Two-Way TickTick Synchronization, Alt+O Resilience &amp; Master-Detail Settings Suite
           </span>
         </div>
         <button

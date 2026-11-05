@@ -13,8 +13,13 @@ import { handleScheduledLinkHealthCheck } from "./lib/linkHealth";
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CORS MIDDLEWARE
+// CORS & SECURITY HEADERS MIDDLEWARE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.use("*", async (c, next) => {
+  await next();
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+});
+
 app.use(
   "/api/*",
   cors({

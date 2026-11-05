@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import MarkbelLogo from "../components/MarkbelLogo.js";
 import BookmarkImage from "../components/BookmarkImage.js";
+import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from "@/lib/mediaHeuristics";
 import { db } from "../db/db.js";
 import { bookmarkRepository } from "../db/SyncRepository.js";
 import { syncManager } from "../db/SyncManager.js";
@@ -180,13 +181,23 @@ export default function ArchivePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4">
-            {filteredBookmarks.map((b) => (
-              <div
-                key={b.id}
-                className="studio-card flex flex-col justify-between group overflow-hidden"
-              >
-                <BookmarkImage src={b.image} alt={b.title} />
-                <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2">
+            {filteredBookmarks.map((b) => {
+              const instant = extractInstantMediaMetadata(b.url);
+              const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image);
+              let effectiveImage = "";
+              if (instant.image) {
+                effectiveImage = (!isPolluted && b.image) ? b.image : instant.image;
+              } else if (!isPolluted && b.image) {
+                effectiveImage = b.image;
+              }
+
+              return (
+                <div
+                  key={b.id}
+                  className="studio-card flex flex-col justify-between group overflow-hidden"
+                >
+                  <BookmarkImage src={effectiveImage} alt={b.title} />
+                  <div className="p-2.5 sm:p-4 space-y-1.5 sm:space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold tracking-wide text-[var(--color-text-primary)] bg-[var(--color-bg-element)] border border-[var(--color-border-default)] px-1.5 sm:px-2 py-0.5 rounded truncate max-w-[90px] sm:max-w-[150px] flex items-center gap-1">
                       <Folder className="w-2.5 h-2.5 text-amber-500" />
@@ -244,8 +255,9 @@ export default function ArchivePage() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
         )}
       </main>
     </div>

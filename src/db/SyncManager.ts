@@ -129,6 +129,52 @@ export const syncManager = new SyncManager({
   apiClient
 });
 
+import { getStoredTickTickConfig, syncCompletedBookmarkToTickTick, syncBookmarkToTickTick } from '@/lib/ticktickSync';
+import { db } from './db';
+
+/**
+ * Sweeps and reconciles bookmarks with TickTick tasks when enabled
+ */
+export async function syncTickTickTasks(): Promise<void> {
+  const config = getStoredTickTickConfig();
+  if (!config.enabled || !config.token) return;
+
+  try {
+    // 1. Process bookmarks marked read that need TickTick task completion
+    const readPending = await db.bookmarks
+      .filter((b) => !b.deletedAt && !!b.isRead && !!b.ticktickTaskId && b.ticktickSyncStatus !== 'synced')
+      .toArray();
+
+    for (const b of readPending) {
+      const update = await syncCompletedBookmarkToTickTick(b, config);
+      if (update.ticktickSyncStatus) {
+        await db.bookmarks.update(b.id, update);
+      }
+    }
+
+    // 2. Process bookmarks queued for TickTick task creation
+    const unreadPending = await db.bookmarks
+      .filter((b) => !b.deletedAt && !b.isRead && b.ticktickSyncStatus === 'pending')
+      .toArray();
+
+    for (const b of unreadPending) {
+      const update = await syncBookmarkToTickTick(b, config);
+      if (update.ticktickTaskId) {
+        await db.bookmarks.update(b.id, update);
+      }
+    }
+  } catch (err) {
+    console.warn('[TickTick Sync Error]:', err);
+  }
+}
+
+// Hook into sync manager state changes
+syncManager.subscribe((state) => {
+  if (state === SyncState.Idle) {
+    syncTickTickTasks().catch(() => {});
+  }
+});
+
 export { SyncState };
 
 

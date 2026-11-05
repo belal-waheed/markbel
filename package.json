@@ -1,6 +1,6 @@
 {
   "name": "markbel",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -16,7 +16,7 @@
     "test:run": "vitest run",
     "preview": "vite preview",
     "worker:dev": "wrangler dev worker/src/index.ts",
-    "worker:deploy": "wrangler deploy",
+    "worker:deploy": "npm run build && wrangler deploy",
     "d1:migrate:local": "wrangler d1 execute markbel-db --local --file=worker/schema.sql",
     "d1:migrate:remote": "wrangler d1 execute markbel-db --remote --file=worker/schema.sql",
     "pages:deploy": "wrangler pages deploy dist --project-name markbel",

@@ -230,4 +230,68 @@ describe('SyncRepository Bulk Operations & Group Cascade Integrity', () => {
     expect(bmChange?.operation).toBe('update');
     expect(bmChange?.payload.group).toBe('Unsorted');
   });
+
+  describe('Episodic Series Progression & Succession', () => {
+    it('advanceSeriesBookmark in advance mode updates URL, increments episode, and records history for rollback', async () => {
+      bookmarksStore.set('series-bm-1', {
+        id: 'series-bm-1',
+        userId: 'u1',
+        title: 'Naruto EP 25',
+        url: 'https://anime3rb.com/episode/naruto-shippuden/25/',
+        group: 'Anime',
+        seriesKey: 'anime3rb:naruto-shippuden',
+        seriesEpisode: 25,
+        seriesHistory: [],
+        version: 1,
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+        deletedAt: null,
+      });
+
+      const updated = await bookmarkRepo.advanceSeriesBookmark(
+        'series-bm-1',
+        'https://anime3rb.com/episode/naruto-shippuden/26/',
+        'advance'
+      );
+
+      expect(updated).toBeDefined();
+      expect(updated?.url).toBe('https://anime3rb.com/episode/naruto-shippuden/26/');
+      expect(updated?.seriesEpisode).toBe(26);
+      expect(updated?.seriesHistory).toEqual(['https://anime3rb.com/episode/naruto-shippuden/25/']);
+
+      // Test rollback
+      const rolledBack = await bookmarkRepo.rollbackSeriesBookmark('series-bm-1');
+      expect(rolledBack?.url).toBe('https://anime3rb.com/episode/naruto-shippuden/25/');
+      expect(rolledBack?.seriesEpisode).toBe(25);
+      expect(rolledBack?.seriesHistory).toEqual([]);
+    });
+
+    it('advanceSeriesBookmark in separate mode preserves original and creates a distinct bookmark', async () => {
+      bookmarksStore.set('series-bm-2', {
+        id: 'series-bm-2',
+        userId: 'u1',
+        title: 'Naruto EP 25',
+        url: 'https://anime3rb.com/episode/naruto-shippuden/25/',
+        group: 'Anime',
+        seriesKey: 'anime3rb:naruto-shippuden',
+        seriesEpisode: 25,
+        version: 1,
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+        deletedAt: null,
+      });
+
+      const created = await bookmarkRepo.advanceSeriesBookmark(
+        'series-bm-2',
+        'https://anime3rb.com/episode/naruto-shippuden/26/',
+        'separate'
+      );
+
+      expect(created).toBeDefined();
+      expect(created?.id).not.toBe('series-bm-2');
+      expect(created?.url).toBe('https://anime3rb.com/episode/naruto-shippuden/26/');
+      // Original bookmark remains intact
+      expect(bookmarksStore.get('series-bm-2')?.url).toBe('https://anime3rb.com/episode/naruto-shippuden/25/');
+    });
+  });
 });

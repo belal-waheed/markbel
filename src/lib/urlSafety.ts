@@ -133,9 +133,26 @@ export function isSafeFaviconUrl(faviconUrl?: string | null): boolean {
 export function getPublicFaviconUrl(url?: string | null): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
   const trimmed = url.trim();
-  if (!trimmed || !isSafePublicUrl(trimmed)) return undefined;
+  if (!trimmed) return undefined;
   try {
-    const parsed = new URL(trimmed);
+    let formatted = trimmed;
+    if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+      formatted = `https://${formatted}`;
+    }
+    const parsed = new URL(formatted);
+    const host = parsed.hostname.toLowerCase();
+    const currentHost = typeof window !== 'undefined' && window.location?.hostname ? window.location.hostname.toLowerCase() : undefined;
+
+    if (
+      host === 'mark.obel.workers.dev' ||
+      host === 'localhost' ||
+      (currentHost && host === currentHost)
+    ) {
+      return '/favicon.ico';
+    }
+
+    if (!isSafePublicUrl(trimmed)) return undefined;
+
     return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=128`;
   } catch {
     return undefined;

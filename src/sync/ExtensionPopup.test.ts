@@ -141,6 +141,25 @@ describe('ExtensionPopup HUD Subsystem (Phase 11)', () => {
       expect(result.mode).toBe('save');
     });
 
+    it('forces search mode on restricted browser URLs and blank tabs', () => {
+      expect(resolveInitialMode({ isAuthenticated: true, isAlreadyInVault: false, url: 'about:blank' })).toEqual({
+        view: 'search',
+        mode: 'search',
+      });
+      expect(resolveInitialMode({ isAuthenticated: true, isAlreadyInVault: false, url: 'chrome://settings' })).toEqual({
+        view: 'search',
+        mode: 'search',
+      });
+      expect(resolveInitialMode({ isAuthenticated: true, isAlreadyInVault: false, url: '' })).toEqual({
+        view: 'search',
+        mode: 'search',
+      });
+      expect(resolveInitialMode({ isAuthenticated: true, isAlreadyInVault: false, url: 'https://example.com' })).toEqual({
+        view: 'save',
+        mode: 'save',
+      });
+    });
+
     it('detects bookmark in vault when active URL query matches sanitized URL', async () => {
       // Arrange
       const mockBookmarks = [

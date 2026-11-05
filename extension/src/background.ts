@@ -3,7 +3,7 @@
  * Handles context menus, keyboard shortcuts, and badge notifications.
  */
 
-import { saveBookmark, getSession } from './api';
+import { saveBookmark, getSession, getApiBase } from './api';
 import { resolveSmartGroup, getCustomSmartGroupRules } from '@/lib/smartGroups';
 import { extractInstantMediaMetadata } from '@/lib/mediaHeuristics';
 import type { ExtractedPageMetadata } from './content';
@@ -276,17 +276,30 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-spotlight') {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (
+    const isRestrictedOrBlank =
       !tab ||
       !tab.id ||
       !tab.url ||
+      tab.url === 'about:blank' ||
       tab.url.startsWith('chrome://') ||
       tab.url.startsWith('edge://') ||
       tab.url.startsWith('about:') ||
-      tab.url.startsWith('moz-extension://')
-    ) {
+      tab.url.startsWith('moz-extension://');
+
+    if (isRestrictedOrBlank) {
+      let opened = false;
       if (chrome.action && chrome.action.openPopup) {
-        chrome.action.openPopup().catch(() => {});
+        try {
+          await chrome.action.openPopup(tab?.windowId ? { windowId: tab.windowId } : undefined);
+          opened = true;
+        } catch {
+          opened = false;
+        }
+      }
+      if (!opened) {
+        const apiBase = await getApiBase().catch(() => 'https://mark.obel.workers.dev');
+        const fallbackUrl = `${apiBase.replace(/\/api$/, '')}/app?search=1`;
+        chrome.tabs.create({ url: fallbackUrl }).catch(() => {});
       }
       return;
     }
@@ -299,8 +312,19 @@ chrome.commands.onCommand.addListener(async (command) => {
         });
         chrome.tabs.sendMessage(tab.id!, { type: 'MARKBEL_TOGGLE_SPOTLIGHT' });
       } catch {
+        let opened = false;
         if (chrome.action && chrome.action.openPopup) {
-          chrome.action.openPopup().catch(() => {});
+          try {
+            await chrome.action.openPopup(tab?.windowId ? { windowId: tab.windowId } : undefined);
+            opened = true;
+          } catch {
+            opened = false;
+          }
+        }
+        if (!opened) {
+          const apiBase = await getApiBase().catch(() => 'https://mark.obel.workers.dev');
+          const fallbackUrl = `${apiBase.replace(/\/api$/, '')}/app?search=1`;
+          chrome.tabs.create({ url: fallbackUrl }).catch(() => {});
         }
       }
     });

@@ -2,6 +2,7 @@ import { db, LocalBookmark, LocalGroup, SyncOutboxItem } from './db';
 import { SyncOutboxItem as SharedSyncOutboxItem } from '@/sync';
 import { NotificationEventBus } from '@/notifications';
 import { extractInstantMediaMetadata } from '../lib/mediaHeuristics';
+import { parseSeriesProgression, formatEpisodicBadge } from '../lib/seriesProgression';
 
 export interface SyncRepository<T> {
   create(entity: Omit<T, 'version' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<T>;
@@ -43,6 +44,19 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
         contentType: data.contentType || instant.contentType || 'website',
         description: data.description || instant.description || '',
       };
+    }
+
+    if (!candidateData.seriesKey) {
+      const series = parseSeriesProgression(candidateData.url, candidateData.title);
+      if (series) {
+        candidateData = {
+          ...candidateData,
+          seriesKey: series.seriesKey,
+          seriesEpisode: series.episode,
+          seriesSeason: series.season,
+          contentType: candidateData.contentType || (series.sourceType === 'manga' ? 'article' : 'video'),
+        };
+      }
     }
 
     const bookmark: LocalBookmark = {
@@ -130,6 +144,98 @@ export class BookmarkRepository implements SyncRepository<LocalBookmark> {
     }
 
     return updatedBookmark;
+  }
+
+  async advanceSeriesBookmark(
+    existingId: string,
+    incomingUrl: string,
+    mode: 'advance' | 'delete' | 'separate' = 'advance'
+  ): Promise<LocalBookmark | undefined> {
+    const existing = await db.bookmarks.get(existingId);
+    if (!existing || existing.deletedAt) return undefined;
+
+    const series = parseSeriesProgression(incomingUrl);
+
+    if (mode === 'separate') {
+      return await this.create({
+        id: crypto.randomUUID(),
+        userId: existing.userId,
+        url: incomingUrl,
+        title: series ? `${series.seriesTitle} ${formatEpisodicBadge(series)}` : incomingUrl,
+        group: existing.group,
+        image: existing.image,
+        favicon: existing.favicon,
+        siteName: existing.siteName,
+        contentType: existing.contentType,
+        seriesKey: series?.seriesKey || existing.seriesKey,
+        seriesEpisode: series?.episode,
+        seriesSeason: series?.season,
+        seriesHistory: [existing.url],
+      });
+    }
+
+    if (mode === 'delete') {
+      await this.delete(existingId);
+      return await this.create({
+        id: crypto.randomUUID(),
+        userId: existing.userId,
+        url: incomingUrl,
+        title: series ? `${series.seriesTitle} ${formatEpisodicBadge(series)}` : incomingUrl,
+        group: existing.group,
+        image: existing.image,
+        favicon: existing.favicon,
+        siteName: existing.siteName,
+        contentType: existing.contentType,
+        seriesKey: series?.seriesKey || existing.seriesKey,
+        seriesEpisode: series?.episode,
+        seriesSeason: series?.season,
+      });
+    }
+
+    // Default 'advance': update in-place with rollback history
+    const history = existing.seriesHistory ? [...existing.seriesHistory] : [];
+    if (existing.url && !history.includes(existing.url)) {
+      history.push(existing.url);
+    }
+
+    const updates: Partial<LocalBookmark> = {
+      url: incomingUrl,
+      seriesKey: series?.seriesKey || existing.seriesKey,
+      seriesEpisode: series?.episode ?? (existing.seriesEpisode ? existing.seriesEpisode + 1 : undefined),
+      seriesSeason: series?.season ?? existing.seriesSeason,
+      seriesHistory: history,
+    };
+
+    if (series && series.seriesTitle) {
+      updates.title = `${series.seriesTitle} ${formatEpisodicBadge(series)}`;
+    }
+
+    return await this.update(existingId, updates);
+  }
+
+  async rollbackSeriesBookmark(existingId: string): Promise<LocalBookmark | undefined> {
+    const existing = await db.bookmarks.get(existingId);
+    if (!existing || existing.deletedAt || !existing.seriesHistory || existing.seriesHistory.length === 0) {
+      return existing;
+    }
+
+    const history = [...existing.seriesHistory];
+    const previousUrl = history.pop()!;
+    const series = parseSeriesProgression(previousUrl);
+
+    const updates: Partial<LocalBookmark> = {
+      url: previousUrl,
+      seriesKey: series?.seriesKey || existing.seriesKey,
+      seriesEpisode: series?.episode,
+      seriesSeason: series?.season,
+      seriesHistory: history,
+    };
+
+    if (series && series.seriesTitle) {
+      updates.title = `${series.seriesTitle} ${formatEpisodicBadge(series)}`;
+    }
+
+    return await this.update(existingId, updates);
   }
 
   async bulkUpdate(ids: string[], updates: Partial<LocalBookmark>): Promise<void> {

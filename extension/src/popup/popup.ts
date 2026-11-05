@@ -38,7 +38,11 @@ async function onSessionReady(): Promise<void> {
     isAlreadyInVault = await checkIfUrlInVault(db.bookmarks, tab.url);
   }
 
-  const { mode } = resolveInitialMode({ isAuthenticated: true, isAlreadyInVault });
+  const { mode } = resolveInitialMode({
+    isAuthenticated: true,
+    isAlreadyInVault,
+    url: tab?.url,
+  });
   await switchMode(mode);
 }
 

@@ -31,6 +31,13 @@ export interface LocalBookmark {
   httpStatus?: number;
   lastCheckedAt?: string;
   actor_type?: 'owner' | 'collaborator' | string;
+  seriesKey?: string;
+  seriesEpisode?: number;
+  seriesSeason?: number;
+  seriesHistory?: string[];
+  ticktickTaskId?: string | null;
+  ticktickProjectId?: string | null;
+  ticktickSyncStatus?: 'synced' | 'pending' | 'failed' | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -186,6 +193,10 @@ export class MarkbelDatabase extends Dexie {
         console.warn('[Dexie Version 10 Upgrade Error]:', err);
       }
     });
+
+    this.version(11).stores({
+      bookmarks: 'id, userId, url, group, isArchived, isRead, isBroken, contentType, seriesKey, deletedAt'
+    }).upgrade(() => {});
   }
 }
 
