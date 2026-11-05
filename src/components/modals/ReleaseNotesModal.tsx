@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.7.1
+                  What's New in Markbel v2.7.2
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Smart Grouping Engine with title matching, 8-pillar taxonomy presets, and automated remote vault reorganization
+                Alt+O Spotlight design token theming, dual-mode visual cards, Instagram in-DOM poster extraction &amp; remote thumbnail repair
               </p>
             </div>
           </div>
@@ -69,8 +69,50 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-          {/* Feature: Smart Auto-Grouping Engine & 8-Pillar Taxonomy (v2.7.1) */}
+          {/* Feature: Alt+O Spotlight Theming & Dual-Mode Visual Cards (v2.7.2) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Alt+O Spotlight Token Theming, Dual-Mode Visual Cards, Instagram In-DOM Extraction &amp; Remote Thumbnail Repair
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.7.2
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Complete design token synchronization for in-page Spotlight (Alt+O) and extension popup matching Swiss Editorial light mode and Deep Onyx dark mode with header theme toggle; dual-mode viewing switching between rich 56x38 visual cards and dense compact lists; dynamic group color badges, series episode tags, domain favicons, and content type pills; active DOM poster extraction on Instagram SPAs with SVG gradient card fallback; and 100% remote D1 database healing resolving video streams to high-resolution JPEG thumbnails.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Spotlight Design Token Theming &amp; Switcher</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Dual-Mode Visual Cards &amp; Compact List</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Rich Metadata Badges &amp; Quick Actions</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Instagram In-DOM Poster Extraction</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Remote D1 Video Thumbnail Resolution</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature: Smart Auto-Grouping Engine & 8-Pillar Taxonomy (v2.7.1) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5" />
             </div>

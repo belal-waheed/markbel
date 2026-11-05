@@ -5,6 +5,7 @@ import {
   isFaviconUrl,
   isLowQualityImage,
   isVideoStreamUrl,
+  INSTAGRAM_FALLBACK_POSTER,
 } from './mediaHeuristics';
 
 describe('extractInstantMediaMetadata Unit Tests', () => {
@@ -158,12 +159,16 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
       expect(reel).toEqual({
         title: 'Instagram Reel',
         siteName: 'Instagram',
+        image: INSTAGRAM_FALLBACK_POSTER,
+        contentType: 'video',
       });
 
       const post = extractInstantMediaMetadata('https://www.instagram.com/p/DFghjkL123/');
       expect(post).toEqual({
         title: 'Instagram Post',
         siteName: 'Instagram',
+        image: INSTAGRAM_FALLBACK_POSTER,
+        contentType: 'article',
       });
     });
   });
@@ -314,6 +319,7 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
       expect(isLowQualityImage('https://cdn.site.com/covers/hero-banner.webp')).toBe(false);
       expect(isLowQualityImage('https://images.unsplash.com/photo-1579546929518-9e396f3cc809')).toBe(false);
       expect(isLowQualityImage('https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg')).toBe(false);
+      expect(isLowQualityImage(INSTAGRAM_FALLBACK_POSTER)).toBe(false);
     });
   });
 });

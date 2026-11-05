@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Smart Auto-Grouping with Title Matching, 8-Pillar Taxonomy Presets &amp; Automated Vault Reorganization
+            Alt+O Spotlight Token Theming, Dual-Mode Visual Cards &amp; Missing Image Healing
           </span>
         </div>
         <button

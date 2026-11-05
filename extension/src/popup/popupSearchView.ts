@@ -5,6 +5,8 @@
 
 import { db } from '@/db/db';
 import { filterAndRankBookmarks, SearchBookmarkItem } from '@/lib/searchCatalog';
+import { isLowQualityImage } from '@/lib/mediaHeuristics';
+import { getGroupColorToken, inferContentType, detectSeriesBadge } from '../spotlight/MarkbelSpotlight';
 import { escapeHtml } from './popupUtils';
 
 /**
@@ -45,6 +47,7 @@ let searchCatalog: SearchBookmarkItem[] = [];
 let activeSearchGroup = 'All';
 let selectedResultIndex = 0;
 let filteredResults: SearchBookmarkItem[] = [];
+let searchViewMode: 'visual' | 'compact' = 'visual';
 
 export function getSearchCatalog(): SearchBookmarkItem[] {
   return searchCatalog;
@@ -62,6 +65,18 @@ export function getSelectedResultIndex(): number {
   return selectedResultIndex;
 }
 
+export function getSearchViewMode(): 'visual' | 'compact' {
+  return searchViewMode;
+}
+
+export function setSearchViewMode(mode: 'visual' | 'compact'): void {
+  searchViewMode = mode;
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    chrome.storage.local.set({ markbel_popup_search_view_mode: mode });
+  }
+  renderSearchResults();
+}
+
 /**
  * Load Search Catalog from IndexedDB
  */
@@ -77,8 +92,22 @@ export async function loadSearchCatalog(): Promise<SearchBookmarkItem[]> {
       favicon: b.favicon || '',
       image: b.image || '',
       isPinned: !!b.isPinned,
+      contentType: b.contentType,
+      seriesEpisode: b.seriesEpisode,
+      seriesSeason: b.seriesSeason,
+      seriesKey: b.seriesKey,
       createdAt: b.createdAt || '',
     }));
+
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.get(['markbel_popup_search_view_mode', 'markbel_spotlight_view_mode'], (res) => {
+        const mode = res?.markbel_popup_search_view_mode || res?.markbel_spotlight_view_mode;
+        if (mode === 'compact' || mode === 'visual') {
+          searchViewMode = mode;
+        }
+      });
+    }
+
     renderSearchGroupChips();
     return searchCatalog;
   } catch (err) {
@@ -122,6 +151,9 @@ export function renderSearchResults(): void {
   const searchResultsList = document.getElementById('search-results-list');
   if (!searchResultsList) return;
 
+  searchResultsList.classList.toggle('view-visual', searchViewMode === 'visual');
+  searchResultsList.classList.toggle('view-compact', searchViewMode === 'compact');
+
   const query = inputSearchVault?.value || '';
   filteredResults = filterAndRankBookmarks(searchCatalog, query, activeSearchGroup);
 
@@ -139,34 +171,84 @@ export function renderSearchResults(): void {
     selectedResultIndex = 0;
   }
 
+  const isVisual = searchViewMode === 'visual';
+
   searchResultsList.innerHTML = filteredResults
     .map((item, idx) => {
       const isSelected = idx === selectedResultIndex;
       const initial = (item.title || item.url || '?').charAt(0).toUpperCase();
-      const iconHtml = item.favicon
-        ? `<img class="search-item-icon" src="${escapeHtml(item.favicon)}" alt="" />
-           <div class="search-item-fallback-icon" style="display: none;">${escapeHtml(initial)}</div>`
-        : `<div class="search-item-fallback-icon">${escapeHtml(initial)}</div>`;
-
+      const groupColor = getGroupColorToken(item.group);
+      const seriesBadge = detectSeriesBadge(item);
+      const contentType = inferContentType(item);
       const domain = formatDomain(item.url);
 
-      return `
-        <div class="search-item ${isSelected ? 'selected' : ''}" data-index="${idx}" role="option" aria-selected="${isSelected}">
-          ${iconHtml}
-          <div class="search-item-info">
-            <div class="search-item-header">
-              <span class="search-item-title">${escapeHtml(item.title || item.url)}</span>
-              ${item.isPinned ? `<span class="search-item-pin-badge" title="Pinned">★</span>` : ''}
-              <span class="search-item-group">${escapeHtml(item.group || 'Unsorted')}</span>
+      if (isVisual) {
+        const hasCover = item.image && !isLowQualityImage(item.image);
+        const thumbHtml = hasCover
+          ? `<div class="search-item-thumb-box">
+               <img class="search-thumb" src="${escapeHtml(item.image!)}" alt="" loading="lazy" />
+               <div class="search-thumb-fallback" style="display: none; background: ${groupColor.bg}; color: ${groupColor.color};">
+                 ${item.favicon ? `<img class="search-thumb-favicon" src="${escapeHtml(item.favicon)}" alt="" />` : escapeHtml(initial)}
+               </div>
+             </div>`
+          : `<div class="search-item-thumb-box">
+               <div class="search-thumb-fallback" style="background: ${groupColor.bg}; color: ${groupColor.color};">
+                 ${item.favicon ? `<img class="search-thumb-favicon" src="${escapeHtml(item.favicon)}" alt="" />` : escapeHtml(initial)}
+               </div>
+             </div>`;
+
+        return `
+          <div class="search-item ${isSelected ? 'selected' : ''}" data-index="${idx}" role="option" aria-selected="${isSelected}">
+            ${thumbHtml}
+            <div class="search-item-info">
+              <div class="search-item-header">
+                <span class="search-item-title">${escapeHtml(item.title || item.url)}</span>
+                ${item.isPinned ? `<span class="search-item-pin-badge" title="Pinned">★</span>` : ''}
+              </div>
+              <div class="search-item-meta-strip">
+                <span class="search-tag-pill" style="color: ${groupColor.color}; background: ${groupColor.bg}; border: 1px solid ${groupColor.border};">${escapeHtml(item.group || 'Unsorted')}</span>
+                ${seriesBadge ? `<span class="search-tag-pill tag-series">${escapeHtml(seriesBadge)}</span>` : ''}
+                <span class="search-domain-row">
+                  ${item.favicon ? `<img class="search-domain-favicon" src="${escapeHtml(item.favicon)}" alt="" />` : ''}
+                  <span>${escapeHtml(domain)}</span>
+                </span>
+                <span class="search-tag-pill tag-type">${escapeHtml(contentType)}</span>
+              </div>
             </div>
-            <span class="search-item-url">${escapeHtml(domain)}</span>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        const iconHtml = item.favicon
+          ? `<img class="search-item-icon" src="${escapeHtml(item.favicon)}" alt="" />
+             <div class="search-item-fallback-icon" style="display: none;">${escapeHtml(initial)}</div>`
+          : `<div class="search-item-fallback-icon" style="background: ${groupColor.bg}; color: ${groupColor.color};">${escapeHtml(initial)}</div>`;
+
+        return `
+          <div class="search-item ${isSelected ? 'selected' : ''}" data-index="${idx}" role="option" aria-selected="${isSelected}">
+            ${iconHtml}
+            <div class="search-item-info">
+              <div class="search-item-header">
+                <span class="search-item-title">${escapeHtml(item.title || item.url)}</span>
+                ${item.isPinned ? `<span class="search-item-pin-badge" title="Pinned">★</span>` : ''}
+                <span class="search-item-group" style="color: ${groupColor.color}; background: ${groupColor.bg}; border: 1px solid ${groupColor.border};">${escapeHtml(item.group || 'Unsorted')}</span>
+              </div>
+              <span class="search-item-url">${escapeHtml(domain)}</span>
+            </div>
+          </div>
+        `;
+      }
     })
     .join('');
 
-  searchResultsList.querySelectorAll<HTMLImageElement>('img.search-item-icon').forEach((img) => {
+  searchResultsList.querySelectorAll<HTMLImageElement>('img.search-thumb').forEach((img) => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const fallback = img.nextElementSibling as HTMLElement | null;
+      if (fallback) fallback.style.display = 'flex';
+    }, { once: true });
+  });
+
+  searchResultsList.querySelectorAll<HTMLImageElement>('img.search-item-icon, img.search-thumb-favicon, img.search-domain-favicon').forEach((img) => {
     img.addEventListener('error', () => {
       img.style.display = 'none';
       const fallback = img.nextElementSibling as HTMLElement | null;

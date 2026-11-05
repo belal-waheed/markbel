@@ -3,6 +3,8 @@
  * Extracts OpenGraph, Twitter Cards, canonical URLs, YouTube IDs, and DOM selection.
  */
 
+import { isLowQualityImage } from '@/lib/mediaHeuristics';
+
 export interface ExtractedPageMetadata {
   url: string;
   rawUrl: string;
@@ -111,6 +113,39 @@ export function extractPageMetadata(
     'meta[name="twitter:image"]',
     'meta[name="twitter:image:src"]'
   ], doc);
+
+  if (image && isLowQualityImage(image)) {
+    image = '';
+  }
+
+  // Instagram in-DOM poster extraction for dynamic SPA containers
+  if (hostname.includes('instagram.com')) {
+    if (typeof doc?.querySelector === 'function') {
+      const posterEl = doc.querySelector(
+        'article video[poster], video[poster], article img[srcset], div[role="dialog"] video[poster], div[role="dialog"] img[srcset], main img[src*="cdninstagram"]'
+      );
+      if (posterEl) {
+        let candidate =
+          (typeof posterEl.getAttribute === 'function' ? (posterEl.getAttribute('poster') || posterEl.getAttribute('src')) : null) ||
+          (posterEl as any).poster ||
+          (posterEl as any).src;
+
+        if (!candidate && typeof posterEl.getAttribute === 'function') {
+          const srcset = posterEl.getAttribute('srcset');
+          if (srcset) {
+            const entries = srcset.split(',').map((s: string) => s.trim().split(/\s+/)[0]).filter(Boolean);
+            if (entries.length > 0) {
+              candidate = entries[entries.length - 1];
+            }
+          }
+        }
+
+        if (candidate && !isLowQualityImage(candidate)) {
+          image = candidate;
+        }
+      }
+    }
+  }
 
   const ytId = extractYouTubeId(url);
   if (ytId) {

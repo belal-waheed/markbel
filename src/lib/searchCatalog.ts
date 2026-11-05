@@ -9,6 +9,10 @@ export interface SearchBookmarkItem {
   isPinned?: boolean;
   createdAt?: string;
   articleContent?: string;
+  contentType?: string;
+  seriesEpisode?: number;
+  seriesSeason?: number;
+  seriesKey?: string;
   isBroken?: boolean;
   httpStatus?: number;
 }

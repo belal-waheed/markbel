@@ -67,7 +67,7 @@ describe('SEO & Generative Engine Optimization (GEO) Invariants', () => {
       )
       expect(webApp).toBeDefined()
       expect(webApp.name).toBe('Markbel')
-      expect(webApp.softwareVersion).toBe('2.7.1')
+      expect(webApp.softwareVersion).toBe('2.7.2')
       expect(webApp.storageRequirements).toContain('Dexie.js')
 
       const faq = parsed['@graph'].find((item: any) => item['@type'] === 'FAQPage')

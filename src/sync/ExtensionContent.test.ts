@@ -449,4 +449,75 @@ describe('ExtensionContent - extractPageMetadata & DOM Extraction Subsystem', ()
       expect(value).toBe('Second Choice Title');
     });
   });
+
+  describe('8. Instagram In-DOM Poster Extraction', () => {
+    it('extracts video poster when saving from an active Instagram Reel tab', () => {
+      // Arrange
+      const mockDoc = {
+        title: 'User on Instagram: "Awesome Reel"',
+        querySelector: (selector: string) => {
+          if (selector === 'meta[property="og:image"]') {
+            // Instagram often outputs 1x1 tracking pixel in og:image
+            return { getAttribute: () => 'https://static.cdninstagram.com/rsrc.php/v3/yI/r/something.png' };
+          }
+          if (selector.includes('article video[poster]') || selector.includes('video[poster]')) {
+            return {
+              getAttribute: (attr: string) => (attr === 'poster' ? 'https://scontent.cdninstagram.com/v/t51.2885-15/poster.jpg' : null),
+              poster: 'https://scontent.cdninstagram.com/v/t51.2885-15/poster.jpg',
+            };
+          }
+          return null;
+        },
+      };
+
+      const mockWin = {
+        location: {
+          href: 'https://www.instagram.com/reel/C123456789/',
+          hostname: 'www.instagram.com',
+        },
+        getSelection: () => null,
+      };
+
+      // Act
+      const result = extractPageMetadata(mockDoc, mockWin);
+
+      // Assert
+      expect(result.image).toBe('https://scontent.cdninstagram.com/v/t51.2885-15/poster.jpg');
+      expect(result.siteName).toBe('instagram.com');
+    });
+
+    it('extracts img srcset candidate when modal dialog contains post photo', () => {
+      // Arrange
+      const mockDoc = {
+        title: 'Instagram Photo',
+        querySelector: (selector: string) => {
+          if (selector.includes('div[role="dialog"] img[srcset]')) {
+            return {
+              getAttribute: (attr: string) => {
+                if (attr === 'srcset') {
+                  return 'https://scontent.cdninstagram.com/small.jpg 320w, https://scontent.cdninstagram.com/large.jpg 1080w';
+                }
+                return null;
+              },
+            };
+          }
+          return null;
+        },
+      };
+
+      const mockWin = {
+        location: {
+          href: 'https://www.instagram.com/p/C987654321/',
+          hostname: 'www.instagram.com',
+        },
+        getSelection: () => null,
+      };
+
+      // Act
+      const result = extractPageMetadata(mockDoc, mockWin);
+
+      // Assert
+      expect(result.image).toBe('https://scontent.cdninstagram.com/large.jpg');
+    });
+  });
 });

@@ -16,6 +16,30 @@ tags:
 
 ## Technical Log
 
+### Phase 26: Alt+O Spotlight Token Theming, Dual-Mode Visual Cards & Missing Image Healing (v2.7.2 - 2026-11-05)
+- **Slice 1 (Alt+O Spotlight & Popup Design Token Synchronization):**
+  - Overhauled Shadow DOM CSS variables in `MarkbelSpotlight.ts` to bind directly to Markbel's design tokens (Swiss Editorial light mode and Deep Onyx dark mode).
+  - Implemented automatic theme state synchronization reading `markbel_theme_mode` from `chrome.storage.local` with system `prefers-color-scheme` fallback.
+  - Added header theme toggle button (Sun/Moon SVG) with instant switching and cross-context broadcast.
+  - Updated `popup.css` color variables to inherit Markbel's palette with support for both media queries and explicit `[data-theme]` / `.theme-*` attributes.
+- **Slice 2 (Dual-Mode Visual Cards & Compact List Viewing):**
+  - Architected dual-mode view system in `MarkbelSpotlight.ts` and `popupSearchView.ts` (`view-visual` vs `view-compact`) toggleable via header button and persistent in `chrome.storage.local`.
+  - Visual Mode: 56x38px thumbnail image container with automatic fallback cascade (high-res cover -> domain favicon -> initial letter with group accent background); 2-line title clamping; rich metadata strip (group pill with design token colors, series episode badge, domain favicon, and content type badge); and quick action buttons (Copy URL, Open in New Tab).
+  - Compact Mode: 1-line dense list optimized for keyboard velocity navigation.
+- **Slice 3 (Instagram In-DOM Extraction & Platform Fallback Card):**
+  - Added active DOM query heuristics in `extractPageMetadata.ts` targeting `article video[poster], video[poster], article img[srcset], div[role="dialog"] video[poster], div[role="dialog"] img[srcset], main img[src*="cdninstagram"]` when saving from Instagram SPAs.
+  - Created `INSTAGRAM_FALLBACK_POSTER` vector gradient card data URI in `mediaHeuristics.ts` to ensure zero empty or broken placeholder states.
+- **Slice 4 (Cloudflare D1 Remote Database Image Healing):**
+  - Identified 42 video stream endpoints (`video.vid3rb.com/video/<uuid>`) and suppressed favicon entries in remote D1 `markbel-db`.
+  - Executed batch update resolving all video endpoints to static JPEG poster thumbnails (`thumbnails.vid3rb.com/.../thumbnail.001.jpeg`) and high-resolution anime series covers (`sousou-no-frieren`, `shangri-la-frontier`, `tensei-shitara-slime`, `black-clover`).
+  - Verified remote D1 database has 0 `video.vid3rb.com` URLs remaining in `image` column.
+- **Slice 5 (Mandatory Release Governance Protocol v2.7.2):**
+  - Bumped version to `2.7.2` across `package.json`, `extension/manifest.json`, `extension/manifest.firefox.json`, `index.html` (`softwareVersion: "2.7.2"`), `public/llms.txt`, `public/llms-full.txt`, and `src/components/landing/landingConstants.ts` (`v2.7.2`).
+  - Updated `src/components/modals/ReleaseNotesModal.tsx` and `src/components/landing/LandingTopBanner.tsx`.
+  - Built fresh extension zips (`npm run build:extension:all`) and mirrored unpacked bundle to `D:\apps\0-setup\markbel-extension\`.
+  - Deployed Cloudflare Worker and PWA assets to edge: `https://mark.obel.workers.dev`.
+  - Quality gates: 639 unit & integration tests passing across 47 test suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`).
+
 ### Phase 25: Smart Auto-Grouping Engine, 8-Pillar Taxonomy Presets & Remote Vault Reorganization (v2.7.1 - 2026-11-05)
 - **Slice 1 (Constraint Operator Expansion & MatchMode Any):**
   - Extended `ConstraintOperator` type in `src/lib/smartGroups.ts` with `'title_contains'` and `'content_type_equals'`.

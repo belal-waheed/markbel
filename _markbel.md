@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.7.1  
+> **Status:** Production / v2.7.2  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -411,6 +411,26 @@ Each milestone must pass the strict Markbel release pipeline:
   - Executed 7 batch SQL updates on remote `markbel-db` reorganizing active bookmarks across Anime, Dev, Deen, Music, Tools, Design, and System.
   - Verified remote distribution: Insta (15), Dev (10), Anime (10), Music (8), YT (7), System (3), Deen (3), Tools (2), Design (1), Unsorted (1).
 - **Verification Gate:** 620/620 Vitest tests passing (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh browser extension packages produced and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev`.
+
+### Alt+O Spotlight Design Token Theming, Dual-Mode Visual Cards & Missing Image Healing (v2.7.2):
+- **Alt+O Spotlight & Popup Design Token Synchronization:**
+  - Overhauled Shadow DOM CSS variables in `MarkbelSpotlight.ts` to bind directly to Markbel's design tokens (Swiss Editorial light mode and Deep Onyx dark mode).
+  - Implemented automatic theme state synchronization reading `markbel_theme_mode` from `chrome.storage.local` with system `prefers-color-scheme` fallback.
+  - Added header theme toggle button (Sun/Moon SVG) with instant switching and cross-context broadcast.
+  - Updated `popup.css` color variables to inherit Markbel's palette with support for both media queries and explicit `[data-theme]` / `.theme-*` attributes.
+- **Dual-Mode Visual Cards & Compact List Viewing:**
+  - Architected dual-mode view system in `MarkbelSpotlight.ts` and `popupSearchView.ts` (`view-visual` vs `view-compact`) toggleable via header button and persistent in `chrome.storage.local`.
+  - Visual Mode: 56x38px thumbnail image container with automatic fallback cascade (high-res cover -> domain favicon -> initial letter with group accent background); 2-line title clamping; rich metadata strip (group pill with design token colors, series episode badge, domain favicon, and content type badge); and quick action buttons (Copy URL, Open in New Tab).
+  - Compact Mode: 1-line dense list optimized for keyboard velocity navigation.
+- **Instagram In-DOM Extraction & Platform Fallback Card:**
+  - Added active DOM query heuristics in `extractPageMetadata.ts` targeting `article video[poster], video[poster], article img[srcset], div[role="dialog"] video[poster], div[role="dialog"] img[srcset], main img[src*="cdninstagram"]` when saving from Instagram SPAs.
+  - Created `INSTAGRAM_FALLBACK_POSTER` vector gradient card data URI in `mediaHeuristics.ts` to ensure zero empty or broken placeholder states.
+- **Cloudflare D1 Remote Database Image Healing:**
+  - Identified 42 video stream endpoints (`video.vid3rb.com/video/<uuid>`) and suppressed favicon entries in remote D1 `markbel-db`.
+  - Executed batch update resolving all video endpoints to static JPEG poster thumbnails (`thumbnails.vid3rb.com/.../thumbnail.001.jpeg`) and high-resolution anime series covers (`sousou-no-frieren`, `shangri-la-frontier`, `tensei-shitara-slime`, `black-clover`).
+  - Verified remote D1 database has 0 `video.vid3rb.com` URLs remaining in `image` column.
+- **Verification Gate:** 639/639 Vitest tests passing across 47 test suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh extension packages built (`npm run build:extension:all`), unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev`.
+
 
 
 

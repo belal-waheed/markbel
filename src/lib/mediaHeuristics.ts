@@ -1,4 +1,31 @@
 /**
+ * High-resolution vector gradient card data URI for Instagram media fallbacks.
+ * Prevents broken icon states when Instagram SPA obscures raw poster assets.
+ */
+export const INSTAGRAM_FALLBACK_POSTER =
+  'data:image/svg+xml;charset=utf-8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
+  <defs>
+    <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f5bd5"/>
+      <stop offset="25%" stop-color="#962fbf"/>
+      <stop offset="50%" stop-color="#d62976"/>
+      <stop offset="75%" stop-color="#fa7e1e"/>
+      <stop offset="100%" stop-color="#feda75"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#ig-grad)"/>
+  <rect width="640" height="360" fill="rgba(0,0,0,0.2)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" transform="translate(270, 130)">
+    <rect x="0" y="0" width="100" height="100" rx="26" ry="26"/>
+    <circle cx="50" cy="50" r="23"/>
+    <circle cx="76" cy="24" r="3" fill="#ffffff" stroke="none"/>
+  </g>
+</svg>`.trim()
+  );
+
+/**
  * Pure, zero-network deterministic metadata heuristics for media platforms.
  * Extracts instant high-fidelity titles, thumbnails, and platform origins.
  */
@@ -118,6 +145,9 @@ export function isLowQualityImage(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return true;
   const trimmed = url.trim().toLowerCase();
   if (!trimmed) return true;
+
+  // Vector data URI cards and generated previews are valid high-fidelity assets
+  if (trimmed.startsWith('data:image/')) return false;
 
   // Video streams are not valid image assets
   if (isVideoStreamUrl(trimmed)) return true;
@@ -407,6 +437,8 @@ export function extractInstantMediaMetadata(url: string): InstantMediaMetadata {
     return {
       title: isReel ? 'Instagram Reel' : 'Instagram Post',
       siteName: 'Instagram',
+      image: INSTAGRAM_FALLBACK_POSTER,
+      contentType: isReel ? 'video' : 'article',
     };
   }
 

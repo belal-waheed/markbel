@@ -91,6 +91,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           favicon: b.favicon || '',
           image: b.image || '',
           isPinned: !!b.isPinned,
+          contentType: b.contentType,
+          seriesEpisode: b.seriesEpisode,
+          seriesSeason: b.seriesSeason,
+          seriesKey: b.seriesKey,
           createdAt: b.createdAt || '',
         }));
         sendResponse({ success: true, catalog });
