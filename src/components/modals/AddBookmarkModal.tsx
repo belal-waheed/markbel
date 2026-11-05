@@ -89,6 +89,13 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
         if (isMounted && meta) {
           if (meta.title && !userEditedTitleRef.current) {
             setTitle((prev) => (userEditedTitleRef.current || prev.trim() ? prev : meta.title!));
+            if (!hasManuallyChangedGroup) {
+              const refinedSmartGroup = resolveSmartGroup(debouncedUrl, groups, customRules, meta.title);
+              if (refinedSmartGroup && refinedSmartGroup !== "Unsorted") {
+                setGroup(refinedSmartGroup);
+                setIsAutoGrouped(true);
+              }
+            }
           }
           if (meta.description && !userEditedDescriptionRef.current) {
             setDescription((prev) => (userEditedDescriptionRef.current || prev.trim() ? prev : meta.description!));

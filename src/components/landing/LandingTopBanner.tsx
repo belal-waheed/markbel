@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Series Progression Engine, Two-Way TickTick Synchronization, Alt+O Resilience &amp; Master-Detail Settings Suite
+            Smart Auto-Grouping with Title Matching, 8-Pillar Taxonomy Presets &amp; Automated Vault Reorganization
           </span>
         </div>
         <button

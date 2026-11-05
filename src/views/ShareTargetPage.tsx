@@ -55,7 +55,7 @@ export default function ShareTargetPage() {
       }
 
       const customRules = await getCustomSmartGroupRules().catch(() => [])
-      const smartGroup = resolveSmartGroup(cleanUrl, undefined, customRules)
+      const smartGroup = resolveSmartGroup(cleanUrl, undefined, customRules, fallbackTitle, contentType)
       const bookmarkId = crypto.randomUUID()
       const userId = user?.id || 'local-user'
 

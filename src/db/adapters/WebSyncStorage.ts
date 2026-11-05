@@ -238,7 +238,13 @@ export class WebSyncStorage implements SyncStorage {
           ) {
             const urlToMatch = raw.url || '';
             if (urlToMatch) {
-              const smartGroup = resolveSmartGroup(urlToMatch, groupNames, customRules);
+              const smartGroup = resolveSmartGroup(
+                urlToMatch,
+                groupNames,
+                customRules,
+                raw.title,
+                raw.content_type || raw.contentType
+              );
               if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
                 bookmarkGroup = smartGroup;
               }

@@ -82,7 +82,9 @@ describe("Settings Feature Cards & Constants Suite", () => {
       expect(OPERATOR_CONFIG.url_contains).toBeDefined();
       expect(OPERATOR_CONFIG.path_starts_with).toBeDefined();
       expect(OPERATOR_CONFIG.query_param_exists).toBeDefined();
-      expect(OPERATOR_OPTIONS.length).toBe(5);
+      expect(OPERATOR_CONFIG.title_contains).toBeDefined();
+      expect(OPERATOR_CONFIG.content_type_equals).toBeDefined();
+      expect(OPERATOR_OPTIONS.length).toBe(7);
     });
 
     it("maps group badge classes and colors accurately with graceful fallback", () => {

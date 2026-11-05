@@ -486,7 +486,7 @@ export async function autoOrganizeUnsortedBookmarks(userId: string = 'local-user
       .toArray();
 
     for (const b of unsortedBookmarks) {
-      const smartGroup = resolveSmartGroup(b.url, groupNames, customRules);
+      const smartGroup = resolveSmartGroup(b.url, groupNames, customRules, b.title, b.contentType);
       if (smartGroup && smartGroup.toLowerCase() !== 'unsorted') {
         // Auto-provision missing group if it doesn't exist in db.groups
         const groupExists = activeGroups.some(

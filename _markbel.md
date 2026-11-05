@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.5.19  
+> **Status:** Production / v2.7.1  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -328,4 +328,90 @@ Each milestone must pass the strict Markbel release pipeline:
 - **Extension Clean Packaging & Unpacked Distribution:**
   - Cleaned `dist-extension` before packaging in `package.json` and mirrored fresh builds to `D:\apps\0-setup\markbel-extension\` with pre-cleaned `assets/` subfolder.
 - **Verification Gate:** 555/555 Vitest unit and integration tests passing (`npm test`), 0 TypeScript errors (`npm run typecheck`), edge worker and PWA deployed to `https://mark.obel.workers.dev`.
+
+### In-Page Toast Shortcut Save, Unified JSON/HTML Importer & Permission Minimization (v2.5.20):
+- **In-Page Toast Shortcut Save (`Alt+Shift+S`):**
+  - Replaced noisy OS-level notifications (`chrome.notifications.create`) in `extension/src/background.ts` with runtime tab messaging `MARKBEL_SHOW_TOAST`.
+  - Implemented `showMarkbelToast` in `extension/src/content.ts` rendering an isolated, glassmorphic floating notification (`#0d1117`, cyan checkmark icon, truncated title, group pill badge) with auto-dismissal after 2.2s.
+  - Ensured 100% Manifest V3 CSP compliance with zero inline event handlers and strict text escaping.
+- **Unified JSON & Netscape HTML Import Engine:**
+  - Architected `src/lib/bookmarkImport.ts` and updated `src/components/settings/DataBackupCard.tsx` (`accept=".html,.htm,.json"`).
+  - Full bidirectional support for restoring native Markbel JSON backups (`{ bookmarks: [...], groups: [...] }` or array) with case-insensitive URL deduplication, group auto-registration, and instant thumbnail heuristics.
+  - Netscape HTML importer extracts `<A ICON="...">` and `<A FAVICON="...">` favicon attributes and resolves parent `<DL><H3>` group hierarchy.
+  - Zero-network instant media heuristics compute YouTube video posters and GitHub OpenGraph covers at 0ms.
+- **Manifest Permission Minimization:**
+  - Removed unused `"notifications"` permission from `extension/manifest.json` and `extension/manifest.firefox.json` to reduce browser permission prompts.
+### Image Pipeline Hardening, Video Stream Purge & Private IP Favicon Sanitizer (v2.6.1):
+- **Deterministic Media Heuristics & Stream Detection:**
+  - Expanded `isFaviconUrl()` into canonical `isLowQualityImage(url?: string | null): boolean` in `src/lib/mediaHeuristics.ts` while retaining `isFaviconUrl` as a drop-in alias.
+  - Implemented `isVideoStreamUrl(url?: string | null): boolean` detecting HLS manifests (`.m3u8`), MPEG-DASH manifests (`.mpd`), transport stream chunks (`.ts`), and video streaming endpoints on known hosts (`video.vid3rb.com/video/`, `videodelivery.net`).
+  - Added low-quality image detection for Google S2 favicon service, generic favicon URLs, `.ico`/`.svg` assets, Meta shell static assets (`static.cdninstagram.com/rsrc.php`), small dimension query hints (`sz=32`, `s=64`, `w=32`, `h=32` where dim <= 64), and brand badge/logo/avatar URL paths. Preserved educational Wikimedia Commons illustrations.
+- **Backend Scraper Hardening & 302 Video Poster Resolution:**
+  - Fortified `worker/src/lib/metadataScraper.ts` in OpenGraph parsing, Cheerio fallbacks, and Microlink steps to validate candidate images with `isLowQualityImage` and `isVideoStreamUrl`.
+  - Implemented `resolveVideoThumbnail()`: resolves 302 redirects from `video.vid3rb.com/video/<uuid>` to extract static JPEG posters (`https://thumbnails.vid3rb.com/.../thumbnail.001.jpeg`).
+  - Hardened edge image proxy (`worker/src/routes/media.ts`) in `/api/proxy/image`: immediately rejects video stream manifests with 415, checks redirect hops, and validates binary streams using magic-byte sniffing (`sniffImageMimeType`), rejecting unrecognized binary payloads with 415 rather than defaulting to corrupt JPEG.
+- **Bookmark Components & Favicon SSRF Sanitizer:**
+  - Implemented `isSafeFaviconUrl()` in `src/lib/urlSafety.ts`: validates that custom bookmark favicons use safe public URLs and that any Google S2 proxy URL does not target private RFC 1918 IPv4 or IPv6 loopback addresses.
+  - Updated `src/components/BookmarkCard.tsx` (Grid, List, and Masonry layouts) to sanitize `b.favicon` before rendering, falling back to `getPublicFaviconUrl(b.url)` or placeholder icons.
+  - Upgraded `src/components/BookmarkImage.tsx` to reject video stream and low quality URLs in `getInitialStage()`, `captureAndCacheThumbnail()`, and error fallbacks.
+- **Self-Healing Dexie Database Sweep:**
+  - Upgraded `repairAndEnrichBookmarkThumbnails()` in `src/db/db.ts` to scan non-deleted IndexedDB bookmarks on launch, scrub video stream URLs and low-quality logos from `image`, clear private IP favicons from `favicon`, and re-enrich media art using `extractInstantMediaMetadata()`.
+- **Verification Gate:** 586/586 Vitest unit and integration tests passing (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), production assets deployed to `https://mark.obel.workers.dev`.
+
+### Series Progression Engine, Two-Way TickTick Sync, Alt+O Resilience & Master-Detail Settings Suite (v2.7.0):
+- **Episodic Series Progression & Automatic Succession:**
+  - Implemented `src/lib/seriesProgression.ts` with extensible strategy architecture covering EgyDead, Anime3rb, YouTube Playlists, Crunchyroll, Manga/Comics, and Generic Streaming patterns.
+  - Automatically identifies episodic patterns, extracts current season/episode, and deterministically computes the next sequential episode URL.
+  - Upgraded IndexedDB schema to Dexie v11 with `seriesKey` indexing and added `seriesKey`, `seriesEpisode`, `seriesSeason`, and `seriesHistory` to `LocalBookmark`.
+  - Added `advanceSeriesBookmark(existingId, incomingUrl, mode)` supporting in-place progression with rollback history, separate bookmark creation, or delete succession.
+  - Upgraded `BookmarkCard.tsx` with episodic badges (e.g. `EP 5`, `S1 EP 5`), inline `+1 Next Ep` quick action, and rollback to previous episodes.
+- **Alt+O Spotlight Shortcut Resilience:**
+  - Hardened extension service worker in `extension/src/background.ts`: explicitly targets `tab.windowId` when executing `chrome.action.openPopup()`.
+  - Added automatic fallback to web vault spotlight (`/app?search=1`) when triggered on `about:blank`, restricted browser schema (`chrome://`, `edge://`, `moz-extension://`), or when popup fails.
+  - Updated `extension/src/popup/popupUtils.ts`: forces search view on blank or restricted tabs.
+- **Two-Way TickTick Synchronization:**
+  - Architected `src/lib/ticktickSync.ts` supporting full authenticated CRUD over TickTick Open API v1 (`getTickTickProjects`, `createTickTickTask`, `completeTickTickTask`, `updateTickTickTask`).
+  - Created `TickTickIntegrationCard.tsx` in settings suite with token input, live project selector, connection testing, and status indicator.
+  - Added background synchronization in `SyncManager.ts` reconciling read bookmarks with completed TickTick tasks.
+- **Responsive Master-Detail Settings Suite:**
+  - Redesigned `src/views/SettingsPage.tsx` with a multi-breakpoint Master-Detail architecture: 280px sticky sidebar rail on desktop (avatar, sync status, search omnibox, vertical tabs) and swipeable segmented pill rail on mobile.
+  - Embedded `TickTickIntegrationCard` and dedicated `SeriesProgressionCard`.
+- **Mobile UX & Theme Polish:**
+  - Styled `<option>` tags inside `<select>` dropdowns with surface background and contrast text, eliminating the white box in dark mode.
+  - Unified mobile filter header (< 640px) into a single compact swipeable strip so status pills and category pills do not double-stack and waste 180px.
+  - Enforced `calc(1rem + env(safe-area-inset-top))` and `calc(1rem + env(safe-area-inset-bottom))` across mobile headers, viewport, and action bars.
+- **Edge Worker Permissions-Policy & Direct Favicon Error Eradication:**
+  - Added clean security headers in `worker/src/index.ts` (`Permissions-Policy: camera=(), microphone=(), geolocation=()`).
+  - Configured `getPublicFaviconUrl` to return `/favicon.ico` directly for `mark.obel.workers.dev`, `localhost`, and `window.location.hostname`, preventing Google S2 404 network errors.
+  - Added `effectiveImage` and `isLowQualityImage` checks in `src/views/ArchivePage.tsx`.
+- **Verification Gate:** 610/610 Vitest tests passing (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh browser extension packages produced and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev`.
+
+### Smart Auto-Grouping Engine, 8-Pillar Taxonomy Presets & Remote Vault Reorganization (v2.7.1):
+- **Constraint Operator Expansion & MatchMode Any:**
+  - Extended `ConstraintOperator` type in `src/lib/smartGroups.ts` with `'title_contains'` and `'content_type_equals'`.
+  - Updated `evaluateConstraint`, `evaluateCompoundRule`, `inspectSmartGroupMatch`, and `resolveSmartGroup` to accept and evaluate `title` and `contentType`.
+  - Added support for `matchMode?: 'all' | 'any'` on `CompoundSmartGroupRule`, enabling flexible multi-alternative condition matching (OR) alongside strict compound constraints (AND).
+  - Updated `calculateRuleSpecificity` with granular weighting for title (+12) and content type (+10).
+  - Enhanced LRU cache keys to incorporate normalized `title` and `contentType`.
+- **8-Pillar Taxonomy Presets & Settings UI Craftsmanship:**
+  - Updated `PRESET_SMART_RULES` to include 6 curated presets across the 8-pillar taxonomy:
+    - Anime (`preset-anime`, indigo): `anime3rb.com`, `egydead`, `Sousou no Frieren`, `Shangri-La Frontier`.
+    - Dev (`preset-dev`, emerald): `github.com`, `velosfocus.pages.dev`, `system design`, `docker`, `kubernetes`, `ai workflow`.
+    - Deen (`preset-deen`, teal): `رحلة اليقين`, `منهاج القاصدين`, `آفات اللسان`, `لحظة تفكر`.
+    - Music (`preset-music`, amber): `list=RD`, `playlist`, `slowed`, `acoustic`, `lyric video`.
+    - Tools (`preset-tools`, cyan): `file-converter.io`, `chromewebstore`.
+    - Design (`preset-design`, rose): `wallpapercave.com`, `wallpaper`.
+  - Extended `settingsConstants.ts` with `title_contains` and `content_type_equals` in `OPERATOR_CONFIG`, mapped Lucide vector icons (`Film`, `Compass`, `Music`, `Wrench`, `Palette`), and added `teal` and `rose` color tokens.
+  - Enhanced live sandbox in `SmartGroupsCard.tsx` with dedicated title input and rule condition connection badges displaying `OR` for `any` matchMode.
+- **Client Auto-Organization & Integration Seams:**
+  - Connected `resolveSmartGroup` in `db.ts` (`autoOrganizeUnsortedBookmarks`), `WebSyncStorage.ts`, `ShareTargetPage.tsx`, and `AddBookmarkModal.tsx` to pass title and content type for intelligent retroactive and creation-time categorization.
+- **Cloudflare D1 Remote Database Vault Migration:**
+  - Restored deleted `Anime` group in D1 remote with color `indigo`.
+  - Provisioned missing 8-pillar groups (`Deen` teal, `Music` amber, `Tools` cyan, `Design` rose, `System` slate) in remote D1 with version increments.
+  - Executed 7 batch SQL updates on remote `markbel-db` reorganizing active bookmarks across Anime, Dev, Deen, Music, Tools, Design, and System.
+  - Verified remote distribution: Insta (15), Dev (10), Anime (10), Music (8), YT (7), System (3), Deen (3), Tools (2), Design (1), Unsorted (1).
+- **Verification Gate:** 620/620 Vitest tests passing (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh browser extension packages produced and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev`.
+
+
+
 

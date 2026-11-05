@@ -12,6 +12,7 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  Type,
   X as CloseIcon,
 } from "lucide-react";
 import {
@@ -57,6 +58,7 @@ export default function SmartGroupsCard({
 
   // Live Test Sandbox State
   const [sandboxUrl, setSandboxUrl] = useState("");
+  const [sandboxTitle, setSandboxTitle] = useState("");
 
   // Compound Constraint Builder State
   const [builderRuleName, setBuilderRuleName] = useState("");
@@ -74,8 +76,13 @@ export default function SmartGroupsCard({
   const [jsonError, setJsonError] = useState("");
 
   // Sandbox evaluation
-  const sandboxResult = sandboxUrl.trim()
-    ? inspectSmartGroupMatch(sandboxUrl.trim(), availableGroups, customRules)
+  const sandboxResult = (sandboxUrl.trim() || sandboxTitle.trim())
+    ? inspectSmartGroupMatch(
+        sandboxUrl.trim() || "https://example.com",
+        availableGroups,
+        customRules,
+        sandboxTitle.trim()
+      )
     : null;
 
   // 1-Click Preset Installation & Removal
@@ -336,28 +343,51 @@ export default function SmartGroupsCard({
           </span>
         </div>
         <p className="text-[11px] text-[var(--color-text-muted)]">
-          Paste any URL to test how your configured rules and defaults evaluate before saving.
+          Test how URLs and page titles resolve against configured rules and default heuristics.
         </p>
 
-        <div className="relative">
-          <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input
-            type="text"
-            value={sandboxUrl}
-            onChange={(e) => setSandboxUrl(e.target.value)}
-            placeholder="e.g. https://www.youtube.com/watch?v=123&list=PLabc"
-            className="w-full pl-9 pr-9 py-2 bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] font-mono focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
-          />
-          {sandboxUrl && (
-            <button
-              type="button"
-              onClick={() => setSandboxUrl("")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
-              title="Clear input"
-            >
-              <CloseIcon className="w-3.5 h-3.5" />
-            </button>
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="relative">
+            <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+            <input
+              type="text"
+              value={sandboxUrl}
+              onChange={(e) => setSandboxUrl(e.target.value)}
+              placeholder="e.g. https://www.youtube.com/watch?v=123"
+              className="w-full pl-9 pr-9 py-2 bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] font-mono focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+            />
+            {sandboxUrl && (
+              <button
+                type="button"
+                onClick={() => setSandboxUrl("")}
+                className="absolute right-0 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                title="Clear URL"
+              >
+                <CloseIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <Type className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+            <input
+              type="text"
+              value={sandboxTitle}
+              onChange={(e) => setSandboxTitle(e.target.value)}
+              placeholder="Optional title e.g. System Design Course"
+              className="w-full pl-9 pr-9 py-2 bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] rounded-lg text-xs text-[var(--color-text-primary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+            />
+            {sandboxTitle && (
+              <button
+                type="button"
+                onClick={() => setSandboxTitle("")}
+                className="absolute right-0 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                title="Clear title"
+              >
+                <CloseIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {sandboxResult ? (
@@ -799,7 +829,7 @@ export default function SmartGroupsCard({
                           <span key={c.id || i} className="inline-flex items-center gap-1">
                             {i > 0 && (
                               <span className="text-[9px] font-bold text-[var(--color-accent)] px-1">
-                                AND
+                                {rule.matchMode === "any" ? "OR" : "AND"}
                               </span>
                             )}
                             <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--color-bg-canvas)] text-[var(--color-text-primary)] px-2 py-0.5 rounded border border-[var(--color-border-default)] truncate max-w-[180px]">

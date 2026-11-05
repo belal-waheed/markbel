@@ -12,7 +12,9 @@ export type ConstraintOperator =
   | 'domain_contains'
   | 'url_contains'
   | 'path_starts_with'
-  | 'query_param_exists';
+  | 'query_param_exists'
+  | 'title_contains'
+  | 'content_type_equals';
 
 export interface RuleConstraint {
   id: string;
@@ -26,6 +28,7 @@ export interface CompoundSmartGroupRule {
   group: string;
   groupColor?: string;
   constraints: RuleConstraint[];
+  matchMode?: 'all' | 'any';
   isPreset?: boolean;
   createdAt?: string;
 }
@@ -85,6 +88,96 @@ export const DEFAULT_SMART_GROUPS: SmartGroupDefinition[] = [
 ];
 
 export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
+  // 1. Anime & Episodic Media
+  {
+    id: 'preset-anime',
+    name: 'Anime & Streaming',
+    group: 'Anime',
+    groupColor: 'indigo',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-anime-1', operator: 'domain_contains', value: 'anime3rb.com' },
+      { id: 'c-anime-2', operator: 'domain_contains', value: 'egydead' },
+      { id: 'c-anime-3', operator: 'title_contains', value: 'Sousou no Frieren' },
+      { id: 'c-anime-4', operator: 'title_contains', value: 'Shangri-La Frontier' },
+    ],
+  },
+  // 2. Developer & Engineering
+  {
+    id: 'preset-dev',
+    name: 'Developer & Engineering',
+    group: 'Dev',
+    groupColor: 'emerald',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-dev-1', operator: 'domain_equals', value: 'github.com' },
+      { id: 'c-dev-2', operator: 'domain_contains', value: 'velosfocus.pages.dev' },
+      { id: 'c-dev-3', operator: 'title_contains', value: 'system design' },
+      { id: 'c-dev-4', operator: 'title_contains', value: 'docker' },
+      { id: 'c-dev-5', operator: 'title_contains', value: 'kubernetes' },
+      { id: 'c-dev-6', operator: 'title_contains', value: 'ai workflow' },
+    ],
+  },
+  // 3. Deen & Islamic Reflections
+  {
+    id: 'preset-deen',
+    name: 'Deen & Islamic Knowledge',
+    group: 'Deen',
+    groupColor: 'teal',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-deen-1', operator: 'title_contains', value: 'رحلة اليقين' },
+      { id: 'c-deen-2', operator: 'title_contains', value: 'منهاج القاصدين' },
+      { id: 'c-deen-3', operator: 'title_contains', value: 'آفات اللسان' },
+      { id: 'c-deen-4', operator: 'title_contains', value: 'لحظة تفكر' },
+    ],
+  },
+  // 4. Music & Audio Playlists
+  {
+    id: 'preset-music',
+    name: 'Music & Playlists',
+    group: 'Music',
+    groupColor: 'amber',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-music-1', operator: 'query_param_exists', value: 'list=RD' },
+      { id: 'c-music-2', operator: 'title_contains', value: 'playlist' },
+      { id: 'c-music-3', operator: 'title_contains', value: 'slowed' },
+      { id: 'c-music-4', operator: 'title_contains', value: 'acoustic' },
+      { id: 'c-music-5', operator: 'title_contains', value: 'lyric video' },
+    ],
+  },
+  // 5. Tools & Utilities
+  {
+    id: 'preset-tools',
+    name: 'Tools & Utilities',
+    group: 'Tools',
+    groupColor: 'cyan',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-tools-1', operator: 'domain_equals', value: 'file-converter.io' },
+      { id: 'c-tools-2', operator: 'domain_contains', value: 'chromewebstore' },
+    ],
+  },
+  // 6. Design & Wallpapers
+  {
+    id: 'preset-design',
+    name: 'Design & Wallpapers',
+    group: 'Design',
+    groupColor: 'rose',
+    matchMode: 'any',
+    isPreset: true,
+    constraints: [
+      { id: 'c-design-1', operator: 'domain_equals', value: 'wallpapercave.com' },
+      { id: 'c-design-2', operator: 'title_contains', value: 'wallpaper' },
+    ],
+  },
+  // YouTube Playlists
   {
     id: 'preset-yt-playlists',
     name: 'YouTube Playlists',
@@ -96,6 +189,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-yt-list', operator: 'url_contains', value: 'list=' },
     ],
   },
+  // YouTube Videos
   {
     id: 'preset-yt-videos',
     name: 'YouTube Videos',
@@ -106,6 +200,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-yt-v-domain', operator: 'domain_equals', value: 'youtube.com' },
     ],
   },
+  // GitHub Repositories
   {
     id: 'preset-github-repos',
     name: 'GitHub Repos',
@@ -116,6 +211,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-gh-domain', operator: 'domain_equals', value: 'github.com' },
     ],
   },
+  // Reddit Communities
   {
     id: 'preset-reddit',
     name: 'Reddit Communities',
@@ -127,6 +223,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-rd-path', operator: 'url_contains', value: '/r/' },
     ],
   },
+  // X / Twitter
   {
     id: 'preset-x-twitter',
     name: 'X / Twitter',
@@ -137,6 +234,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-x-domain', operator: 'domain_equals', value: 'x.com' },
     ],
   },
+  // Newsletters & Substack
   {
     id: 'preset-newsletters',
     name: 'Newsletters & Articles',
@@ -147,6 +245,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-sub-domain', operator: 'domain_contains', value: 'substack.com' },
     ],
   },
+  // Academic Papers
   {
     id: 'preset-academic-pdf',
     name: 'Academic Papers',
@@ -157,6 +256,7 @@ export const PRESET_SMART_RULES: CompoundSmartGroupRule[] = [
       { id: 'c-pdf-url', operator: 'url_contains', value: '.pdf' },
     ],
   },
+  // Instagram
   {
     id: 'preset-instagram',
     name: 'Instagram',
@@ -219,6 +319,7 @@ export function normalizeRule(rule: CompoundSmartGroupRule | CustomGroupRule): C
     return {
       ...rule,
       name: rule.name || rule.group,
+      matchMode: rule.matchMode || 'all',
       constraints: (rule.constraints || []).map((c) => ({
         id: c.id || crypto.randomUUID(),
         operator: c.operator,
@@ -233,6 +334,7 @@ export function normalizeRule(rule: CompoundSmartGroupRule | CustomGroupRule): C
     id: legacy.id || crypto.randomUUID(),
     name: legacy.domain || legacy.group,
     group: legacy.group,
+    matchMode: 'all',
     constraints: [
       {
         id: crypto.randomUUID(),
@@ -245,17 +347,31 @@ export function normalizeRule(rule: CompoundSmartGroupRule | CustomGroupRule): C
 }
 
 /**
- * Evaluates a single atomic constraint against a URL.
+ * Evaluates a single atomic constraint against a URL, optional title, and optional contentType.
  */
-export function evaluateConstraint(url: string, constraint: RuleConstraint): boolean {
-  if (!url || !constraint || !constraint.value) return false;
+export function evaluateConstraint(
+  url: string,
+  constraint: RuleConstraint,
+  title?: string,
+  contentType?: string
+): boolean {
+  if (!constraint || !constraint.value) return false;
+  const val = constraint.value.trim().toLowerCase();
+  if (!val) return false;
+
+  if (constraint.operator === 'title_contains') {
+    return (title || '').toLowerCase().includes(val);
+  }
+
+  if (constraint.operator === 'content_type_equals') {
+    return (contentType || '').toLowerCase() === val;
+  }
+
+  if (!url) return false;
   const parsed = safeParseUrl(url);
   if (!parsed) return false;
 
   const rawUrlLower = url.toLowerCase();
-  const val = constraint.value.trim().toLowerCase();
-  if (!val) return false;
-
   const hostname = parsed.hostname.replace(/^www\./, '').toLowerCase();
 
   switch (constraint.operator) {
@@ -297,14 +413,22 @@ export function evaluateConstraint(url: string, constraint: RuleConstraint): boo
 }
 
 /**
- * Evaluates all constraints of a compound rule with logical AND.
+ * Evaluates all constraints of a compound rule with logical AND (or logical OR if matchMode === 'any').
  * Returns false if rule has no constraints.
  */
-export function evaluateCompoundRule(url: string, rule: CompoundSmartGroupRule): boolean {
-  if (!url || !rule || !Array.isArray(rule.constraints) || rule.constraints.length === 0) {
+export function evaluateCompoundRule(
+  url: string,
+  rule: CompoundSmartGroupRule,
+  title?: string,
+  contentType?: string
+): boolean {
+  if (!rule || !Array.isArray(rule.constraints) || rule.constraints.length === 0) {
     return false;
   }
-  return rule.constraints.every((c) => evaluateConstraint(url, c));
+  if (rule.matchMode === 'any') {
+    return rule.constraints.some((c) => evaluateConstraint(url, c, title, contentType));
+  }
+  return rule.constraints.every((c) => evaluateConstraint(url, c, title, contentType));
 }
 
 /**
@@ -323,6 +447,12 @@ export function calculateRuleSpecificity(rule: CompoundSmartGroupRule): number {
       case 'path_starts_with':
       case 'url_contains':
         score += 15;
+        break;
+      case 'title_contains':
+        score += 12;
+        break;
+      case 'content_type_equals':
+        score += 10;
         break;
       case 'domain_equals':
         score += 5 + Math.min(c.value.length, 10);
@@ -387,7 +517,9 @@ export async function saveCustomSmartGroupRules(
 export function inspectSmartGroupMatch(
   url: string,
   availableGroups?: string[],
-  customRules?: (CompoundSmartGroupRule | CustomGroupRule)[]
+  customRules?: (CompoundSmartGroupRule | CustomGroupRule)[],
+  title?: string,
+  contentType?: string
 ): RuleMatchResult {
   if (!url || typeof url !== 'string') {
     return { group: 'Unsorted', isDefault: false };
@@ -397,7 +529,7 @@ export function inspectSmartGroupMatch(
   if (customRules && customRules.length > 0) {
     const sortedRules = sortRulesBySpecificity(customRules);
     for (const rule of sortedRules) {
-      if (evaluateCompoundRule(url, rule)) {
+      if (evaluateCompoundRule(url, rule, title, contentType)) {
         let targetGroup = rule.group;
         if (availableGroups && availableGroups.length > 0) {
           const matchedGroup = availableGroups.find(
@@ -472,18 +604,22 @@ export function getSmartGroupCacheSize(): number {
 }
 
 /**
- * Resolves the matching smart group name for a given URL.
+ * Resolves the matching smart group name for a given URL, optional title, and optional contentType.
  * Evaluates custom user-defined compound rules before falling back to default groups.
- * Memoized with an in-memory LRU cache (max 1000 items) keyed by `${url}|${rules.length}`.
+ * Memoized with an in-memory LRU cache (max 1000 items).
  */
 export function resolveSmartGroup(
   url: string,
   availableGroups?: string[],
-  customRules?: (CompoundSmartGroupRule | CustomGroupRule)[]
+  customRules?: (CompoundSmartGroupRule | CustomGroupRule)[],
+  title?: string,
+  contentType?: string
 ): string {
   const rulesLength = customRules ? customRules.length : 0;
   const groupsKey = availableGroups && availableGroups.length > 0 ? `|${availableGroups.join(',')}` : '';
-  const cacheKey = `${url}|${rulesLength}${groupsKey}`;
+  const titleKey = title ? `|t:${title.toLowerCase()}` : '';
+  const typeKey = contentType ? `|c:${contentType.toLowerCase()}` : '';
+  const cacheKey = `${url}|${rulesLength}${groupsKey}${titleKey}${typeKey}`;
 
   if (smartGroupCache.has(cacheKey)) {
     const cached = smartGroupCache.get(cacheKey)!;
@@ -493,7 +629,7 @@ export function resolveSmartGroup(
     return cached;
   }
 
-  const match = inspectSmartGroupMatch(url, availableGroups, customRules);
+  const match = inspectSmartGroupMatch(url, availableGroups, customRules, title, contentType);
   const result = match.group;
 
   if (smartGroupCache.size >= SMART_GROUP_CACHE_MAX) {

@@ -3,12 +3,17 @@ import {
   BookOpen,
   Camera,
   Code,
+  Compass,
   FileText,
+  Film,
   Layers,
   MessageSquare,
+  Music,
+  Palette,
   Share2,
   Sparkles,
   Video,
+  Wrench,
 } from "lucide-react";
 import { ConstraintOperator } from "../../lib/smartGroups.js";
 
@@ -21,6 +26,10 @@ export const COLOR_OPTIONS = [
   { name: "pink", label: "Pink", bg: "bg-pink-500" },
   { name: "orange", label: "Orange", bg: "bg-orange-500" },
   { name: "slate", label: "Slate", bg: "bg-slate-500" },
+  { name: "indigo", label: "Indigo", bg: "bg-indigo-500" },
+  { name: "teal", label: "Teal", bg: "bg-teal-500" },
+  { name: "cyan", label: "Cyan", bg: "bg-cyan-500" },
+  { name: "rose", label: "Rose", bg: "bg-rose-500" },
 ];
 
 export const COLOR_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -34,7 +43,9 @@ export const COLOR_STYLES: Record<string, { bg: string; text: string; border: st
   blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-blue-500/30" },
   slate: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/30" },
   indigo: { bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-500/30" },
+  teal: { bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400", border: "border-teal-500/30" },
   cyan: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-500/30" },
+  rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-rose-500/30" },
 };
 
 export function getGroupBadgeClass(colorName?: string): string {
@@ -72,6 +83,16 @@ export const OPERATOR_CONFIG: Record<
     placeholder: "e.g. list or v=123",
     prefix: "Query param",
   },
+  title_contains: {
+    label: "Title contains",
+    placeholder: "e.g. system design or episode",
+    prefix: "Title contains",
+  },
+  content_type_equals: {
+    label: "Content type",
+    placeholder: "e.g. video, article, or image",
+    prefix: "Type =",
+  },
 };
 
 export const OPERATOR_OPTIONS = (Object.keys(OPERATOR_CONFIG) as ConstraintOperator[]).map((key) => ({
@@ -81,6 +102,18 @@ export const OPERATOR_OPTIONS = (Object.keys(OPERATOR_CONFIG) as ConstraintOpera
 
 export function getPresetIcon(presetId: string): React.ReactElement {
   switch (presetId) {
+    case "preset-anime":
+      return <Film className="w-4 h-4 text-indigo-500" />;
+    case "preset-dev":
+      return <Code className="w-4 h-4 text-emerald-500" />;
+    case "preset-deen":
+      return <Compass className="w-4 h-4 text-teal-500" />;
+    case "preset-music":
+      return <Music className="w-4 h-4 text-amber-500" />;
+    case "preset-tools":
+      return <Wrench className="w-4 h-4 text-cyan-500" />;
+    case "preset-design":
+      return <Palette className="w-4 h-4 text-rose-500" />;
     case "preset-yt-playlists":
       return <Layers className="w-4 h-4 text-amber-500" />;
     case "preset-yt-videos":

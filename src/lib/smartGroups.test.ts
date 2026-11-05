@@ -80,6 +80,45 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       expect(evaluateConstraint('https://www.youtube.com/watch?v=abc&list=PL1', kvConstraint)).toBe(true);
       expect(evaluateConstraint('https://www.youtube.com/watch?v=other', kvConstraint)).toBe(false);
     });
+
+    it('evaluates title_contains constraint case-insensitively', () => {
+      // Arrange
+      const titleConstraint = { id: 'c7', operator: 'title_contains' as const, value: 'system design' };
+      const arabicConstraint = { id: 'c8', operator: 'title_contains' as const, value: 'رحلة اليقين' };
+
+      // Act & Assert
+      expect(
+        evaluateConstraint('https://youtube.com/watch?v=1', titleConstraint, 'Complete System Design Course (APIs, DBs)')
+      ).toBe(true);
+      expect(
+        evaluateConstraint('https://youtube.com/watch?v=2', titleConstraint, 'Docker and Kubernetes Tutorial')
+      ).toBe(false);
+      expect(
+        evaluateConstraint('https://youtube.com/watch?v=3', titleConstraint, undefined)
+      ).toBe(false);
+      expect(
+        evaluateConstraint('https://youtube.com/watch?v=4', arabicConstraint, 'رحلة اليقين ١: بناء الدعائم')
+      ).toBe(true);
+    });
+
+    it('evaluates content_type_equals constraint case-insensitively', () => {
+      // Arrange
+      const videoConstraint = { id: 'c9', operator: 'content_type_equals' as const, value: 'video' };
+
+      // Act & Assert
+      expect(
+        evaluateConstraint('https://example.com/asset', videoConstraint, undefined, 'video')
+      ).toBe(true);
+      expect(
+        evaluateConstraint('https://example.com/asset', videoConstraint, undefined, 'VIDEO')
+      ).toBe(true);
+      expect(
+        evaluateConstraint('https://example.com/asset', videoConstraint, undefined, 'article')
+      ).toBe(false);
+      expect(
+        evaluateConstraint('https://example.com/asset', videoConstraint, undefined, undefined)
+      ).toBe(false);
+    });
   });
 
   describe('Compound Rule Evaluation', () => {
@@ -102,6 +141,32 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       expect(evaluateCompoundRule('https://www.youtube.com/watch?v=123', rule)).toBe(false);
       // Neither matches -> false
       expect(evaluateCompoundRule('https://vimeo.com/123', rule)).toBe(false);
+    });
+
+    it('evaluates rules with matchMode any when at least one constraint matches', () => {
+      // Arrange
+      const anyRule: CompoundSmartGroupRule = {
+        id: 'r-any',
+        name: 'Anime Media',
+        group: 'Anime',
+        matchMode: 'any',
+        constraints: [
+          { id: 'c1', operator: 'domain_contains', value: 'anime3rb.com' },
+          { id: 'c2', operator: 'title_contains', value: 'Sousou no Frieren' },
+        ],
+      };
+
+      // Act & Assert
+      // First matches
+      expect(evaluateCompoundRule('https://anime3rb.com/episode/1', anyRule)).toBe(true);
+      // Second matches
+      expect(
+        evaluateCompoundRule('https://example.com/watch', anyRule, 'Sousou no Frieren - Episode 4')
+      ).toBe(true);
+      // Neither matches
+      expect(
+        evaluateCompoundRule('https://example.com/watch', anyRule, 'Unrelated title')
+      ).toBe(false);
     });
 
     it('returns false for rules with no constraints', () => {
@@ -277,9 +342,42 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
   });
 
   describe('Pre-configured Smart Rules Catalog', () => {
-    it('contains all 8 curated presets with proper constraints', () => {
+    it('contains all 14 curated presets with proper constraints', () => {
       // Assert
-      expect(PRESET_SMART_RULES.length).toBe(8);
+      expect(PRESET_SMART_RULES.length).toBe(14);
+
+      const animePreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-anime');
+      expect(animePreset).toBeDefined();
+      expect(animePreset?.group).toBe('Anime');
+      expect(animePreset?.groupColor).toBe('indigo');
+      expect(animePreset?.matchMode).toBe('any');
+      expect(animePreset?.constraints.length).toBe(4);
+
+      const devPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-dev');
+      expect(devPreset).toBeDefined();
+      expect(devPreset?.group).toBe('Dev');
+      expect(devPreset?.groupColor).toBe('emerald');
+      expect(devPreset?.constraints.length).toBe(6);
+
+      const deenPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-deen');
+      expect(deenPreset).toBeDefined();
+      expect(deenPreset?.group).toBe('Deen');
+      expect(deenPreset?.groupColor).toBe('teal');
+
+      const musicPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-music');
+      expect(musicPreset).toBeDefined();
+      expect(musicPreset?.group).toBe('Music');
+      expect(musicPreset?.groupColor).toBe('amber');
+
+      const toolsPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-tools');
+      expect(toolsPreset).toBeDefined();
+      expect(toolsPreset?.group).toBe('Tools');
+      expect(toolsPreset?.groupColor).toBe('cyan');
+
+      const designPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-design');
+      expect(designPreset).toBeDefined();
+      expect(designPreset?.group).toBe('Design');
+      expect(designPreset?.groupColor).toBe('rose');
 
       const playlistPreset = PRESET_SMART_RULES.find((p) => p.id === 'preset-yt-playlists');
       expect(playlistPreset).toBeDefined();
@@ -378,6 +476,34 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
       expect(getSmartGroupCacheSize()).toBe(2);
     });
 
+    it('differentiates cache entries by title and content_type', () => {
+      // Arrange
+      clearSmartGroupCache();
+      const url = 'https://youtube.com/watch?v=multi';
+      const customRules: CompoundSmartGroupRule[] = [
+        {
+          id: 'rule-title',
+          name: 'System Design Lectures',
+          group: 'Dev',
+          constraints: [{ id: 'c1', operator: 'title_contains', value: 'System Design' }],
+        },
+      ];
+
+      // Act
+      const noTitleResult = resolveSmartGroup(url, undefined, customRules);
+      const withTitleResult = resolveSmartGroup(
+        url,
+        undefined,
+        customRules,
+        'Full System Design Course for Senior Engineers'
+      );
+
+      // Assert
+      expect(noTitleResult).toBe('YT');
+      expect(withTitleResult).toBe('Dev');
+      expect(getSmartGroupCacheSize()).toBe(2);
+    });
+
     it('evicts oldest entries when cache exceeds 1000 items', () => {
       // Arrange
       clearSmartGroupCache();
@@ -448,6 +574,92 @@ describe('Smart Auto-Grouper Unit Tests (AAA Pattern)', () => {
 
       // Assert
       expect(needsProvisioning).toBe(true);
+    });
+  });
+
+  describe('8-Pillar Taxonomy Presets Resolution Tests', () => {
+    it('correctly categorizes Anime URLs and titles', () => {
+      expect(
+        resolveSmartGroup('https://anime3rb.com/titles/sousou-no-frieren/episodes/1', undefined, PRESET_SMART_RULES)
+      ).toBe('Anime');
+      expect(
+        resolveSmartGroup('https://egydead.media/watch/123', undefined, PRESET_SMART_RULES)
+      ).toBe('Anime');
+      expect(
+        resolveSmartGroup('https://example.com/watch', undefined, PRESET_SMART_RULES, 'Sousou no Frieren Ep 4')
+      ).toBe('Anime');
+      expect(
+        resolveSmartGroup('https://example.com/watch', undefined, PRESET_SMART_RULES, 'Shangri-La Frontier S2')
+      ).toBe('Anime');
+    });
+
+    it('correctly categorizes Dev URLs and titles', () => {
+      expect(
+        resolveSmartGroup('https://github.com/belal-waheed/markbel', undefined, PRESET_SMART_RULES)
+      ).toBe('Dev');
+      expect(
+        resolveSmartGroup('https://velosfocus.pages.dev/dashboard', undefined, PRESET_SMART_RULES)
+      ).toBe('Dev');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=sd1', undefined, PRESET_SMART_RULES, 'System Design Fundamentals')
+      ).toBe('Dev');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=dk1', undefined, PRESET_SMART_RULES, 'Docker and Kubernetes Guide')
+      ).toBe('Dev');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=ai1', undefined, PRESET_SMART_RULES, 'Modern AI Workflow Tutorial')
+      ).toBe('Dev');
+    });
+
+    it('correctly categorizes Deen titles', () => {
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=d1', undefined, PRESET_SMART_RULES, 'رحلة اليقين: بناء الدعائم')
+      ).toBe('Deen');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=d2', undefined, PRESET_SMART_RULES, 'شرح مختصر منهاج القاصدين')
+      ).toBe('Deen');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=d3', undefined, PRESET_SMART_RULES, 'آفات اللسان والنجاة منها')
+      ).toBe('Deen');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=d4', undefined, PRESET_SMART_RULES, 'لحظة تفكر في آيات الله')
+      ).toBe('Deen');
+    });
+
+    it('correctly categorizes Music query params and titles', () => {
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=m1&list=RDabc123', undefined, PRESET_SMART_RULES)
+      ).toBe('Music');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=m2', undefined, PRESET_SMART_RULES, 'chill lofi indie playlist')
+      ).toBe('Music');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=m3', undefined, PRESET_SMART_RULES, 'Cry - Cigarettes After Sex (slowed + reverb)')
+      ).toBe('Music');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=m4', undefined, PRESET_SMART_RULES, 'Astrid S - Dance Dance Dance (Acoustic)')
+      ).toBe('Music');
+      expect(
+        resolveSmartGroup('https://youtube.com/watch?v=m5', undefined, PRESET_SMART_RULES, 'Official Lyric Video')
+      ).toBe('Music');
+    });
+
+    it('correctly categorizes Tools URLs', () => {
+      expect(
+        resolveSmartGroup('https://file-converter.io/compress-pdf', undefined, PRESET_SMART_RULES)
+      ).toBe('Tools');
+      expect(
+        resolveSmartGroup('https://chromewebstore.google.com/detail/just-zoom-it', undefined, PRESET_SMART_RULES)
+      ).toBe('Tools');
+    });
+
+    it('correctly categorizes Design URLs and titles', () => {
+      expect(
+        resolveSmartGroup('https://wallpapercave.com/w/wp123', undefined, PRESET_SMART_RULES)
+      ).toBe('Design');
+      expect(
+        resolveSmartGroup('https://example.com/asset', undefined, PRESET_SMART_RULES, 'Aesthetic 4K Wallpaper')
+      ).toBe('Design');
     });
   });
 
