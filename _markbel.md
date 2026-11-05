@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.8.0  
+> **Status:** Production / v2.8.1  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -452,6 +452,20 @@ Each milestone must pass the strict Markbel release pipeline:
   - Permitted `thumbnails.vid3rb.com` and `images.anime3rb.com` as high-quality image assets in `isLowQualityImage()`.
   - Added JSON-LD schema `partOfSeries.image` and DOM poster fallback extraction in `extension/src/metadata/extractPageMetadata.ts` and `worker/src/lib/metadataScraper.ts`.
 - **Verification Gate:** 649/649 Vitest tests passing across 47 test suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`), fresh browser extension packages produced (`npm run build:extension:all`) and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`, edge worker deployed live to `https://mark.obel.workers.dev` (Version ID `dcb44fe8-6daa-4ec0-b72e-65c39a461b36`).
+
+### Keyboard Event Isolation, Host Page Keystroke Containment & Shadow DOM Shielding (v2.8.1):
+- **Airtight Keyboard Event Containment in Alt+O Spotlight:**
+  - Added public `isOpen(): boolean` method to `MarkbelSpotlight` in `extension/src/spotlight/MarkbelSpotlight.ts`.
+  - Added unconditional `event.stopPropagation()` at the very top of `this.shadow.addEventListener('keydown', ...)` so every keystroke (such as 'm', 'k', 'f', 'j', 'l', 'c', space, digits) is contained strictly within the Spotlight Shadow DOM and never bubbles up to the host page (preventing YouTube from muting, pausing, seeking, or entering fullscreen).
+  - Added `keyup` and `keypress` listeners on `this.shadow` calling `event.stopPropagation()` for complete event lifecycle containment.
+  - Attached bubbling containment listeners directly on `this.host` (`<markbel-spotlight-host>`) for `keydown`, `keyup`, and `keypress`.
+- **Window Capture-Phase Interception:**
+  - Registered capture-phase (`useCapture: true`) listeners on `window` in `extension/src/content.ts` for both `keydown` and `keyup`.
+  - Verified `spotlight.isOpen()` and inspected `e.composedPath()`. When keystrokes originate inside `markbel-spotlight-host`, immediately calls `e.stopImmediatePropagation()`, defeating aggressive capture-phase keyboard shortcuts registered by complex SPAs (e.g., YouTube, Twitch, Twitter).
+- **Subsystem Verification:**
+  - Expanded `src/sync/ExtensionSpotlight.test.ts` with 5 new unit tests validating visibility reflection, Shadow DOM stopPropagation invocation, host element event trapping, prevention of event leakage to window/document, and capture-phase stopImmediatePropagation execution.
+  - 654/654 tests passing across 47 suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`).
+  - Packaged fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) bundles, synced unpacked mirror to `D:\apps\0-setup\markbel-extension\`, deployed live frontend and edge worker to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `c4e375af-03d4-4dd2-b9cf-8de2543860e0`).
 
 
 

@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.8.0
+                  What's New in Markbel v2.8.1
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                60 FPS scroll virtualization, in-HUD Alt+O 'n' key bookmark creation, deterministic 5-tier sorting &amp; Anime3rb media extraction
+                Complete keyboard event isolation, host page keystroke containment &amp; window capture interception in Alt+O Spotlight
               </p>
             </div>
           </div>
@@ -69,6 +69,40 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Keyboard Event Isolation & Host Page Keystroke Containment (v2.8.1) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Keyboard Event Isolation &amp; Host Page Keystroke Containment in Alt+O Spotlight
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.8.1
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Implemented strict two-tier keyboard event containment for the Alt+O Spotlight command palette. Added unconditional event.stopPropagation() across keydown, keyup, and keypress events inside the Spotlight Shadow DOM and on the markbel-spotlight-host custom element, completely shielding typing keystrokes (such as 'm', 'k', 'f', 'j', 'l', 'c', space, numbers) from bubbling to host pages and triggering video playback mutations (e.g. YouTube mute, pause, seek, or fullscreen). Introduced window capture-phase interception with stopImmediatePropagation() to defeat aggressive capturing listeners on host web apps.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Unconditional Shadow DOM Event Shielding</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Host Element &lt;markbel-spotlight-host&gt; Containment</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Window Capture-Phase Interception</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Feature: 60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key & Deterministic Sorting (v2.8.0) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

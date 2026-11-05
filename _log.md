@@ -405,3 +405,19 @@ tags:
 - Generated fresh Chromium and Firefox extension packages and synced unpacked mirror to `D:\apps\0-setup\markbel-extension\`.
 - Deployed frontend and edge worker triggers to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `dcb44fe8-6daa-4ec0-b72e-65c39a461b36`).
 - Verified 100% test coverage: 47 test suites, 649 unit tests passed; 0 TypeScript compilation errors.
+
+### Phase 28: Keyboard Event Isolation & Host Page Keystroke Containment (2026-11-05)
+- Implemented airtight keyboard event containment in `extension/src/spotlight/MarkbelSpotlight.ts`:
+  - Added public `isOpen(): boolean { return this.isVisible; }` method.
+  - Added unconditional `event.stopPropagation()` at the very top of `this.shadow.addEventListener('keydown', ...)` ensuring keystrokes typed inside Spotlight ('m', 'k', 'f', 'j', 'l', 'c', space, digits) never bubble into the host DOM.
+  - Added `keyup` and `keypress` listeners on `this.shadow` invoking `event.stopPropagation()`.
+  - Added `keydown`, `keyup`, and `keypress` containment listeners on `this.host` (`<markbel-spotlight-host>`).
+- Implemented window capture-phase keyboard interception in `extension/src/content.ts`:
+  - Added `window.addEventListener('keydown', ..., true)` and `window.addEventListener('keyup', ..., true)` capture listeners.
+  - Intercepted events where `spotlight.isOpen()` is true and `e.composedPath()` contains `markbel-spotlight-host`, invoking `e.stopImmediatePropagation()` to defeat aggressive host SPA keydown capturing handlers (e.g. YouTube video shortcuts).
+- Authored 5 new unit tests in `src/sync/ExtensionSpotlight.test.ts` verifying visibility state, stopPropagation invocation, host element containment, zero leakage to window/document, and capture-phase stopImmediatePropagation execution.
+- Bumped version to `2.8.1` across `package.json`, `extension/manifest.json`, `extension/manifest.firefox.json`, `index.html`, `public/llms.txt`, `public/llms-full.txt`, and `src/components/landing/landingConstants.ts`.
+- Updated `src/components/modals/ReleaseNotesModal.tsx` and `src/components/landing/LandingTopBanner.tsx`.
+- Packaged fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extensions, and mirrored unpacked build to `D:\apps\0-setup\markbel-extension\`.
+- Deployed frontend and Cloudflare Edge worker (`https://mark.obel.workers.dev`, Version ID `c4e375af-03d4-4dd2-b9cf-8de2543860e0`).
+- Quality gate passed: 47 test suites, 654 unit tests passing, 0 TypeScript errors.

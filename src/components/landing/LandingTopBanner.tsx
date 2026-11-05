@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            60 FPS Scroll Virtualization, In-HUD Alt+O 'n' Key New Bookmark &amp; Deterministic 5-Tier Sorting
+            Keyboard Event Isolation &amp; Host Page Keystroke Containment in Alt+O Spotlight
           </span>
         </div>
         <button

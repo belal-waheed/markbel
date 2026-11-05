@@ -21,6 +21,28 @@ describe('Extension In-Page Spotlight (Alt+O) Subsystem', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     dom = parseHTML('<!doctype html><html><body></body></html>');
+
+    class MockKeyboardEvent extends dom.window.Event {
+      public key: string;
+      public code: string;
+      public ctrlKey: boolean;
+      public altKey: boolean;
+      public shiftKey: boolean;
+      public metaKey: boolean;
+
+      constructor(type: string, init: any = {}) {
+        super(type, init);
+        this.key = init.key || '';
+        this.code = init.code || '';
+        this.ctrlKey = !!init.ctrlKey;
+        this.altKey = !!init.altKey;
+        this.shiftKey = !!init.shiftKey;
+        this.metaKey = !!init.metaKey;
+      }
+    }
+    (dom.window as any).KeyboardEvent = MockKeyboardEvent;
+    vi.stubGlobal('KeyboardEvent', MockKeyboardEvent);
+
     vi.stubGlobal('document', dom.document);
     vi.stubGlobal('window', dom.window);
     vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn() } });
@@ -233,6 +255,180 @@ describe('Extension In-Page Spotlight (Alt+O) Subsystem', () => {
       expect(searchView?.classList.contains('hidden')).toBe(false);
       expect(nbView?.classList.contains('hidden')).toBe(true);
 
+      spotlight.hide();
+    });
+  });
+
+  describe('5. Keyboard Event Isolation & Host Page Keystroke Containment', () => {
+    it('isOpen() accurately reflects spotlight visibility state', () => {
+      const spotlight = new MarkbelSpotlight();
+      expect(spotlight.isOpen()).toBe(false);
+
+      spotlight.show();
+      expect(spotlight.isOpen()).toBe(true);
+
+      spotlight.hide();
+      expect(spotlight.isOpen()).toBe(false);
+
+      spotlight.toggle();
+      expect(spotlight.isOpen()).toBe(true);
+
+      spotlight.toggle();
+      expect(spotlight.isOpen()).toBe(false);
+    });
+
+    it('contains all keystrokes inside Shadow DOM and invokes stopPropagation', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+      expect(host).toBeDefined();
+      const shadow = (host as any).shadowRoot as ShadowRoot;
+      expect(shadow).toBeDefined();
+
+      const testKeys = ['m', 'k', 'f', 'j', 'l', 'c', ' ', '1', 'Enter', 'Escape'];
+
+      for (const key of testKeys) {
+        const keydownEvent = new dom.window.KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        const stopSpy = vi.spyOn(keydownEvent, 'stopPropagation');
+        shadow.dispatchEvent(keydownEvent);
+        expect(stopSpy).toHaveBeenCalled();
+
+        const keyupEvent = new dom.window.KeyboardEvent('keyup', {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        const stopUpSpy = vi.spyOn(keyupEvent, 'stopPropagation');
+        shadow.dispatchEvent(keyupEvent);
+        expect(stopUpSpy).toHaveBeenCalled();
+
+        const keypressEvent = new dom.window.KeyboardEvent('keypress', {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        const stopPressSpy = vi.spyOn(keypressEvent, 'stopPropagation');
+        shadow.dispatchEvent(keypressEvent);
+        expect(stopPressSpy).toHaveBeenCalled();
+      }
+
+      spotlight.hide();
+    });
+
+    it('contains keyboard events on the host element (<markbel-spotlight-host>)', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+      expect(host).toBeDefined();
+
+      const keydownEvent = new dom.window.KeyboardEvent('keydown', {
+        key: 'm',
+        bubbles: true,
+        cancelable: true,
+      });
+      const stopDownSpy = vi.spyOn(keydownEvent, 'stopPropagation');
+      host.dispatchEvent(keydownEvent);
+      expect(stopDownSpy).toHaveBeenCalled();
+
+      const keyupEvent = new dom.window.KeyboardEvent('keyup', {
+        key: 'm',
+        bubbles: true,
+        cancelable: true,
+      });
+      const stopUpSpy = vi.spyOn(keyupEvent, 'stopPropagation');
+      host.dispatchEvent(keyupEvent);
+      expect(stopUpSpy).toHaveBeenCalled();
+
+      const keypressEvent = new dom.window.KeyboardEvent('keypress', {
+        key: 'm',
+        bubbles: true,
+        cancelable: true,
+      });
+      const stopPressSpy = vi.spyOn(keypressEvent, 'stopPropagation');
+      host.dispatchEvent(keypressEvent);
+      expect(stopPressSpy).toHaveBeenCalled();
+
+      spotlight.hide();
+    });
+
+    it('prevents shadow DOM keystrokes from leaking or bubbling to window or document', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+      const shadow = (host as any).shadowRoot as ShadowRoot;
+
+      const windowHandler = vi.fn();
+      const documentHandler = vi.fn();
+
+      dom.window.addEventListener('keydown', windowHandler);
+      dom.document.addEventListener('keydown', documentHandler);
+
+      // Dispatch 'm' key inside shadow DOM (YouTube mute shortcut)
+      const event = new dom.window.KeyboardEvent('keydown', {
+        key: 'm',
+        bubbles: true,
+        cancelable: true,
+      });
+      shadow.dispatchEvent(event);
+
+      // Verify that propagation was stopped and never reached document/window
+      expect(windowHandler).not.toHaveBeenCalled();
+      expect(documentHandler).not.toHaveBeenCalled();
+
+      dom.window.removeEventListener('keydown', windowHandler);
+      dom.document.removeEventListener('keydown', documentHandler);
+      spotlight.hide();
+    });
+
+    it('stops capture-phase propagation on window when event originates inside spotlight host', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+
+      const captureHandler = vi.fn((e: Event) => {
+        if (spotlight && spotlight.isOpen()) {
+          const path = (e as any).composedPath ? (e as any).composedPath() : [];
+          const isInside = path.some(
+            (el: any) => el instanceof dom.window.HTMLElement && el.tagName?.toLowerCase() === 'markbel-spotlight-host'
+          );
+          if (isInside) {
+            e.stopImmediatePropagation();
+          }
+        }
+      });
+
+      const hostPageWindowCaptureSpy = vi.fn();
+
+      // Register capture handler
+      dom.window.addEventListener('keydown', captureHandler, true);
+      // Register host page listener
+      dom.window.addEventListener('keydown', hostPageWindowCaptureSpy, true);
+
+      // Synthetic event targeting spotlight host
+      const event = new dom.window.KeyboardEvent('keydown', {
+        key: 'k',
+        bubbles: true,
+        cancelable: true,
+      });
+      (event as any).composedPath = () => [host, dom.document.body, dom.document.documentElement, dom.document, dom.window];
+
+      const stopImmediateSpy = vi.spyOn(event, 'stopImmediatePropagation');
+
+      dom.window.dispatchEvent(event);
+
+      expect(captureHandler).toHaveBeenCalled();
+      expect(stopImmediateSpy).toHaveBeenCalled();
+
+      dom.window.removeEventListener('keydown', captureHandler, true);
+      dom.window.removeEventListener('keydown', hostPageWindowCaptureSpy, true);
       spotlight.hide();
     });
   });

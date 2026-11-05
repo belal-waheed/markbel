@@ -10,6 +10,7 @@ import { filterAndRankBookmarks, type SearchBookmarkItem } from '@/lib/searchCat
 export { extractPageMetadata, type ExtractedPageMetadata };
 export { MarkbelSpotlight };
 export { filterAndRankBookmarks, type SearchBookmarkItem };
+export { spotlight };
 
 /**
  * In-Page Toast Notification Subsystem
@@ -178,6 +179,39 @@ export function showMarkbelToast(title: string, message: string, group?: string)
 let spotlight: MarkbelSpotlight | null = null;
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   spotlight = new MarkbelSpotlight();
+
+  // Host page keyboard capture isolation: intercept and stop host page capturing
+  // listeners from hijacking keystrokes originating inside Markbel Spotlight
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (spotlight && spotlight.isOpen()) {
+        const path = e.composedPath ? e.composedPath() : [];
+        const isInside = path.some(
+          (el) => el instanceof HTMLElement && el.tagName?.toLowerCase() === 'markbel-spotlight-host'
+        );
+        if (isInside) {
+          e.stopImmediatePropagation();
+        }
+      }
+    },
+    true // capture phase
+  );
+  window.addEventListener(
+    'keyup',
+    (e) => {
+      if (spotlight && spotlight.isOpen()) {
+        const path = e.composedPath ? e.composedPath() : [];
+        const isInside = path.some(
+          (el) => el instanceof HTMLElement && el.tagName?.toLowerCase() === 'markbel-spotlight-host'
+        );
+        if (isInside) {
+          e.stopImmediatePropagation();
+        }
+      }
+    },
+    true // capture phase
+  );
 
   // Global Alt+O shortcut for Spotlight launcher
   window.addEventListener(

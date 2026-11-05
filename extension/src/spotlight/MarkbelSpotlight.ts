@@ -327,6 +327,10 @@ export class MarkbelSpotlight {
     this.host.style.display = 'none';
     this.host.setAttribute('data-theme', this.themeMode);
 
+    this.host.addEventListener('keydown', (e: Event) => e.stopPropagation());
+    this.host.addEventListener('keyup', (e: Event) => e.stopPropagation());
+    this.host.addEventListener('keypress', (e: Event) => e.stopPropagation());
+
     this.shadow = this.host.attachShadow({ mode: 'open' });
 
     // Inject isolated styles
@@ -1209,12 +1213,12 @@ export class MarkbelSpotlight {
 
     // Global Keydown Inside Shadow DOM
     this.shadow.addEventListener('keydown', (event: Event) => {
+      event.stopPropagation();
       const e = event as KeyboardEvent;
 
       if (this.currentView === 'new-bookmark') {
         if (e.key === 'Escape') {
           e.preventDefault();
-          e.stopPropagation();
           this.switchToSearch();
           return;
         }
@@ -1223,7 +1227,6 @@ export class MarkbelSpotlight {
           (e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.tagName !== 'TEXTAREA')
         ) {
           e.preventDefault();
-          e.stopPropagation();
           this.saveNewBookmark();
           return;
         }
@@ -1232,7 +1235,6 @@ export class MarkbelSpotlight {
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        e.stopPropagation();
         this.hide();
         return;
       }
@@ -1244,14 +1246,12 @@ export class MarkbelSpotlight {
         ((e.ctrlKey || e.altKey) && (e.key === 'n' || e.key === 'N'))
       ) {
         e.preventDefault();
-        e.stopPropagation();
         this.switchToNewBookmark();
         return;
       }
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        e.stopPropagation();
         if (this.filtered.length > 0) {
           this.selectedIndex = Math.min(this.selectedIndex + 1, this.filtered.length - 1);
           this.renderSelection();
@@ -1261,7 +1261,6 @@ export class MarkbelSpotlight {
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        e.stopPropagation();
         if (this.filtered.length > 0) {
           this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
           this.renderSelection();
@@ -1271,7 +1270,6 @@ export class MarkbelSpotlight {
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        e.stopPropagation();
         if (this.filtered.length > 0 && this.filtered[this.selectedIndex]) {
           const selected = this.filtered[this.selectedIndex];
           const newTab = e.ctrlKey || e.metaKey || e.shiftKey;
@@ -1288,11 +1286,19 @@ export class MarkbelSpotlight {
 
         if (this.filtered[this.selectedIndex]) {
           e.preventDefault();
-          e.stopPropagation();
           navigator.clipboard.writeText(this.filtered[this.selectedIndex].url);
           this.showActionFeedback('URL copied to clipboard!');
         }
       }
+    });
+
+    // Global Keyup & Keypress Inside Shadow DOM (Containment)
+    this.shadow.addEventListener('keyup', (event: Event) => {
+      event.stopPropagation();
+    });
+
+    this.shadow.addEventListener('keypress', (event: Event) => {
+      event.stopPropagation();
     });
 
     document.documentElement.appendChild(this.host);
@@ -1663,6 +1669,10 @@ export class MarkbelSpotlight {
         el.setAttribute('aria-selected', 'false');
       }
     });
+  }
+
+  public isOpen(): boolean {
+    return this.isVisible;
   }
 
   public toggle(): void {
