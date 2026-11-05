@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, LogOut, User as UserIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle,
+  LogOut,
+  User as UserIcon,
+  Palette,
+  Folder,
+  Users,
+  Database,
+  Key,
+} from "lucide-react";
 import MarkbelLogo from "../components/MarkbelLogo.js";
 import {
   api,
@@ -36,10 +46,47 @@ import VaultCollaborationCard from "../components/settings/VaultCollaborationCar
 import DataBackupCard from "../components/settings/DataBackupCard.js";
 import LogoutModal from "../components/settings/LogoutModal.js";
 
+export type SettingsTab = "general" | "groups" | "sync" | "storage" | "api";
+
+const getTabFromHash = (hash: string): SettingsTab => {
+  const clean = hash.replace(/^#/, "").toLowerCase();
+  if (clean === "groups" || clean === "categories") return "groups";
+  if (clean === "navigation") return "general";
+  if (clean === "sync" || clean === "collaboration") return "sync";
+  if (clean === "storage" || clean === "backup" || clean === "data") return "storage";
+  if (clean === "api" || clean === "mcp" || clean === "tokens" || clean === "integrations") return "api";
+  return "general";
+};
+
 export default function SettingsPage() {
   const { user, token, isGuest, logout } = useAuth();
   const isGuestMode = isGuest || !token || !user;
   const navigate = useNavigate();
+
+  // Active Tab State with URL Hash Synchronization
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    if (typeof window !== "undefined" && window.location.hash) {
+      return getTabFromHash(window.location.hash);
+    }
+    return "general";
+  });
+
+  const handleSelectTab = (tab: SettingsTab) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      window.location.hash = tab;
+    }
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (typeof window !== "undefined") {
+        setActiveTab(getTabFromHash(window.location.hash));
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Notice Toast State
   const [noticeMessage, setNoticeMessage] = useState("");
@@ -225,26 +272,34 @@ export default function SettingsPage() {
     navigate("/login");
   };
 
+  const tabsConfig = [
+    { id: "general" as SettingsTab, label: "General & Appearance", icon: Palette },
+    { id: "groups" as SettingsTab, label: "Smart Groups & Rules", icon: Folder },
+    { id: "sync" as SettingsTab, label: "Sync & Collaboration", icon: Users },
+    { id: "storage" as SettingsTab, label: "Storage & Data", icon: Database },
+    { id: "api" as SettingsTab, label: "API & Integrations", icon: Key },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-5 gap-2">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-5 gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
           <button
             onClick={() => navigate("/app")}
-            className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors active:scale-95 shrink-0 cursor-pointer"
+            className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors active:scale-95 shrink-0 cursor-pointer"
             title="Back to Bookmarks"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2.5 min-w-0 flex-1 select-none">
-            <MarkbelLogo size={28} className="shadow-xs" />
+            <MarkbelLogo size={26} className="shadow-xs" />
             <div className="min-w-0 flex-1">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--color-text-primary)] truncate">
                 Settings & Integrations
               </h1>
-              <p className="text-xs text-[var(--color-text-muted)] truncate">
-                Manage your account, auto-categorization engine, and device alerts
+              <p className="text-xs text-[var(--color-text-secondary)] truncate">
+                Manage appearance, automated rules, cloud sync, and AI integrations
               </p>
             </div>
           </div>
@@ -253,7 +308,7 @@ export default function SettingsPage() {
         {!isGuestMode ? (
           <button
             onClick={handleInitiateLogout}
-            className="min-h-[44px] px-3.5 py-2 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-status-error)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer shrink-0"
+            className="min-h-[40px] px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-status-error)] hover:bg-red-500/10 active:scale-95 transition-all cursor-pointer shrink-0 border border-transparent hover:border-red-500/20"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
@@ -261,7 +316,7 @@ export default function SettingsPage() {
         ) : (
           <button
             onClick={() => navigate("/login?redirect=/settings")}
-            className="min-h-[44px] px-3.5 py-2 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] active:scale-95 transition-all cursor-pointer shrink-0"
+            className="min-h-[40px] px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-brand-subtle)] active:scale-95 transition-all cursor-pointer shrink-0 border border-[var(--color-accent)]/20"
           >
             <UserIcon className="w-4 h-4" />
             <span>Sign In</span>
@@ -270,77 +325,123 @@ export default function SettingsPage() {
       </div>
 
       {noticeMessage && (
-        <div className="p-3 bg-[var(--color-bg-element)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
+        <div className="p-3 bg-[var(--color-bg-muted)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
           <CheckCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
           <span>{noticeMessage}</span>
         </div>
       )}
 
-      {/* 1. Account Profile Card */}
-      <AccountProfileCard
-        user={user}
-        isGuestMode={isGuestMode}
-        onNavigate={navigate}
-        onNotice={showNotice}
-        onLogout={logout}
-      />
+      {/* Tabbed Suite Navigation Bar */}
+      <div className="flex items-center gap-1.5 p-1 bg-[var(--color-bg-muted)]/80 border border-[var(--color-border-subtle)] rounded-xl overflow-x-auto custom-scrollbar">
+        {tabsConfig.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleSelectTab(tab.id)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isActive
+                  ? "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-xs border border-[var(--color-border-subtle)]"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]/60 border border-transparent"
+              }`}
+            >
+              <Icon
+                className={`w-3.5 h-3.5 ${
+                  isActive ? "text-[var(--color-accent)]" : "text-[var(--color-text-tertiary)]"
+                }`}
+              />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* 2. Appearance Card */}
-      <AppearanceCard onNotice={showNotice} />
+      {/* Tab Panels */}
+      <div className="space-y-6">
+        {/* TAB 1: General & Appearance */}
+        {activeTab === "general" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <AccountProfileCard
+              user={user}
+              isGuestMode={isGuestMode}
+              onNavigate={navigate}
+              onNotice={showNotice}
+              onLogout={logout}
+            />
 
-      {/* 3. Navigation Preferences Card */}
-      <NavigationPreferencesCard
-        navPrefs={navPrefs}
-        availableGroups={availableGroups}
-        groupCounts={groupCounts}
-        groupColorMap={groupColorMap}
-        onUpdateNavPrefs={handleUpdateNavPrefs}
-        onToggleVisibility={handleToggleVisibility}
-        onTogglePin={handleTogglePin}
-      />
+            <AppearanceCard onNotice={showNotice} />
 
-      {/* 4. Smart Groups Card */}
-      <SmartGroupsCard
-        customRules={customRules}
-        availableGroups={availableGroups}
-        groupColorMap={groupColorMap}
-        onRefresh={refreshGroupsAndRules}
-        onNotice={showNotice}
-      />
+            <NavigationPreferencesCard
+              navPrefs={navPrefs}
+              availableGroups={availableGroups}
+              groupCounts={groupCounts}
+              groupColorMap={groupColorMap}
+              onUpdateNavPrefs={handleUpdateNavPrefs}
+              onToggleVisibility={handleToggleVisibility}
+              onTogglePin={handleTogglePin}
+            />
+          </div>
+        )}
 
-      {/* 5. API Tokens Card */}
-      <ApiTokensCard
-        tokens={tokens}
-        tokensLoading={tokensLoading}
-        tokenError={tokenError}
-        isGuestMode={isGuestMode}
-        onNavigate={navigate}
-        onNotice={showNotice}
-        onTokenCreated={(tok) => setNewlyCreatedToken(tok)}
-        loadTokens={loadTokens}
-      />
+        {/* TAB 2: Smart Groups & Categories */}
+        {activeTab === "groups" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <SmartGroupsCard
+              customRules={customRules}
+              availableGroups={availableGroups}
+              groupColorMap={groupColorMap}
+              onRefresh={refreshGroupsAndRules}
+              onNotice={showNotice}
+            />
+          </div>
+        )}
 
-      {/* 6. MCP Studio Card */}
-      <McpStudioCard
-        newlyCreatedToken={newlyCreatedToken}
-        hasTokens={tokens.length > 0}
-      />
+        {/* TAB 3: Sync & Collaboration */}
+        {activeTab === "sync" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <VaultCollaborationCard
+              collaborators={collaborators}
+              collabLoading={collabLoading}
+              collabError={collabError}
+              isGuestMode={isGuestMode}
+              onNotice={showNotice}
+              loadCollaborators={loadCollaborators}
+            />
+          </div>
+        )}
 
-      {/* 7. Vault Collaboration Card */}
-      <VaultCollaborationCard
-        collaborators={collaborators}
-        collabLoading={collabLoading}
-        collabError={collabError}
-        isGuestMode={isGuestMode}
-        onNotice={showNotice}
-        loadCollaborators={loadCollaborators}
-      />
+        {/* TAB 4: Storage & Data Manager */}
+        {activeTab === "storage" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <DataBackupCard
+              onNotice={showNotice}
+              onRefresh={refreshGroupsAndRules}
+            />
+          </div>
+        )}
 
-      {/* 8. Data Backup Card */}
-      <DataBackupCard
-        onNotice={showNotice}
-        onRefresh={refreshGroupsAndRules}
-      />
+        {/* TAB 5: API & Integrations */}
+        {activeTab === "api" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <ApiTokensCard
+              tokens={tokens}
+              tokensLoading={tokensLoading}
+              tokenError={tokenError}
+              isGuestMode={isGuestMode}
+              onNavigate={navigate}
+              onNotice={showNotice}
+              onTokenCreated={(tok) => setNewlyCreatedToken(tok)}
+              loadTokens={loadTokens}
+            />
+
+            <McpStudioCard
+              newlyCreatedToken={newlyCreatedToken}
+              hasTokens={tokens.length > 0}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Logout Confirmation Modal */}
       <LogoutModal

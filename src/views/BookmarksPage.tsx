@@ -16,7 +16,7 @@ import { useBookmarkKeyboardShortcuts } from "../hooks/useBookmarkKeyboardShortc
 import { BookmarkBatchBar } from "../components/BookmarkBatchBar";
 import { GroupSidebar } from "../components/GroupSidebar";
 import { BookmarkCard } from "../components/BookmarkCard";
-import { BookmarkFilterBar, FilterTab, ViewMode } from "../components/BookmarkFilterBar";
+import { BookmarkFilterBar, FilterTab, ViewMode, SortOption } from "../components/BookmarkFilterBar";
 import { CategoryPillBar } from "../components/CategoryPillBar";
 import { getPinnedCategories, togglePinnedCategory } from "../lib/homeCategories";
 import { filterAndRankBookmarks } from "../lib/searchCatalog";
@@ -248,6 +248,7 @@ export default function BookmarksPage() {
     }
     return "grid";
   });
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [showGuestBanner, setShowGuestBanner] = useState(true);
 
   const handleViewModeChange = (mode: ViewMode) => {
@@ -344,11 +345,28 @@ export default function BookmarksPage() {
     let unread = 0;
     let pinned = 0;
     let due = 0;
+    let videos = 0;
+    let articles = 0;
+    let code = 0;
 
     bookmarks.forEach((b) => {
       if (!b.isRead) unread++;
       if (b.isPinned) pinned++;
       if (b.remindAt && b.remindAt <= now && !b.isRead) due++;
+      if (
+        b.contentType === "video" ||
+        b.contentType === "playlist" ||
+        b.url.includes("youtube.com") ||
+        b.url.includes("youtu.be")
+      ) {
+        videos++;
+      }
+      if (b.contentType === "article" || Boolean(b.articleContent)) {
+        articles++;
+      }
+      if (b.url.includes("github.com") || b.url.includes("gitlab.com")) {
+        code++;
+      }
     });
 
     return {
@@ -356,6 +374,9 @@ export default function BookmarksPage() {
       unread,
       pinned,
       due,
+      videos,
+      articles,
+      code,
     };
   }, [bookmarks]);
 
@@ -366,6 +387,26 @@ export default function BookmarksPage() {
     // Filter by Group or Special Filter
     if (activeGroup === "__broken__") {
       result = result.filter((b) => b.isBroken);
+    } else if (activeGroup === "__media_video__") {
+      result = result.filter(
+        (b) =>
+          b.contentType === "video" ||
+          b.contentType === "playlist" ||
+          b.url.includes("youtube.com") ||
+          b.url.includes("youtu.be")
+      );
+    } else if (activeGroup === "__media_article__") {
+      result = result.filter((b) => b.contentType === "article" || Boolean(b.articleContent));
+    } else if (activeGroup === "__media_code__") {
+      result = result.filter((b) => b.url.includes("github.com") || b.url.includes("gitlab.com"));
+    } else if (activeGroup === "__media_social__") {
+      result = result.filter(
+        (b) =>
+          b.url.includes("twitter.com") ||
+          b.url.includes("x.com") ||
+          b.url.includes("instagram.com") ||
+          b.url.includes("reddit.com")
+      );
     } else {
       if (activeGroup) {
         result = result.filter((b) => (b.group || "Unsorted") === activeGroup);
@@ -379,6 +420,18 @@ export default function BookmarksPage() {
       } else if (currentTab === "due") {
         const now = new Date().toISOString();
         result = result.filter((b) => b.remindAt && b.remindAt <= now && !b.isRead);
+      } else if (currentTab === "videos") {
+        result = result.filter(
+          (b) =>
+            b.contentType === "video" ||
+            b.contentType === "playlist" ||
+            b.url.includes("youtube.com") ||
+            b.url.includes("youtu.be")
+        );
+      } else if (currentTab === "articles") {
+        result = result.filter((b) => b.contentType === "article" || Boolean(b.articleContent));
+      } else if (currentTab === "code") {
+        result = result.filter((b) => b.url.includes("github.com") || b.url.includes("gitlab.com"));
       }
     }
 
@@ -387,13 +440,29 @@ export default function BookmarksPage() {
       return filterAndRankBookmarks(result, debouncedSearchQuery, undefined, 0);
     }
 
-    // Sort: Pinned first, then newest first
+    // Sort: Respect user sortOption (Newest, Oldest, Title A-Z, Reading Time)
     return [...result].sort((a, b) => {
+      if (sortOption === "newest") {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortOption === "oldest") {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortOption === "alpha") {
+        return (a.title || "").localeCompare(b.title || "");
+      }
+      if (sortOption === "readtime") {
+        return (b.readingTime || 0) - (a.readingTime || 0);
+      }
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [bookmarks, activeGroup, currentTab, debouncedSearchQuery]);
+  }, [bookmarks, activeGroup, currentTab, debouncedSearchQuery, sortOption]);
 
   // Scroll Parent Ref for Viewport Virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -713,7 +782,19 @@ export default function BookmarksPage() {
               </h1>
             </button>
             <h2 className="text-base font-bold text-[var(--color-text-primary)] truncate hidden md:block">
-              {activeGroup === "__broken__" ? "Broken Links" : activeGroup ? activeGroup : "All Bookmarks"}
+              {activeGroup === "__broken__"
+                ? "Broken Links"
+                : activeGroup === "__media_video__"
+                ? "Videos & Playlists"
+                : activeGroup === "__media_article__"
+                ? "Articles & News"
+                : activeGroup === "__media_code__"
+                ? "Code & Repositories"
+                : activeGroup === "__media_social__"
+                ? "Social & Threads"
+                : activeGroup
+                ? activeGroup
+                : "All Bookmarks"}
             </h2>
           </div>
 
@@ -752,6 +833,8 @@ export default function BookmarksPage() {
               onViewModeChange={handleViewModeChange}
               counts={counts}
               searchInputRef={searchInputRef}
+              sortOption={sortOption}
+              onSortChange={setSortOption}
             />
 
             {/* Mobile Category Pill Bar (Hidden on md: desktop) */}

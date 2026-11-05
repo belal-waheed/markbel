@@ -32,6 +32,25 @@ export default function DataBackupCard({
   const [importing, setImporting] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearingCacheStorage, setClearingCacheStorage] = useState(false);
+  const [storageEstimate, setStorageEstimate] = useState<{
+    usage: number;
+    quota: number;
+    usagePercent: number;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
+      navigator.storage
+        .estimate()
+        .then((est) => {
+          const usage = est.usage || 0;
+          const quota = est.quota || 1;
+          const usagePercent = Math.min(100, Math.round((usage / quota) * 1000) / 10);
+          setStorageEstimate({ usage, quota, usagePercent });
+        })
+        .catch(() => {});
+    }
+  }, [clearingCache, clearingCacheStorage, importing]);
 
   // 1. Export as JSON
   const handleExportJson = async () => {
@@ -246,6 +265,28 @@ export default function DataBackupCard({
           Local-First Storage
         </span>
       </div>
+
+      {/* Storage Quota Meter */}
+      {storageEstimate && (
+        <div className="p-4 bg-[var(--color-bg-muted)]/70 rounded-xl border border-[var(--color-border-subtle)] space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+              <span>Storage Quota Utilization</span>
+            </span>
+            <span className="font-mono text-[11px] text-[var(--color-text-secondary)]">
+              {(storageEstimate.usage / (1024 * 1024)).toFixed(1)} MB /{" "}
+              {(storageEstimate.quota / (1024 * 1024 * 1024)).toFixed(1)} GB ({storageEstimate.usagePercent}%)
+            </span>
+          </div>
+          <div className="w-full bg-[var(--color-bg-surface)] h-2 rounded-full overflow-hidden border border-[var(--color-border-subtle)]">
+            <div
+              className="bg-[var(--color-accent)] h-full transition-[width] duration-300"
+              style={{ width: `${Math.max(1, storageEstimate.usagePercent)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Export Bookmarks */}

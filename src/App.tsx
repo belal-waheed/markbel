@@ -47,7 +47,7 @@ function NativeBridge() {
           (!localStorage.getItem('markbel_theme_mode') || localStorage.getItem('markbel_theme_mode') === 'system')) ||
         (typeof localStorage !== 'undefined' && localStorage.getItem('markbel_theme_mode') === 'dark')
 
-      StatusBar.setBackgroundColor({ color: isDark ? '#090d16' : '#f6f5f0' }).catch(() => {})
+      StatusBar.setBackgroundColor({ color: isDark ? '#090d16' : '#fbfaf8' }).catch(() => {})
       StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light }).catch(() => {})
     }
 
@@ -135,9 +135,9 @@ function NativeBridge() {
 
 function PageFallback() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-default)] gap-3 font-sans">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg-canvas)] gap-3 font-sans">
       <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
-      <span className="text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">Loading...</span>
+      <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">Loading...</span>
     </div>
   )
 }

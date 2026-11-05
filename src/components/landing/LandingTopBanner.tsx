@@ -18,9 +18,9 @@ export function LandingTopBanner({
           <span className="font-semibold text-[var(--color-text-primary)]">
             Markbel {version} is live
           </span>
-          <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
+          <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            In-Page Save Toast, Unified JSON/HTML Importer, Instant Media Posters &amp; Permission Minimization
+            Full Design System Overhaul, Dual-Mode Editorial Cards, Collapsible Rail &amp; Tabbed Settings Suite
           </span>
         </div>
         <button

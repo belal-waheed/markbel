@@ -47,21 +47,21 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.5.20
+                  What's New in Markbel v2.6.0
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
-              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                In-Page Save Toast, Unified JSON &amp; Netscape HTML Import Engine, Instant Media Posters &amp; Permission Minimization
+              <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                Full Design System Overhaul, Dual-Mode Editorial Cards, Collapsible Rail &amp; Tabbed Settings Suite
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-element)] transition-colors cursor-pointer touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0"
+            className="p-2 rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)] transition-colors cursor-pointer touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -69,6 +69,48 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Full Design System Overhaul & Dual-Mode Editorial Cards (v2.6.0) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Design System Overhaul, Editorial Cards, Collapsible Rail &amp; Tabbed Settings
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.6.0
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Complete UI/UX craftsmanship overhaul implementing crisp Tailwind v4 design tokens for Light Mode (Warm Paper &amp; Crisp Slate) and true Deep Onyx Dark Mode; eliminated the "empty grey box" dilemma with auto-switching Editorial Typography cards; added a sleek 56px desktop collapsible navigation rail with instant Media Streams (Videos, Articles, Code, Social); restructured Settings into a 5-tab suite with live storage quota meters; and upgraded the offline Reader view with column width and typography options.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Tailwind v4 Token Architecture</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Dual-Mode Editorial Cards</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Collapsible Sidebar Rail</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Tabbed Settings Suite</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Readwise-Grade Reader</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Feature: In-Page Save Toast, Unified JSON & HTML Import Engine & Permission Minimization (v2.5.20) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

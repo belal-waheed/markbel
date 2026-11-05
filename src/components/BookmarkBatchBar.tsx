@@ -43,16 +43,16 @@ export const BookmarkBatchBar: React.FC<BookmarkBatchBarProps> = ({
     <div
       role="toolbar"
       aria-label="Bulk actions toolbar"
-      className="mb-6 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 bg-[var(--color-bg-element)] border border-[var(--color-accent)] rounded-lg p-2 px-4 shadow-lg backdrop-blur-md animate-in slide-in-from-top-2"
+      className="mb-6 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 bg-[var(--color-bg-surface)] border border-[var(--color-accent)]/40 rounded-xl p-2.5 px-4 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2 duration-200"
     >
       <div className="flex items-center gap-3">
-        <span className="text-sm font-bold text-[var(--color-accent)]">
+        <span className="text-xs font-bold text-[var(--color-accent)] bg-[var(--color-brand-subtle)] px-2.5 py-1 rounded-md border border-[var(--color-accent)]/20">
           {selectedCount} Selected
         </span>
         <button
           type="button"
           onClick={onClear}
-          className="text-xs text-[var(--color-text-muted)] hover:text-white transition-colors cursor-pointer"
+          className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
           aria-label="Clear selection"
         >
           Clear

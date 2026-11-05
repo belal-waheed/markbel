@@ -286,7 +286,7 @@ export default function SmartGroupsCard({
   };
 
   return (
-    <section className="studio-card p-4 sm:p-6 relative space-y-6">
+    <section id="groups" className="studio-card p-4 sm:p-6 relative space-y-6">
       <div className="flex items-center justify-between border-b border-[var(--color-border-default)] pb-4">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 text-[var(--color-accent)] flex items-center justify-center font-bold rounded">
