@@ -67,22 +67,108 @@ export function upgradeInsecureImageUrl(imageUrl?: string | null): string | unde
 }
 
 /**
- * Detects whether a URL represents a low-resolution favicon rather than a true media cover/poster.
- * Identifies Google S2 favicon service, generic favicon URLs, and .ico/.svg icon assets.
+ * Detects whether a URL represents a video stream or manifest rather than an image asset.
+ * Catches HLS (.m3u8), MPEG-DASH (.mpd), MPEG-TS (.ts) segments, and streaming endpoints
+ * on known video hosts (such as video.vid3rb.com/video/...).
  */
-export function isFaviconUrl(url?: string | null): boolean {
+export function isVideoStreamUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  try {
+    const parsed = new URL(trimmed, 'https://example.com');
+    const pathname = parsed.pathname;
+
+    // Direct stream manifest or video segment extensions
+    if (
+      pathname.endsWith('.m3u8') ||
+      pathname.endsWith('.mpd') ||
+      pathname.endsWith('.ts') ||
+      trimmed.includes('.m3u8') ||
+      trimmed.includes('.mpd')
+    ) {
+      return true;
+    }
+
+    // Video stream endpoints on known video hosts (e.g. video.vid3rb.com/video/<uuid>)
+    if (
+      (parsed.hostname === 'video.vid3rb.com' ||
+        parsed.hostname.endsWith('.vid3rb.com') ||
+        parsed.hostname.includes('videodelivery.net')) &&
+      pathname.includes('/video/')
+    ) {
+      return true;
+    }
+  } catch {
+    if (trimmed.includes('.m3u8') || trimmed.includes('.mpd')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Detects whether a URL represents a low-quality image (favicon, platform logo, channel avatar,
+ * small brand badge, or tiny thumbnail) or a non-image video stream rather than a high-fidelity
+ * media cover/poster.
+ */
+export function isLowQualityImage(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return true;
   const trimmed = url.trim().toLowerCase();
   if (!trimmed) return true;
+
+  // Video streams are not valid image assets
+  if (isVideoStreamUrl(trimmed)) return true;
+
+  // Google S2 favicon service
   if (trimmed.includes('google.com/s2/favicons')) return true;
+
+  // Generic favicon references
   if (trimmed.includes('favicon')) return true;
-  if (trimmed.endsWith('.ico') || trimmed.endsWith('.svg')) return true;
+
+  // Instagram / Facebook static shell resources
+  if (trimmed.includes('static.cdninstagram.com/rsrc.php')) return true;
+
   try {
-    const pathname = new URL(trimmed).pathname.toLowerCase();
+    const parsed = new URL(trimmed, 'https://example.com');
+    const pathname = parsed.pathname.toLowerCase();
+
+    // Wikimedia Commons encyclopedic illustrations and article media are valid cover assets
+    if (parsed.hostname.endsWith('wikimedia.org') && !trimmed.includes('favicon')) {
+      return false;
+    }
+
+    // Icon assets by extension
     if (pathname.endsWith('.ico') || pathname.endsWith('.svg')) return true;
+
+    // Small dimension hints in query params (e.g., sz=32, s=64, w=32, h=32)
+    const searchParams = parsed.searchParams;
+    for (const key of ['sz', 's', 'w', 'h', 'width', 'height', 'size']) {
+      const val = searchParams.get(key);
+      if (val && /^\d+$/.test(val)) {
+        const num = parseInt(val, 10);
+        if (num > 0 && num <= 64) {
+          return true;
+        }
+      }
+    }
+
+    // Site logo, brand badge, or user avatar file paths
+    // e.g. /avatar/foo.png, /avatars/u1.jpg, /images/logo.png, /badge.png
+    if (/(?:^|\/|_|-)(?:avatar|avatars|badge|badges|logo|logos|app-icon|site-icon)(?:[._\/-]|$)/i.test(pathname)) {
+      return true;
+    }
   } catch {}
+
   return false;
 }
+
+/**
+ * Alias for isLowQualityImage for backwards compatibility across existing callers.
+ */
+export const isFaviconUrl = isLowQualityImage;
 
 /**
  * Sniffs image format from binary magic bytes.

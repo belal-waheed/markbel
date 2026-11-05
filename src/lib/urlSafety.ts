@@ -100,6 +100,32 @@ export function isSafePublicUrl(urlStr: string): boolean {
 }
 
 /**
+ * Validates whether a custom favicon URL is safe to load directly:
+ * Must be a safe public URL, and if it is a Google S2 URL, the targeted domain must also be safe.
+ */
+export function isSafeFaviconUrl(faviconUrl?: string | null): boolean {
+  if (!faviconUrl || typeof faviconUrl !== 'string') return false;
+  const trimmed = faviconUrl.trim();
+  if (!trimmed) return false;
+  if (!isSafePublicUrl(trimmed)) return false;
+
+  // If it's a Google S2 URL, verify the target domain parameter is also safe
+  if (trimmed.includes('google.com/s2/favicons')) {
+    try {
+      const parsed = new URL(trimmed);
+      const domain = parsed.searchParams.get('domain');
+      if (domain && !isSafePublicUrl(`https://${domain}`)) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Safely resolves a public Google S2 favicon service URL for public domains only.
  * Returns undefined for private IPs, localhost, loopbacks, internal hostnames, or invalid URLs
  * to prevent leaking internal network topology and console 404 errors.

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import * as cheerio from "cheerio";
-import { sniffImageMimeType } from "../../../src/lib/mediaHeuristics";
+import { sniffImageMimeType, isVideoStreamUrl, isLowQualityImage } from "../../../src/lib/mediaHeuristics";
 import { isSafePublicUrl } from "../../../src/lib/urlSafety";
 import type { Bindings, Variables } from "../types";
 import {
@@ -109,6 +109,13 @@ mediaRouter.get("/api/proxy/image", async (c) => {
     return c.text("Blocked or unsafe URL", 400);
   }
 
+  // Reject direct video stream manifests / segments upfront (except video.vid3rb.com which 302s to a JPEG poster)
+  if (isVideoStreamUrl(imageUrl) && !imageUrl.includes("video.vid3rb.com/video/")) {
+    return c.text("Unsupported image media type: video stream", 415, {
+      "Access-Control-Allow-Origin": "*",
+    });
+  }
+
   try {
     const parsed = new URL(imageUrl);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -193,6 +200,11 @@ mediaRouter.get("/api/proxy/image", async (c) => {
       if (!isSafePublicUrl(redirectedUrl)) {
         return c.text("Blocked or unsafe redirect URL", 400);
       }
+      if (isVideoStreamUrl(redirectedUrl) && !redirectedUrl.includes("thumbnail")) {
+        return c.text("Unsupported image media type: video stream", 415, {
+          "Access-Control-Allow-Origin": "*",
+        });
+      }
 
       currentRedirectUrl = redirectedUrl;
       redirectHops++;
@@ -228,7 +240,13 @@ mediaRouter.get("/api/proxy/image", async (c) => {
 
     if (isGenericMime) {
       const buffer = await upstreamRes.arrayBuffer();
-      finalContentType = sniffImageMimeType(new Uint8Array(buffer)) || "image/jpeg";
+      const sniffed = sniffImageMimeType(new Uint8Array(buffer));
+      if (!sniffed) {
+        return c.text("Unsupported image media type", 415, {
+          "Access-Control-Allow-Origin": "*",
+        });
+      }
+      finalContentType = sniffed;
       responseBody = buffer;
     } else if (ALLOWED_IMAGE_MIMES.has(rawContentType)) {
       finalContentType = rawContentType;

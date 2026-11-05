@@ -50,7 +50,7 @@ describe('Image Proxy Magic Byte Sniffing', () => {
     expect(sniffImageMimeType(xmlSvgBytes)).toBe('image/svg+xml');
   });
 
-  it('returns null for unknown binary data so caller can fall back to image/jpeg', () => {
+  it('returns null for unknown binary data to reject non-image media', () => {
     const randomBytes = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
     expect(sniffImageMimeType(randomBytes)).toBeNull();
   });

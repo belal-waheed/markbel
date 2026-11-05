@@ -16,8 +16,8 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import BookmarkImage from './BookmarkImage'
-import { getPublicFaviconUrl } from '@/lib/urlSafety'
-import { extractInstantMediaMetadata, isFaviconUrl } from '@/lib/mediaHeuristics'
+import { getPublicFaviconUrl, isSafeFaviconUrl } from '@/lib/urlSafety'
+import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from '@/lib/mediaHeuristics'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
 
@@ -63,7 +63,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   onSnoozeReminder,
 }) => {
   const instant = extractInstantMediaMetadata(b.url)
-  const isPolluted = isFaviconUrl(b.image)
+  const isPolluted = isLowQualityImage(b.image) || isVideoStreamUrl(b.image)
   let effectiveImage = ''
   if (instant.image) {
     effectiveImage = (!isPolluted && b.image) ? b.image : instant.image
@@ -71,9 +71,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     effectiveImage = b.image
   }
 
-  const hasHeroImage = Boolean(effectiveImage && !isFaviconUrl(effectiveImage))
+  const hasHeroImage = Boolean(effectiveImage && !isLowQualityImage(effectiveImage) && !isVideoStreamUrl(effectiveImage))
   const domain = getDomain(b.url)
-  const faviconUrl = b.favicon || getPublicFaviconUrl(b.url)
+  const safeFavicon = isSafeFaviconUrl(b.favicon) ? b.favicon : undefined
+  const faviconUrl = safeFavicon || getPublicFaviconUrl(b.url)
 
   // Media type pill metadata
   const typeBadge = (() => {

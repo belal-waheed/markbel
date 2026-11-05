@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { extractInstantMediaMetadata, upgradeInsecureImageUrl, isFaviconUrl } from './mediaHeuristics';
+import {
+  extractInstantMediaMetadata,
+  upgradeInsecureImageUrl,
+  isFaviconUrl,
+  isLowQualityImage,
+  isVideoStreamUrl,
+} from './mediaHeuristics';
 
 describe('extractInstantMediaMetadata Unit Tests', () => {
   describe('YouTube Heuristics', () => {
@@ -211,36 +217,103 @@ describe('extractInstantMediaMetadata Unit Tests', () => {
     });
   });
 
-  describe('isFaviconUrl Tests', () => {
-    it('identifies falsy or empty inputs as favicon URLs', () => {
+  describe('isVideoStreamUrl Tests', () => {
+    it('returns false for falsy or empty values', () => {
+      expect(isVideoStreamUrl(null)).toBe(false);
+      expect(isVideoStreamUrl(undefined)).toBe(false);
+      expect(isVideoStreamUrl('')).toBe(false);
+      expect(isVideoStreamUrl('   ')).toBe(false);
+    });
+
+    it('identifies HLS .m3u8 stream manifests', () => {
+      expect(isVideoStreamUrl('https://stream.example.com/live/master.m3u8')).toBe(true);
+      expect(isVideoStreamUrl('https://stream.example.com/playlist.m3u8?token=xyz')).toBe(true);
+    });
+
+    it('identifies MPEG-DASH .mpd stream manifests', () => {
+      expect(isVideoStreamUrl('https://stream.example.com/live/manifest.mpd')).toBe(true);
+      expect(isVideoStreamUrl('https://stream.example.com/dash/video.mpd?hd=1')).toBe(true);
+    });
+
+    it('identifies MPEG-TS .ts transport stream segments', () => {
+      expect(isVideoStreamUrl('https://stream.example.com/hls/segment104.ts')).toBe(true);
+      expect(isVideoStreamUrl('https://stream.example.com/video/chunk.ts?time=120')).toBe(true);
+    });
+
+    it('identifies streaming endpoints on known video hosts like video.vid3rb.com', () => {
+      expect(isVideoStreamUrl('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(true);
+      expect(isVideoStreamUrl('https://videodelivery.net/video/9483248329')).toBe(true);
+    });
+
+    it('returns false for legitimate images and non-video assets', () => {
+      expect(isVideoStreamUrl('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')).toBe(false);
+      expect(isVideoStreamUrl('https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg')).toBe(false);
+      expect(isVideoStreamUrl('https://example.com/images/hero.webp')).toBe(false);
+    });
+  });
+
+  describe('isLowQualityImage & isFaviconUrl Tests', () => {
+    it('identifies falsy or empty inputs as low quality / favicon URLs', () => {
+      expect(isLowQualityImage(null)).toBe(true);
+      expect(isLowQualityImage(undefined)).toBe(true);
+      expect(isLowQualityImage('')).toBe(true);
+      expect(isLowQualityImage('   ')).toBe(true);
       expect(isFaviconUrl(null)).toBe(true);
-      expect(isFaviconUrl(undefined)).toBe(true);
       expect(isFaviconUrl('')).toBe(true);
-      expect(isFaviconUrl('   ')).toBe(true);
     });
 
     it('identifies Google S2 favicon service URLs', () => {
+      expect(isLowQualityImage('https://www.google.com/s2/favicons?domain=youtube.com&sz=128')).toBe(true);
+      expect(isLowQualityImage('http://google.com/s2/favicons?domain=github.com')).toBe(true);
       expect(isFaviconUrl('https://www.google.com/s2/favicons?domain=youtube.com&sz=128')).toBe(true);
-      expect(isFaviconUrl('http://google.com/s2/favicons?domain=github.com')).toBe(true);
     });
 
     it('identifies generic URLs containing favicon', () => {
+      expect(isLowQualityImage('https://example.com/assets/favicon.png')).toBe(true);
+      expect(isLowQualityImage('https://example.com/favicons/apple-touch-icon.png')).toBe(true);
       expect(isFaviconUrl('https://example.com/assets/favicon.png')).toBe(true);
-      expect(isFaviconUrl('https://example.com/favicons/apple-touch-icon.png')).toBe(true);
     });
 
     it('identifies .ico and .svg icon assets', () => {
+      expect(isLowQualityImage('https://example.com/logo.ico')).toBe(true);
+      expect(isLowQualityImage('https://example.com/icon.svg')).toBe(true);
+      expect(isLowQualityImage('https://example.com/icon.svg?v=2')).toBe(true);
+      expect(isLowQualityImage('https://example.com/app.ico?cache=1')).toBe(true);
       expect(isFaviconUrl('https://example.com/logo.ico')).toBe(true);
-      expect(isFaviconUrl('https://example.com/icon.svg')).toBe(true);
-      expect(isFaviconUrl('https://example.com/icon.svg?v=2')).toBe(true);
-      expect(isFaviconUrl('https://example.com/app.ico?cache=1')).toBe(true);
+    });
+
+    it('identifies Instagram / Meta shell static resources', () => {
+      expect(isLowQualityImage('https://static.cdninstagram.com/rsrc.php/v3/yI/r/something.png')).toBe(true);
+    });
+
+    it('identifies URLs with small dimension hints (sz=32, s=64, w=32, h=32)', () => {
+      expect(isLowQualityImage('https://example.com/photo.jpg?sz=32')).toBe(true);
+      expect(isLowQualityImage('https://avatars.githubusercontent.com/u/1234?s=64')).toBe(true);
+      expect(isLowQualityImage('https://example.com/avatar.jpg?w=32&h=32')).toBe(true);
+      expect(isLowQualityImage('https://example.com/pic.png?size=48')).toBe(true);
+      // Large dimensions should not be rejected by dimension check
+      expect(isLowQualityImage('https://images.unsplash.com/photo?w=1200&h=800')).toBe(false);
+    });
+
+    it('identifies platform logos, brand badges, and user avatars in paths', () => {
+      expect(isLowQualityImage('https://example.com/assets/logo.png')).toBe(true);
+      expect(isLowQualityImage('https://example.com/static/brand-badge.png')).toBe(true);
+      expect(isLowQualityImage('https://example.com/user/avatar/john.jpg')).toBe(true);
+      expect(isLowQualityImage('https://example.com/logos/header-logo.jpg')).toBe(true);
+    });
+
+    it('identifies video stream URLs as low quality images', () => {
+      expect(isLowQualityImage('https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6')).toBe(true);
+      expect(isLowQualityImage('https://stream.example.com/playlist.m3u8')).toBe(true);
+      expect(isLowQualityImage('https://stream.example.com/segment.ts')).toBe(true);
     });
 
     it('returns false for real cover and banner images', () => {
-      expect(isFaviconUrl('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')).toBe(false);
-      expect(isFaviconUrl('https://opengraph.githubassets.com/1/facebook/react')).toBe(false);
-      expect(isFaviconUrl('https://cdn.site.com/covers/hero-banner.webp')).toBe(false);
-      expect(isFaviconUrl('https://images.unsplash.com/photo-1579546929518-9e396f3cc809')).toBe(false);
+      expect(isLowQualityImage('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg')).toBe(false);
+      expect(isLowQualityImage('https://opengraph.githubassets.com/1/facebook/react')).toBe(false);
+      expect(isLowQualityImage('https://cdn.site.com/covers/hero-banner.webp')).toBe(false);
+      expect(isLowQualityImage('https://images.unsplash.com/photo-1579546929518-9e396f3cc809')).toBe(false);
+      expect(isLowQualityImage('https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg')).toBe(false);
     });
   });
 });

@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.6.0
+                  What's New in Markbel v2.6.1
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Full Design System Overhaul, Dual-Mode Editorial Cards, Collapsible Rail &amp; Tabbed Settings Suite
+                Image Pipeline Hardening, Video Stream Purge, Private IP Favicon Sanitizer &amp; Edge Media Proxy Resilience
               </p>
             </div>
           </div>
@@ -69,8 +69,50 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-          {/* Feature: Full Design System Overhaul & Dual-Mode Editorial Cards (v2.6.0) */}
+          {/* Feature: Image Pipeline Hardening, Video Stream Purge & Private IP Sanitizer (v2.6.1) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Image Pipeline Hardening, Video Stream Purge &amp; Private IP Favicon Sanitizer
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.6.1
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Hardened deterministic media heuristics and background scraping against corrupted non-image assets; automatically purges video stream manifests (.m3u8, .mpd, .ts) and low-quality platform logos/avatars; resolves video host 302 redirects to extract static high-resolution JPEG posters; sanitizes custom favicons to block private IPv4/IPv6 leakages; and adds self-healing database repair to backfill missing cover art on launch.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Video Stream Discard (.m3u8/.mpd/.ts)</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Private IP Favicon Sanitizer</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Vid3rb 302 Thumbnail Resolution</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Magic-Byte Sniffing Fallback</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Self-Healing Database Repair</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature: Full Design System Overhaul & Dual-Mode Editorial Cards (v2.6.0) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] flex items-start gap-3 sm:gap-4">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5" />
             </div>

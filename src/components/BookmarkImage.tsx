@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link as LinkIcon, ImageOff } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
-import { upgradeInsecureImageUrl } from "@/lib/mediaHeuristics";
+import { upgradeInsecureImageUrl, isLowQualityImage, isVideoStreamUrl } from "@/lib/mediaHeuristics";
+import { isSafeFaviconUrl } from "@/lib/urlSafety";
 import { getCachedThumbnail, saveCachedThumbnail } from "@/db/db";
 
 export type ImageStage = "DIRECT" | "PROXY" | "FAVICON" | "PLACEHOLDER";
@@ -41,7 +42,13 @@ export async function captureAndCacheThumbnail(
   url: string,
   proxyBaseUrl?: string
 ): Promise<void> {
-  if (!url || inFlightCaptures.has(url) || failedCaptures.has(url)) return;
+  if (
+    !url ||
+    inFlightCaptures.has(url) ||
+    failedCaptures.has(url) ||
+    isLowQualityImage(url) ||
+    isVideoStreamUrl(url)
+  ) return;
   inFlightCaptures.add(url);
 
   try {
@@ -140,8 +147,14 @@ export interface BookmarkImageProps {
 export function getInitialStage(src?: string | null, fallbackSrc?: string | null): ImageStage {
   const trimmed = src?.trim();
   const trimmedFallback = fallbackSrc?.trim();
-  if (!trimmed || isExpiredSocialCdnUrl(trimmed)) {
-    return trimmedFallback ? "FAVICON" : "PLACEHOLDER";
+  const safeFallback = trimmedFallback && isSafeFaviconUrl(trimmedFallback) ? trimmedFallback : undefined;
+  if (
+    !trimmed ||
+    isExpiredSocialCdnUrl(trimmed) ||
+    isLowQualityImage(trimmed) ||
+    isVideoStreamUrl(trimmed)
+  ) {
+    return safeFallback ? "FAVICON" : "PLACEHOLDER";
   }
   return "DIRECT";
 }
@@ -280,15 +293,15 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
     }
 
     if (stage === "DIRECT") {
-      if (trimmedSrc) {
+      if (trimmedSrc && !isLowQualityImage(trimmedSrc) && !isVideoStreamUrl(trimmedSrc)) {
         setStage("PROXY");
-      } else if (trimmedFallback) {
+      } else if (trimmedFallback && isSafeFaviconUrl(trimmedFallback)) {
         setStage("FAVICON");
       } else {
         setStage("PLACEHOLDER");
       }
     } else if (stage === "PROXY") {
-      if (trimmedFallback && trimmedFallback !== trimmedSrc) {
+      if (trimmedFallback && isSafeFaviconUrl(trimmedFallback) && trimmedFallback !== trimmedSrc) {
         setStage("FAVICON");
       } else {
         setStage("PLACEHOLDER");
@@ -301,13 +314,7 @@ export const BookmarkImage: React.FC<BookmarkImageProps> = ({
   const isFavicon =
     !blobUrl &&
     (stage === "FAVICON" ||
-      Boolean(
-        currentSrc &&
-          (currentSrc.includes("google.com/s2/favicons") ||
-            currentSrc.includes("favicon") ||
-            currentSrc.endsWith(".ico") ||
-            currentSrc.endsWith(".svg"))
-      ));
+      Boolean(currentSrc && isLowQualityImage(currentSrc)));
 
   return (
     <div

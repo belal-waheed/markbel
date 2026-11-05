@@ -364,6 +364,73 @@ describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
       const articleRepaired = bulkPutPayload.find((b) => b.id === 'b-polluted-article');
       expect(articleRepaired?.image).toBeUndefined();
     });
+
+    it('repairAndEnrichBookmarkThumbnails purges video stream URLs and private IP favicons', async () => {
+      let bulkPutPayload: LocalBookmark[] = [];
+      (vi.spyOn(db.bookmarks, 'bulkPut') as any).mockImplementation(async (items: any) => {
+        bulkPutPayload = items;
+        return items.map((i: any) => i.id);
+      });
+
+      const bookmarks: LocalBookmark[] = [
+        {
+          id: 'b-vid-stream',
+          userId: 'u1',
+          url: 'https://example.com/stream-page',
+          title: 'Stream',
+          group: 'Video',
+          image: 'https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6',
+          favicon: 'https://example.com/favicon.ico',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+        {
+          id: 'b-private-ip-fav',
+          userId: 'u1',
+          url: 'http://192.168.1.1/dashboard',
+          title: 'Router',
+          group: 'Tech',
+          favicon: 'http://192.168.1.1/favicon.ico',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+        {
+          id: 'b-google-s2-private-fav',
+          userId: 'u1',
+          url: 'http://10.0.0.1/admin',
+          title: 'Internal Admin',
+          group: 'Tech',
+          favicon: 'https://www.google.com/s2/favicons?domain=10.0.0.1&sz=128',
+          version: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          deletedAt: null,
+        },
+      ];
+
+      (vi.spyOn(db.bookmarks, 'filter') as any).mockImplementation((filterFn: any) => {
+        const filtered = bookmarks.filter(filterFn);
+        return {
+          toArray: async () => filtered,
+        } as any;
+      });
+
+      const count = await repairAndEnrichBookmarkThumbnails();
+      expect(count).toBe(3);
+
+      const vidRepaired = bulkPutPayload.find((b) => b.id === 'b-vid-stream');
+      expect(vidRepaired?.image).toBeUndefined();
+
+      const routerRepaired = bulkPutPayload.find((b) => b.id === 'b-private-ip-fav');
+      expect(routerRepaired?.favicon).toBeUndefined();
+
+      const s2Repaired = bulkPutPayload.find((b) => b.id === 'b-google-s2-private-fav');
+      expect(s2Repaired?.favicon).toBeUndefined();
+    });
   });
 
   describe('4. Bookmark Import Resilience & Metadata Enrichment (HTML & JSON)', () => {

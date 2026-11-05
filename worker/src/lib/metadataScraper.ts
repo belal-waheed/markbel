@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { isLowQualityImage, isVideoStreamUrl } from "../../../src/lib/mediaHeuristics";
 
 export interface MetadataScraperEnv {
   MICROLINK_API_KEY?: string;
@@ -9,6 +10,40 @@ export interface ScrapedMetadata {
   title: string;
   description: string;
   image: string;
+}
+
+/**
+ * Resolves video stream endpoints (e.g. video.vid3rb.com/video/<uuid>) to their
+ * static poster/thumbnail redirect (https://thumbnails.vid3rb.com/.../thumbnail.001.jpeg).
+ * Returns the resolved thumbnail URL, or null if the URL cannot be resolved to an image.
+ */
+export async function resolveVideoThumbnail(imageUrl: string): Promise<string | null> {
+  if (!imageUrl) return null;
+  if (imageUrl.includes("video.vid3rb.com/video/")) {
+    try {
+      const res = await fetchWithTimeout(
+        imageUrl,
+        {
+          method: "GET",
+          redirect: "manual",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            Referer: "https://anime3rb.com/",
+          },
+        },
+        4000
+      );
+      if (res.status === 301 || res.status === 302 || res.status === 307 || res.status === 308) {
+        const location = res.headers.get("location");
+        if (location && !isVideoStreamUrl(location) && !isLowQualityImage(location)) {
+          return location;
+        }
+      }
+    } catch {}
+    return null;
+  }
+  return imageUrl;
 }
 
 export async function fetchWithTimeout(
@@ -685,6 +720,15 @@ export async function extractMetadata(
             "";
         }
 
+        if (image) {
+          if (image.includes("video.vid3rb.com/video/")) {
+            const resolved = await resolveVideoThumbnail(image);
+            image = resolved || "";
+          } else if (isVideoStreamUrl(image) || isLowQualityImage(image)) {
+            image = "";
+          }
+        }
+
         // C. Fallback: 2-3 Line Description from Article / Main Content
         if (!description || description.length < 25) {
           $("script, style, noscript, nav, header, footer, svg, button, form").remove();
@@ -711,17 +755,13 @@ export async function extractMetadata(
               $(el).attr("data-src") ||
               $(el).attr("data-lazy-src") ||
               $(el).attr("srcset");
-            if (
-              src &&
-              !src.includes("avatar") &&
-              !src.includes("logo") &&
-              !src.includes("icon") &&
-              !src.includes("pixel") &&
-              !src.includes("badge") &&
-              !src.endsWith(".svg")
-            ) {
+            if (src) {
               const firstSrc = src.split(",")[0].trim().split(" ")[0];
-              if (firstSrc.startsWith("http") || firstSrc.startsWith("/")) {
+              if (
+                (firstSrc.startsWith("http") || firstSrc.startsWith("/")) &&
+                !isVideoStreamUrl(firstSrc) &&
+                !isLowQualityImage(firstSrc)
+              ) {
                 image = firstSrc;
               }
             }
@@ -773,6 +813,9 @@ export async function extractMetadata(
         if (mlData?.status === "success" && mlData?.data) {
           const ml = mlData.data;
           let mlImage = ml.image?.url || "";
+          if (mlImage && (isVideoStreamUrl(mlImage) || isLowQualityImage(mlImage))) {
+            mlImage = "";
+          }
 
           // If OpenGraph image is missing, request automated page screenshot
           if (!mlImage) {
@@ -784,14 +827,20 @@ export async function extractMetadata(
               );
               if (shotRes.ok) {
                 const shotData: any = await shotRes.json();
-                mlImage = shotData.data?.screenshot?.url || "";
+                const shotUrl = shotData.data?.screenshot?.url || "";
+                if (shotUrl && !isVideoStreamUrl(shotUrl) && !isLowQualityImage(shotUrl)) {
+                  mlImage = shotUrl;
+                }
               }
             } catch {}
           }
 
-          // If still no image, use high-res publisher logo
+          // If still no image, use high-res publisher logo if valid quality
           if (!mlImage && ml.logo?.url) {
-            mlImage = ml.logo.url;
+            const logoUrl = ml.logo.url;
+            if (!isVideoStreamUrl(logoUrl) && !isLowQualityImage(logoUrl)) {
+              mlImage = logoUrl;
+            }
           }
 
           const mlTitle = ml.title || (metadataResult ? metadataResult.title : "");
@@ -809,6 +858,19 @@ export async function extractMetadata(
     } catch (mlErr) {
       console.warn("[Microlink Fetch Warning]:", mlErr);
     }
+  }
+
+  // Final validation: Ensure no video stream URL or low quality image leaves the scraper
+  if (metadataResult && metadataResult.image) {
+    let finalImg = metadataResult.image;
+    if (finalImg.includes("video.vid3rb.com/video/")) {
+      const resolved = await resolveVideoThumbnail(finalImg);
+      finalImg = resolved || "";
+    }
+    if (isVideoStreamUrl(finalImg) || isLowQualityImage(finalImg)) {
+      finalImg = "";
+    }
+    metadataResult.image = finalImg;
   }
 
   return metadataResult;

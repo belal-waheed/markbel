@@ -195,4 +195,51 @@ describe("Metadata Scraper & Platform Adapters Suite (Modular Worker Engine)", (
       expect(cleanText("")).toBe("");
     });
   });
+
+  describe("6. Media Image Validation & Video Stream Resolution", () => {
+    it("discards video stream manifests and segments from scraped image results", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+        const inputUrl = typeof input === "string" ? input : input.url;
+        if (inputUrl.includes("api.microlink.io")) {
+          return new Response(JSON.stringify({ status: "fail" }), { status: 404 });
+        }
+        return new Response(
+          `<html><head><meta property="og:title" content="Live Stream"><meta property="og:image" content="https://example.com/live/playlist.m3u8"></head><body></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } }
+        );
+      });
+
+      const url = new URL("https://example.com/watch-live");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Live Stream");
+      expect(result?.image).toBe("");
+    });
+
+    it("resolves video.vid3rb.com 302 redirect location to static jpeg thumbnail", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+        const inputUrl = typeof input === "string" ? input : input.url;
+        if (inputUrl.includes("video.vid3rb.com/video/")) {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              Location: "https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg",
+            },
+          });
+        }
+        return new Response(
+          `<html><head><meta property="og:title" content="Anime Episode"><meta property="og:image" content="https://video.vid3rb.com/video/b515cf5f-6a75-4ee4-b6d9-cf6368d40be6"></head><body></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } }
+        );
+      });
+
+      const url = new URL("https://anime3rb.com/episode/123");
+      const result = await extractMetadata(url);
+
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe("Anime Episode");
+      expect(result?.image).toBe("https://thumbnails.vid3rb.com/b515cf5f/thumbnail.001.jpeg");
+    });
+  });
 });

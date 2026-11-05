@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isSafePublicUrl,
+  isSafeFaviconUrl,
   getPublicFaviconUrl,
   sanitizeAndCleanUrl,
   cleanText,
@@ -196,6 +197,34 @@ describe('urlSafety Unit Tests (AAA Pattern)', () => {
       expect(getPublicFaviconUrl('https://example.com/some/deep/page')).toBe(
         'https://www.google.com/s2/favicons?domain=example.com&sz=128'
       );
+    });
+  });
+
+  describe('isSafeFaviconUrl (Favicon Sanitizer)', () => {
+    it('returns false for falsy or empty inputs', () => {
+      expect(isSafeFaviconUrl(null)).toBe(false);
+      expect(isSafeFaviconUrl(undefined)).toBe(false);
+      expect(isSafeFaviconUrl('')).toBe(false);
+      expect(isSafeFaviconUrl('   ')).toBe(false);
+    });
+
+    it('returns false for direct private IPs or localhost favicon URLs', () => {
+      expect(isSafeFaviconUrl('http://192.168.1.1/favicon.ico')).toBe(false);
+      expect(isSafeFaviconUrl('http://10.0.0.1/favicon.png')).toBe(false);
+      expect(isSafeFaviconUrl('http://localhost:3000/favicon.ico')).toBe(false);
+      expect(isSafeFaviconUrl('http://127.0.0.1/icon.png')).toBe(false);
+    });
+
+    it('returns false for Google S2 URLs targeting private IPs or loopbacks', () => {
+      expect(isSafeFaviconUrl('https://www.google.com/s2/favicons?domain=192.168.1.1&sz=128')).toBe(false);
+      expect(isSafeFaviconUrl('https://www.google.com/s2/favicons?domain=localhost&sz=128')).toBe(false);
+      expect(isSafeFaviconUrl('https://www.google.com/s2/favicons?domain=10.0.0.5')).toBe(false);
+    });
+
+    it('returns true for legitimate public favicon URLs', () => {
+      expect(isSafeFaviconUrl('https://github.com/favicon.ico')).toBe(true);
+      expect(isSafeFaviconUrl('https://www.google.com/s2/favicons?domain=github.com&sz=128')).toBe(true);
+      expect(isSafeFaviconUrl('https://cdn.example.com/icons/favicon.png')).toBe(true);
     });
   });
 });

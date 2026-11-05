@@ -1,6 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import { resolveSmartGroup, getCustomSmartGroupRules, DEFAULT_SMART_GROUPS } from '../lib/smartGroups.js';
-import { extractInstantMediaMetadata, isFaviconUrl } from '@/lib/mediaHeuristics';
+import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from '@/lib/mediaHeuristics';
+import { isSafeFaviconUrl } from '@/lib/urlSafety';
 
 export interface LocalBookmark {
   id: string;
@@ -686,9 +687,10 @@ export async function repairMissingMediaThumbnails(): Promise<number> {
 }
 
 /**
- * Self-healing repair: scans all non-deleted bookmarks in Dexie, scrubs polluted favicon URLs
- * from the `image` field, and repairs/enriches missing or polluted thumbnails with instant
- * deterministic media metadata (e.g. YouTube hqdefault posters, GitHub OpenGraph banners).
+ * Self-healing repair: scans all non-deleted bookmarks in Dexie, scrubs video stream URLs
+ * and low-quality logos/favicons from the `image` field, purges private IP/invalid favicons,
+ * and repairs/enriches missing or polluted thumbnails with instant deterministic media metadata
+ * (e.g. YouTube hqdefault posters, GitHub OpenGraph banners).
  */
 export async function repairAndEnrichBookmarkThumbnails(): Promise<number> {
   try {
@@ -700,17 +702,25 @@ export async function repairAndEnrichBookmarkThumbnails(): Promise<number> {
 
     for (const b of bookmarks) {
       const instant = extractInstantMediaMetadata(b.url);
-      const isPolluted = isFaviconUrl(b.image);
+      const isPollutedImage = isLowQualityImage(b.image) || isVideoStreamUrl(b.image);
+      const isInvalidFavicon = Boolean(b.favicon && !isSafeFaviconUrl(b.favicon));
       let changed = false;
       const updated = { ...b };
 
-      if (instant.image && (!b.image || isPolluted)) {
+      // 1. Scrub polluted/video stream images and re-enrich with instant media metadata
+      if (instant.image && (!b.image || isPollutedImage)) {
         updated.image = instant.image;
         if (instant.siteName && !b.siteName) updated.siteName = instant.siteName;
         if (instant.contentType && !b.contentType) updated.contentType = instant.contentType;
         changed = true;
-      } else if (isPolluted && !instant.image) {
+      } else if (isPollutedImage && !instant.image) {
         updated.image = undefined;
+        changed = true;
+      }
+
+      // 2. Scrub invalid or private IP favicons
+      if (isInvalidFavicon) {
+        updated.favicon = undefined;
         changed = true;
       }
 

@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Full Design System Overhaul, Dual-Mode Editorial Cards, Collapsible Rail &amp; Tabbed Settings Suite
+            Image Pipeline Hardening, Video Stream Purge, Private IP Favicon Sanitizer &amp; Edge Media Proxy Resilience
           </span>
         </div>
         <button
