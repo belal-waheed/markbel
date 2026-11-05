@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-default)]">•</span>
           <span>
-            Favicon Pollution Elimination, Instant YouTube Thumbnails, Cache Storage Bloat Reclaim &amp; Broken Links HUD
+            In-Page Save Toast, Unified JSON/HTML Importer, Instant Media Posters &amp; Permission Minimization
           </span>
         </div>
         <button

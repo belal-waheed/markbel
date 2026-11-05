@@ -4,6 +4,12 @@ import { renderToString } from 'react-dom/server';
 import { BookmarkCard } from '../components/BookmarkCard';
 import { BookmarkRepository } from '../db/SyncRepository';
 import { db, LocalBookmark, SyncOutboxItem, repairMissingMediaThumbnails, repairAndEnrichBookmarkThumbnails } from '../db/db';
+import { importBookmarksData } from '../lib/bookmarkImport';
+import { DOMParser } from 'linkedom';
+
+if (typeof globalThis.DOMParser === 'undefined') {
+  globalThis.DOMParser = DOMParser as any;
+}
 
 describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
   describe('1. BookmarkCard Deterministic Thumbnail Fallback', () => {
@@ -357,6 +363,106 @@ describe('Cross-Client Media Resilience & Self-Healing Suite', () => {
 
       const articleRepaired = bulkPutPayload.find((b) => b.id === 'b-polluted-article');
       expect(articleRepaired?.image).toBeUndefined();
+    });
+  });
+
+  describe('4. Bookmark Import Resilience & Metadata Enrichment (HTML & JSON)', () => {
+    let importedBookmarks: Map<string, LocalBookmark>;
+    let importedGroups: Map<string, any>;
+    let queuedOutbox: any[];
+
+    beforeEach(() => {
+      importedBookmarks = new Map();
+      importedGroups = new Map();
+      queuedOutbox = [];
+
+      (vi.spyOn(db.bookmarks, 'toArray') as any).mockImplementation(async () => Array.from(importedBookmarks.values()));
+      (vi.spyOn(db.bookmarks, 'add') as any).mockImplementation(async (b: any) => {
+        importedBookmarks.set(b.id, b);
+        return b.id;
+      });
+      (vi.spyOn(db.groups, 'toArray') as any).mockImplementation(async () => Array.from(importedGroups.values()));
+      (vi.spyOn(db.groups, 'add') as any).mockImplementation(async (g: any) => {
+        importedGroups.set(g.id, g);
+        return g.id;
+      });
+      (vi.spyOn(db.syncOutbox, 'add') as any).mockImplementation(async (item: any) => {
+        queuedOutbox.push(item);
+        return item.id;
+      });
+      (vi.spyOn(db, 'transaction') as any).mockImplementation(async (...args: any[]) => {
+        const fn = args[args.length - 1];
+        return await fn();
+      });
+    });
+
+    it('extracts favicon from Netscape HTML <A ICON="..."> attribute', async () => {
+      const html = `
+        <!DOCTYPE NETSCAPE-Bookmark-file-1>
+        <DL><p>
+          <DT><H3>Tools</H3>
+          <DL><p>
+            <DT><A HREF="https://example.com/tool" ICON="data:image/svg+xml;base64,PHN2Zz4=">Tool Title</A>
+          </DL><p>
+        </DL><p>
+      `;
+
+      const res = await importBookmarksData(html, { userId: 'u-1', isJson: false });
+      expect(res.importedBookmarksCount).toBe(1);
+
+      const bm = Array.from(importedBookmarks.values())[0];
+      expect(bm.favicon).toBe('data:image/svg+xml;base64,PHN2Zz4=');
+      expect(bm.group).toBe('Tools');
+    });
+
+    it('auto-populates YouTube cover poster at 0ms during Netscape HTML import', async () => {
+      const html = `
+        <!DOCTYPE NETSCAPE-Bookmark-file-1>
+        <DL><p>
+          <DT><A HREF="https://www.youtube.com/watch?v=dQw4w9WgXcQ">Never Gonna Give You Up</A>
+        </DL><p>
+      `;
+
+      const res = await importBookmarksData(html, { userId: 'u-1', isJson: false });
+      expect(res.importedBookmarksCount).toBe(1);
+
+      const bm = Array.from(importedBookmarks.values())[0];
+      expect(bm.image).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+      expect(bm.contentType).toBe('video');
+      expect(bm.siteName).toBe('YouTube');
+    });
+
+    it('parses and restores full Markbel JSON backup format with groups and metadata', async () => {
+      const json = JSON.stringify({
+        app: 'Markbel',
+        version: '2.5.19',
+        exportedAt: '2026-11-04T00:00:00.000Z',
+        totalBookmarks: 1,
+        totalGroups: 1,
+        groups: [{ id: 'g-1', name: 'Design', color: '#ff0055' }],
+        bookmarks: [
+          {
+            id: 'b-json-1',
+            url: 'https://figma.com',
+            title: 'Figma',
+            image: 'https://figma.com/og.png',
+            favicon: 'https://figma.com/icon.png',
+            group: 'Design',
+            isPinned: true,
+          },
+        ],
+      });
+
+      const res = await importBookmarksData(json, { userId: 'u-1' });
+      expect(res.importedBookmarksCount).toBe(1);
+      expect(res.importedGroupsCount).toBe(1);
+
+      const bm = Array.from(importedBookmarks.values())[0];
+      expect(bm.url).toBe('https://figma.com');
+      expect(bm.image).toBe('https://figma.com/og.png');
+      expect(bm.favicon).toBe('https://figma.com/icon.png');
+      expect(bm.group).toBe('Design');
+      expect(bm.isPinned).toBe(true);
     });
   });
 });

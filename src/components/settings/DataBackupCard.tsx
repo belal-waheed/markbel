@@ -13,6 +13,7 @@ import {
 import { db } from "../../db/db.js";
 import { syncManager } from "../../db/SyncManager.js";
 import { useAuth } from "../../lib/auth.js";
+import { importBookmarksData } from "../../lib/bookmarkImport.js";
 
 interface DataBackupCardProps {
   onNotice: (msg: string) => void;
@@ -28,7 +29,7 @@ export default function DataBackupCard({
 
   const [exportingJson, setExportingJson] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
-  const [importingHtml, setImportingHtml] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearingCacheStorage, setClearingCacheStorage] = useState(false);
 
@@ -149,89 +150,22 @@ export default function DataBackupCard({
       .replace(/'/g, "&#039;");
   }
 
-  // 3. Import Netscape HTML file
+  // 3. Import Unified JSON & Netscape HTML file
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportingHtml(true);
+    setImporting(true);
     try {
       const text = await file.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-
-      const anchors = Array.from(doc.querySelectorAll("a"));
-      if (anchors.length === 0) {
-        alert("No bookmarks found in the uploaded file.");
-        return;
-      }
-
-      const now = new Date().toISOString();
+      const isJson = file.name.toLowerCase().endsWith(".json") || file.type === "application/json";
       const userId = user?.id || "local-user";
-      let importedCount = 0;
 
-      // Existing URLs to prevent duplicates
-      const existingBookmarks = await db.bookmarks.toArray();
-      const existingUrls = new Set(existingBookmarks.map((b) => b.url.toLowerCase()));
+      const result = await importBookmarksData(text, { userId, isJson });
 
-      for (const a of anchors) {
-        const href = a.getAttribute("href");
-        if (!href || href.startsWith("javascript:") || href.startsWith("data:")) continue;
-
-        if (existingUrls.has(href.toLowerCase())) {
-          continue;
-        }
-
-        const title = a.textContent?.trim() || href;
-
-        // Traverse upwards to find folder name if within a <DL>
-        let groupName = "Unsorted";
-        let parentDl = a.closest("dl");
-        if (parentDl) {
-          const prevHeader = parentDl.previousElementSibling;
-          if (prevHeader && /^H[1-6]$/i.test(prevHeader.tagName)) {
-            const hText = prevHeader.textContent?.trim();
-            if (hText && hText !== "Bookmarks" && hText !== "Bookmarks Bar") {
-              groupName = hText;
-            }
-          }
-        }
-
-        const bookmarkId = crypto.randomUUID();
-        const newRecord = {
-          id: bookmarkId,
-          userId,
-          url: href,
-          title,
-          description: "",
-          group: groupName,
-          isRead: false,
-          isArchived: false,
-          contentType: "article" as const,
-          tags: [],
-          version: 1,
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
-        };
-
-        await db.transaction("rw", [db.bookmarks, db.syncOutbox], async () => {
-          await db.bookmarks.add(newRecord);
-          await db.syncOutbox.add({
-            id: crypto.randomUUID(),
-            entityType: "bookmark",
-            entityId: bookmarkId,
-            operation: "create",
-            baseVersion: 0,
-            payload: newRecord,
-            status: "pending",
-            attempts: 0,
-            createdAt: now,
-          });
-        });
-
-        existingUrls.add(href.toLowerCase());
-        importedCount++;
+      if (result.importedBookmarksCount === 0 && result.importedGroupsCount === 0) {
+        alert("No new bookmarks found in the uploaded file (or all URLs were already present in your vault).");
+        return;
       }
 
       syncManager.sync(true);
@@ -239,12 +173,15 @@ export default function DataBackupCard({
         await onRefresh();
       }
 
-      onNotice(`Import complete: Added ${importedCount} bookmarks.`);
+      const notice = result.importedGroupsCount > 0
+        ? `Import complete: Added ${result.importedBookmarksCount} bookmarks, ${result.importedGroupsCount} groups.`
+        : `Import complete: Added ${result.importedBookmarksCount} bookmarks.`;
+      onNotice(notice);
     } catch (err) {
-      console.error("Netscape import error:", err);
-      alert("Failed to parse Netscape bookmark file: " + (err instanceof Error ? err.message : String(err)));
+      console.error("Import error:", err);
+      alert("Failed to import bookmarks file: " + (err instanceof Error ? err.message : String(err)));
     } finally {
-      setImportingHtml(false);
+      setImporting(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -359,10 +296,10 @@ export default function DataBackupCard({
           <div className="space-y-1">
             <h4 className="text-xs font-bold text-[var(--color-text-primary)] flex items-center gap-1.5">
               <ArrowUpFromLine className="w-4 h-4 text-[var(--color-accent)]" />
-              <span>Import Netscape HTML</span>
+              <span>Import Bookmarks</span>
             </h4>
             <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-              Import bookmark exports from Chrome, Firefox, Safari, Edge, or Brave directly into your vault.
+              Import bookmark exports from Chrome, Firefox, Safari, Edge, or Markbel JSON backups directly into your vault.
             </p>
           </div>
 
@@ -370,22 +307,22 @@ export default function DataBackupCard({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".html,.htm"
+              accept=".html,.htm,.json"
               onChange={handleFileChange}
               className="hidden"
             />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={importingHtml}
+              disabled={importing}
               className="btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {importingHtml ? (
+              {importing ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Archive className="w-3.5 h-3.5" />
               )}
-              <span>Choose Bookmark HTML File</span>
+              <span>Import Bookmarks (HTML / JSON)</span>
             </button>
           </div>
         </div>

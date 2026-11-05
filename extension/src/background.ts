@@ -366,14 +366,13 @@ chrome.commands.onCommand.addListener(async (command) => {
       broadcastCatalogUpdated();
       showBadge('SAVED', '#00ff88');
 
-      if (chrome.notifications && chrome.notifications.create) {
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icons/icon-48.png',
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'MARKBEL_SHOW_TOAST',
           title: 'Saved to Markbel',
-          message: `${title || url} (${group})`,
-          priority: 1,
-        });
+          message: title || url,
+          group,
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('[Markbel Background] Shortcut save error:', err);
