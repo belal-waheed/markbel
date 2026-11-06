@@ -8,7 +8,7 @@ import { MarkbelClient } from "./client.js";
 import { registerAllTools } from "./tools/index.js";
 
 export const SERVER_NAME = "markbel";
-export const SERVER_VERSION = "2.9.3";
+export const SERVER_VERSION = "2.9.4";
 
 export * from "./client.js";
 

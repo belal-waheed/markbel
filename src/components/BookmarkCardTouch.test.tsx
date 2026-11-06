@@ -12,10 +12,6 @@ vi.mock('../lib/nativeBridge', () => ({
   shareUrl: vi.fn().mockResolvedValue({ shared: true, method: 'native' }),
 }));
 
-vi.mock('../lib/useModalBackNavigation', () => ({
-  useModalBackNavigation: vi.fn(),
-}));
-
 describe('BookmarkCard Touch & Ghost-Click Elimination Suite', () => {
   const dummyBookmark: LocalBookmark = {
     id: 'bm-test-1',

@@ -464,3 +464,26 @@ tags:
   - Built fresh extension packages (`npm run build:extension:all`) and mirrored to `D:\apps\0-setup\markbel-extension\`.
   - Synchronized native Android Capacitor assets (`npx cap sync android`).
   - Deployed production bundle to Cloudflare Edge (`npx wrangler deploy`).
+
+### Phase 34: Action Sheet History Navigation Decoupling, Synchronous Callback Invocation & Touch Event Isolation (v2.9.4 - 2026-11-06)
+- **Decoupled Action Sheet History Navigation (`BookmarkCard.tsx`):**
+  - Removed `useModalBackNavigation` from `BookmarkCard.tsx`. Card-level action sheets now manage dismiss state purely via local React state and backdrop pointer events without pushing synthetic `#modal` entries onto `window.history`.
+  - Prevents unexpected route reversals and duplicate popstate transitions when opening/closing card 3-dots menus.
+- **Synchronous Action Callback Invocation Before Dismiss (`BookmarkCard.tsx`):**
+  - Refactored `menuContent` / `BookmarkMenuContent`: all action buttons (`onEdit`, `onDelete`, `onClick`, `onToggleRead`, `onTogglePin`, `onArchive`, `onOpenReader`, `onAdvanceSeries`, `onRollbackSeries`, `onSnoozeReminder`, `onDismissReminder`) invoke their target domain callbacks synchronously before or alongside calling `closeMenu()`.
+  - Preserves transient user gesture activation context and prevents browser popup blockers or dialog unmount races from dropping modal opens (`EditBookmarkModal`, `ShareSheet`, `ReaderModal`, external tabs).
+- **Touch Event Boundary Isolation (`BookmarkCard.tsx`):**
+  - Added explicit `onTouchStart={(e) => e.stopPropagation()}` and `onTouchEnd={(e) => e.stopPropagation()}` listeners to both `sheetRef` and `popoverRef` DOM elements.
+  - Prevents touch gestures inside the action sheet from leaking into the parent `BookmarkCard` root element or triggering the card's 500ms long-press hold-to-select timer.
+- **Architectural Seam & Unit Test Expansion (`ActionSheetButtonTouch.test.tsx`):**
+  - Extracted testable `BookmarkMenuContent` component with explicit props contract.
+  - Authored comprehensive unit tests verifying button tap invocations across `onClick`, `onToggleRead`, `onTogglePin`, `onEdit`, `onDelete`, `onArchive`, `onOpenReader`, and order-of-execution verification ensuring actions execute before menu dismiss.
+  - Removed obsolete `useModalBackNavigation` mocks across `ActionSheetButtonTouch.test.tsx`, `BookmarkCardTouch.test.tsx`, and `BookmarkCardSelection.test.tsx`.
+- **Quality Gates & Release Lifecycle Protocol Execution (v2.9.4):**
+  - Passed all 52 test suites and 697 unit tests (`npm test`).
+  - Passed TypeScript typecheck with 0 errors (`npm run typecheck`).
+  - Aligned semantic version to `2.9.4` across `package.json`, `@markbel/mcp`, extension manifests (Chromium and Firefox), `index.html` (`softwareVersion: 2.9.4`), `public/llms.txt`, `public/llms-full.txt`, and Android `build.gradle` (`versionCode 33`, `versionName "2.9.4"`).
+  - Synchronized Android Capacitor assets (`npx cap sync android`).
+  - Packaged fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extensions via `npm run build:extension:all`.
+  - Mirrored fresh unpacked extensions to `D:\apps\0-setup\markbel-extension\`.
+  - Deployed Cloudflare Edge worker and static assets to `https://mark.obel.workers.dev` (Version ID `99eb29bb-62a0-43ae-b5ab-073d7af2aa37`).

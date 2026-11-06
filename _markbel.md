@@ -2,7 +2,7 @@
 
 > **Living Technical Blueprint & Roadmap**  
 > **Repository:** `d:\dev\projects\markbel`  
-> **Status:** Production / v2.9.3  
+> **Status:** Production / v2.9.4  
 > **Targets:** Web PWA, Android APK (Capacitor), Chromium Extension, Edge Extension, Firefox Extension, Cloudflare Workers Edge, `@markbel/mcp` Server.  
 > **Test Matrix & Network Resilience Source of Truth:** [tests/TEST_MATRIX.md](file:///d:/dev/projects/markbel/tests/TEST_MATRIX.md)
 
@@ -492,3 +492,16 @@ Each milestone must pass the strict Markbel release pipeline:
   - 654/654 tests passing across 47 suites (`npm test`), 0 TypeScript compilation errors (`npm run typecheck`).
   - Built fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extension packages and synced unpacked mirror to `D:\apps\0-setup\markbel-extension\`.
   - Built fresh web bundle and deployed edge worker to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `05c40555-045c-4715-be77-43ac9a802970`).
+
+### Action Sheet History Decoupling, Synchronous Callback Invocation & Touch Event Isolation (v2.9.4):
+- **Decoupled Action Sheet History Navigation:**
+  - Removed `useModalBackNavigation` from `BookmarkCard.tsx` so card action sheets dismiss purely via local React state and backdrop pointer events without pushing synthetic `#modal` entries to `window.history`.
+- **Synchronous Action Callback Invocation Before Dismiss:**
+  - Refactored `BookmarkMenuContent`: all action buttons execute their callbacks synchronously before or alongside `closeMenu()`, preserving transient user gesture activation context and avoiding blocked modals.
+- **Touch Event Boundary Isolation:**
+  - Added `onTouchStart` and `onTouchEnd` stopPropagation listeners to sheet and popover elements, preventing touches inside the menu from leaking into parent card long-press selection listeners.
+- **Release Verification & Deployment:**
+  - 697/697 tests passing across 52 suites (`npm test`), 0 TypeScript errors (`npm run typecheck`).
+  - Fresh extension packages built and unpacked mirror synced to `D:\apps\0-setup\markbel-extension\`.
+  - Android assets synchronized (`npx cap sync android`).
+  - Deployed edge worker and static assets to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `99eb29bb-62a0-43ae-b5ab-073d7af2aa37`).

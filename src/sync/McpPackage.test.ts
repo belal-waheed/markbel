@@ -318,7 +318,7 @@ describe("Markbel MCP Client & Server Architecture", () => {
       const server = createMarkbelServer(client);
 
       expect(SERVER_NAME).toBe("markbel");
-      expect(SERVER_VERSION).toBe("2.9.3");
+      expect(SERVER_VERSION).toBe("2.9.4");
       expect(server).toBeDefined();
     });
 

@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Decoupled Action Sheet Buttons, Edge-Swipe Drawer &amp; All Bookmarks Projection
+            Decoupled Action Sheet History Navigation, Synchronous Callbacks &amp; Touch Containment
           </span>
         </div>
         <button

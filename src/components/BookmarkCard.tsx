@@ -23,7 +23,6 @@ import BookmarkImage from './BookmarkImage'
 import { getPublicFaviconUrl, isSafeFaviconUrl } from '@/lib/urlSafety'
 import { extractInstantMediaMetadata, isLowQualityImage, isVideoStreamUrl } from '@/lib/mediaHeuristics'
 import { parseSeriesProgression, formatEpisodicBadge } from '../lib/seriesProgression'
-import { useModalBackNavigation } from '../lib/useModalBackNavigation'
 import { hapticImpact, hapticSelection, shareUrl } from '../lib/nativeBridge'
 import { LocalBookmark } from '../db/db'
 import { ViewMode } from './BookmarkFilterBar'
@@ -46,6 +45,259 @@ interface BookmarkCardProps {
   onDismissReminder?: (b: LocalBookmark) => void
   onSnoozeReminder?: (b: LocalBookmark) => void
 }
+
+export interface BookmarkMenuContentProps {
+  bookmark: LocalBookmark
+  seriesInfo?: any
+  onOpenReader?: (b: LocalBookmark) => void
+  onToggleRead: (b: LocalBookmark) => void
+  onTogglePin: (b: LocalBookmark) => void
+  onAdvanceSeries?: (b: LocalBookmark) => void
+  onRollbackSeries?: (b: LocalBookmark) => void
+  onSnoozeReminder?: (b: LocalBookmark) => void
+  onDismissReminder?: (b: LocalBookmark) => void
+  onEdit: (b: LocalBookmark) => void
+  onArchive: (b: LocalBookmark) => void
+  onDelete: (b: LocalBookmark) => void
+  onClick: (url: string) => void
+  closeMenu: () => void
+}
+
+export const BookmarkMenuContent: React.FC<BookmarkMenuContentProps> = ({
+  bookmark: b,
+  seriesInfo,
+  onOpenReader,
+  onToggleRead,
+  onTogglePin,
+  onAdvanceSeries,
+  onRollbackSeries,
+  onSnoozeReminder,
+  onDismissReminder,
+  onEdit,
+  onArchive,
+  onDelete,
+  onClick,
+  closeMenu,
+}) => (
+  <div className="space-y-0.5 text-xs">
+    {/* Open Destination */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticSelection()
+        window.open(b.url, '_blank', 'noopener,noreferrer')
+        onClick(b.url)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+    >
+      <ExternalLink className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+      <span>Open in New Tab</span>
+    </button>
+
+    {/* Share Bookmark */}
+    <button
+      type="button"
+      onClick={async (e) => {
+        e.stopPropagation()
+        hapticSelection()
+        await shareUrl({ title: b.title, url: b.url })
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      aria-label="Share Bookmark"
+    >
+      <Share2 className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+      <span>Share Bookmark</span>
+    </button>
+
+    {/* Read Offline */}
+    {onOpenReader && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticSelection()
+          onOpenReader(b)
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+        aria-label="Read Offline"
+      >
+        <BookOpen className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+        <span>Read Offline</span>
+      </button>
+    )}
+
+    {/* Toggle Read */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticSelection()
+        onToggleRead(b)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+    >
+      {b.isRead ? (
+        <>
+          <CheckCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+          <span>Mark as Unread</span>
+        </>
+      ) : (
+        <>
+          <Check className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+          <span>Mark as Read</span>
+        </>
+      )}
+    </button>
+
+    {/* Toggle Pin */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticSelection()
+        onTogglePin(b)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+    >
+      <Pin className={`w-4 h-4 shrink-0 ${b.isPinned ? 'fill-amber-500 text-amber-500' : 'text-[var(--color-text-tertiary)]'}`} />
+      <span>{b.isPinned ? 'Unpin Bookmark' : 'Pin to Top'}</span>
+    </button>
+
+    {/* Series Next / Rollback */}
+    {seriesInfo && onAdvanceSeries && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticImpact('medium')
+          onAdvanceSeries(b)
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <FastForward className="w-4 h-4 shrink-0" />
+        <span>Advance Series (+1)</span>
+      </button>
+    )}
+
+    {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticSelection()
+          onRollbackSeries(b)
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-zinc-400 hover:bg-zinc-500/10 rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <RotateCcw className="w-4 h-4 shrink-0" />
+        <span>Rollback Series ({b.seriesHistory.length} in history)</span>
+      </button>
+    )}
+
+    {b.remindAt && onSnoozeReminder && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticSelection()
+          onSnoozeReminder(b)
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Clock className="w-4 h-4 shrink-0" />
+        <span>Snooze Reminder (+1d)</span>
+      </button>
+    )}
+
+    {b.remindAt && onDismissReminder && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticSelection()
+          onDismissReminder(b)
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <Clock className="w-4 h-4 shrink-0" />
+        <span>Dismiss Reminder</span>
+      </button>
+    )}
+
+    {b.isBroken && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          hapticSelection()
+          window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')
+          closeMenu()
+        }}
+        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
+      >
+        <AlertTriangle className="w-4 h-4 shrink-0" />
+        <span>View on Wayback Machine</span>
+      </button>
+    )}
+
+    <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+
+    {/* Edit Bookmark */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticSelection()
+        onEdit(b)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+    >
+      <Edit className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+      <span>Edit Bookmark</span>
+    </button>
+
+    {/* Archive Bookmark */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticImpact('medium')
+        onArchive(b)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
+    >
+      <Archive className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+      <span>Archive Bookmark</span>
+    </button>
+
+    {/* Delete Bookmark */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticImpact('medium')
+        onDelete(b)
+        closeMenu()
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-status-error)] hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer text-left"
+    >
+      <Trash2 className="w-4 h-4 shrink-0" />
+      <span>Delete Bookmark</span>
+    </button>
+  </div>
+)
 
 const getDomain = (url: string) => {
   try {
@@ -91,9 +343,6 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
       isShieldActiveRef.current = false
     }, 250)
   }, [])
-
-  // Android hardware back button integration
-  useModalBackNavigation([{ isOpen: isMenuOpen, close: closeMenu }])
 
   // Card click wrapped with shield guard and selection mode interception
   const handleCardClick = useCallback((e?: React.MouseEvent) => {
@@ -267,225 +516,22 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 
   // Shared Action Sheet / Dropdown Menu Items
   const menuContent = useMemo(() => (
-    <div className="space-y-0.5 text-xs">
-      {/* Open Destination */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          onClick(b.url)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-      >
-        <ExternalLink className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-        <span>Open in New Tab</span>
-      </button>
-
-      {/* Share Bookmark */}
-      <button
-        type="button"
-        onClick={async (e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          await shareUrl({ title: b.title, url: b.url })
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-        aria-label="Share Bookmark"
-      >
-        <Share2 className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-        <span>Share Bookmark</span>
-      </button>
-
-      {/* Read Offline */}
-      {onOpenReader && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticSelection()
-            onOpenReader(b)
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-          aria-label="Read Offline"
-        >
-          <BookOpen className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-          <span>Read Offline</span>
-        </button>
-      )}
-
-      {/* Toggle Read */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          onToggleRead(b)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-      >
-        {b.isRead ? (
-          <>
-            <CheckCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
-            <span>Mark as Unread</span>
-          </>
-        ) : (
-          <>
-            <Check className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-            <span>Mark as Read</span>
-          </>
-        )}
-      </button>
-
-      {/* Toggle Pin */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          onTogglePin(b)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-      >
-        <Pin className={`w-4 h-4 shrink-0 ${b.isPinned ? 'fill-amber-500 text-amber-500' : 'text-[var(--color-text-tertiary)]'}`} />
-        <span>{b.isPinned ? 'Unpin Bookmark' : 'Pin to Top'}</span>
-      </button>
-
-      {/* Series Next / Rollback */}
-      {seriesInfo && onAdvanceSeries && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticImpact('medium')
-            onAdvanceSeries(b)
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer text-left"
-        >
-          <FastForward className="w-4 h-4 shrink-0" />
-          <span>Advance Series (+1)</span>
-        </button>
-      )}
-
-      {b.seriesHistory && b.seriesHistory.length > 0 && onRollbackSeries && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticSelection()
-            onRollbackSeries(b)
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-zinc-400 hover:bg-zinc-500/10 rounded-lg transition-colors cursor-pointer text-left"
-        >
-          <RotateCcw className="w-4 h-4 shrink-0" />
-          <span>Rollback Series ({b.seriesHistory.length} in history)</span>
-        </button>
-      )}
-
-      {/* Reminder Controls */}
-      {b.remindAt && onSnoozeReminder && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticSelection()
-            onSnoozeReminder(b)
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
-        >
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>Snooze Reminder (+1d)</span>
-        </button>
-      )}
-
-      {b.remindAt && onDismissReminder && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticSelection()
-            onDismissReminder(b)
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-        >
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>Dismiss Reminder</span>
-        </button>
-      )}
-
-      {/* Wayback Machine */}
-      {b.isBroken && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            closeMenu()
-            hapticSelection()
-            window.open(`https://web.archive.org/web/*/${b.url}`, '_blank', 'noopener,noreferrer')
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
-        >
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>View on Wayback Machine</span>
-        </button>
-      )}
-
-      <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-
-      {/* Edit Bookmark */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          onEdit(b)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-      >
-        <Edit className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-        <span>Edit Bookmark</span>
-      </button>
-
-      {/* Archive Bookmark */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticSelection()
-          onArchive(b)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors cursor-pointer text-left"
-      >
-        <Archive className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
-        <span>Archive Bookmark</span>
-      </button>
-
-      {/* Delete Bookmark */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          closeMenu()
-          hapticImpact('medium')
-          onDelete(b)
-        }}
-        className="w-full flex items-center gap-2.5 px-3 py-2 font-medium text-[var(--color-status-error)] hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer text-left"
-      >
-        <Trash2 className="w-4 h-4 shrink-0" />
-        <span>Delete Bookmark</span>
-      </button>
-    </div>
+    <BookmarkMenuContent
+      bookmark={b}
+      seriesInfo={seriesInfo}
+      onOpenReader={onOpenReader}
+      onToggleRead={onToggleRead}
+      onTogglePin={onTogglePin}
+      onAdvanceSeries={onAdvanceSeries}
+      onRollbackSeries={onRollbackSeries}
+      onSnoozeReminder={onSnoozeReminder}
+      onDismissReminder={onDismissReminder}
+      onEdit={onEdit}
+      onArchive={onArchive}
+      onDelete={onDelete}
+      onClick={onClick}
+      closeMenu={closeMenu}
+    />
   ), [b, seriesInfo, onOpenReader, onToggleRead, onTogglePin, onAdvanceSeries, onRollbackSeries, onSnoozeReminder, onDismissReminder, onEdit, onArchive, onDelete, onClick, closeMenu])
 
   // Action Sheet Portal for Mobile & Anchored Popover for Desktop
@@ -517,6 +563,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           className="fixed inset-x-0 bottom-0 sm:hidden z-10 bg-[var(--color-bg-surface)] border-t border-[var(--color-border-default)] rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[85vh] overflow-y-auto space-y-2 animate-in slide-in-from-bottom duration-200"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           <div className="w-10 h-1 bg-[var(--color-border-strong)] rounded-full mx-auto mb-2" />
           <div className="flex items-center gap-2.5 px-2 pb-2.5 mb-1 border-b border-[var(--color-border-subtle)]">
@@ -547,6 +595,8 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
           }}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           {menuContent}
         </div>
