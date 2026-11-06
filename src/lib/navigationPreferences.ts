@@ -8,6 +8,7 @@ export interface NavigationPreferences {
   hiddenGroupNames: string[]; // default: []
   pinnedGroupNames: string[]; // default: []
   showMobileCategoryScroller: boolean; // default: true
+  allBookmarksExcludedGroups: string[]; // default: []
 }
 
 export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferences = {
@@ -16,6 +17,7 @@ export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferences = {
   hiddenGroupNames: [],
   pinnedGroupNames: [],
   showMobileCategoryScroller: true,
+  allBookmarksExcludedGroups: [],
 };
 
 /**
@@ -91,12 +93,24 @@ export function getNavigationPreferences(): NavigationPreferences {
       }
     }
 
+    const allBookmarksExcludedGroups = Array.isArray(parsed.allBookmarksExcludedGroups)
+      ? Array.from<string>(
+          new Set(
+            parsed.allBookmarksExcludedGroups
+              .filter((item: unknown): item is string => typeof item === "string")
+              .map((item: string) => item.trim())
+              .filter((item: string) => item.length > 0)
+          )
+        )
+      : [];
+
     return {
       defaultView,
       hideEmptyGroups,
       hiddenGroupNames,
       pinnedGroupNames,
       showMobileCategoryScroller,
+      allBookmarksExcludedGroups,
     };
   } catch {
     return { ...DEFAULT_NAVIGATION_PREFERENCES };
@@ -137,6 +151,17 @@ export function setNavigationPreferences(
     );
     // Keep legacy storage key in sync
     setPinnedCategories(merged.pinnedGroupNames);
+  }
+
+  if (updates.allBookmarksExcludedGroups) {
+    merged.allBookmarksExcludedGroups = Array.from(
+      new Set(
+        updates.allBookmarksExcludedGroups
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
@@ -187,6 +212,24 @@ export function toggleGroupPin(name: string): NavigationPreferences {
     : [...current.pinnedGroupNames, trimmed];
 
   return setNavigationPreferences({ pinnedGroupNames: nextPinned });
+}
+
+/**
+ * Toggles exclusion of a group from the default "All Bookmarks" feed.
+ */
+export function toggleAllBookmarksExcludedGroup(name: string): NavigationPreferences {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) {
+    return getNavigationPreferences();
+  }
+
+  const current = getNavigationPreferences();
+  const exists = (current.allBookmarksExcludedGroups || []).includes(trimmed);
+  const nextExcluded = exists
+    ? (current.allBookmarksExcludedGroups || []).filter((g) => g !== trimmed)
+    : [...(current.allBookmarksExcludedGroups || []), trimmed];
+
+  return setNavigationPreferences({ allBookmarksExcludedGroups: nextExcluded });
 }
 
 export interface VisibleGroupItem {

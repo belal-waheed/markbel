@@ -438,3 +438,29 @@ tags:
 - Packaged fresh extensions (`markbel-extension.zip`, `markbel-firefox-extension.zip`) and updated unpacked directory `D:\apps\0-setup\markbel-extension\`.
 - Deployed frontend and worker to Cloudflare Edge (`https://mark.obel.workers.dev`, Version ID `05c40555-045c-4715-be77-43ac9a802970`).
 - Quality gate passed: 47 test suites, 654 unit tests passing, 0 TypeScript typecheck errors.
+
+### Phase 33: Action Sheet Button Restoration, Edge-Swipe Drawer, All-Bookmarks List Projection & Guarded Selection (v2.9.3 - 2026-11-06)
+- **Decoupled Sibling Architecture & Action Sheet Button Tap Restoration (`BookmarkCard.tsx`):**
+  - Diagnosed root cause of non-responsive 3-dots action sheet button taps on touch devices: the portal's backdrop wrapper element attached an `onPointerDown` listener that called `e.preventDefault()`. Under W3C Pointer Events Level 3, calling `preventDefault()` on `pointerdown` completely suppresses subsequent mouse event dispatch and synthetic `click` events across all children.
+  - Refactored `actionSheetPortal` using a decoupled sibling architecture: the Backdrop Overlay (`fixed inset-0 bg-black/60`) and the Sheet Dialog (`fixed inset-x-0 bottom-0 sm:hidden`) are independent siblings under a transparent viewport container.
+  - Sibling backdrop intercepts outside taps exclusively, while the Dialog Content DOM subtree dispatches touch and click events with untouched browser dispatching.
+  - Scoped window scroll listener to ignore scroll events originating within `sheetRef` or `popoverRef`, preventing accidental dismissals while scrolling through long action lists.
+- **Edge-Swipe Mobile Drawer Gesture Engine (`useSwipeGesture.ts` & `BookmarksPage.tsx`):**
+  - Replaced blunt `enabled: false` flag with an edge-boundary finite state machine.
+  - Added `edgeOnly` (default `false`) and `maxEdgeStartX` (default `36px`) parameters to `useSwipeGesture`.
+  - Extracted pure evaluation algorithm `evaluateSwipeGesture` verifying angle dominance and start coordinates.
+  - Enabled mobile drawer swipe gesture in `BookmarksPage`: swiping right within 36px of the left physical bezel cleanly opens the category sidebar, swiping left closes it, while horizontal swipe scrolling across middle-screen tabs, pills, and cards remains 100% unhindered.
+- **Customizable 'All Bookmarks' List Projection (`navigationPreferences.ts`, `BookmarksPage.tsx`, `NavigationPreferencesCard.tsx`):**
+  - Extended `NavigationPreferences` with `allBookmarksExcludedGroups: string[]` (default `[]`).
+  - Added `toggleAllBookmarksExcludedGroup` helper and updated serialization with deduplication.
+  - Applied predicate projection in `BookmarksPage.tsx` when `!activeGroup || activeGroup === 'All'`: bookmarks whose group belongs to `allBookmarksExcludedGroups` are filtered out of the default feed and tab statistics while remaining directly accessible via sidebar and search.
+  - Added dedicated "Lists in Default 'All Bookmarks' Feed" interactive matrix in Settings with per-list status toggles and a "Reset to All" quick action.
+- **Mobile Long-Press Hold-to-Select & Full-Card Selection Guard (`BookmarkCard.tsx`):**
+  - Implemented 500ms long-press touch listener with 10px move cancellation threshold across List, Hero Media, and Typography card views, triggering medium haptic feedback and toggling card selection.
+  - Guarded `handleCardClick`: when `selectionMode` or `isSelected` is active, tapping anywhere on the card toggles selection and triggers `hapticSelection()` instead of navigating to the destination URL.
+- **Quality Gates & Release Lifecycle Protocol Execution:**
+  - Expanded unit test suites with `useSwipeGesture.test.ts`, `ActionSheetButtonTouch.test.tsx`, `BookmarkCardSelection.test.tsx`, and updated `navigationPreferences.test.ts` (totaling 52 test suites, 689 passing unit tests, 0 failures, 0 TypeScript errors).
+  - Aligned semantic version to `2.9.3` across `package.json`, `@markbel/mcp`, extension manifests, `index.html`, `llms.txt`, `llms-full.txt`, and Android `build.gradle` (`versionCode 32`).
+  - Built fresh extension packages (`npm run build:extension:all`) and mirrored to `D:\apps\0-setup\markbel-extension\`.
+  - Synchronized native Android Capacitor assets (`npx cap sync android`).
+  - Deployed production bundle to Cloudflare Edge (`npx wrangler deploy`).

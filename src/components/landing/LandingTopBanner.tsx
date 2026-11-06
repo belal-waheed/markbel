@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Alt+O Keyboard Navigation, LTR Layout Normalization &amp; Ctrl+Arrow Category Switching
+            Decoupled Action Sheet Buttons, Edge-Swipe Drawer &amp; All Bookmarks Projection
           </span>
         </div>
         <button

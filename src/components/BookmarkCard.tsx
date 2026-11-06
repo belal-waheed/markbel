@@ -75,8 +75,13 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const [menuCoords, setMenuCoords] = useState<{ top: number; right: number } | null>(null)
   const isShieldActiveRef = useRef(false)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+  const isLongPressTriggeredRef = useRef(false)
 
   // Safe dismiss with transient click shield to absorb trailing synthetic touch events
   const closeMenu = useCallback(() => {
@@ -90,15 +95,72 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   // Android hardware back button integration
   useModalBackNavigation([{ isOpen: isMenuOpen, close: closeMenu }])
 
-  // Card click wrapped with shield guard to eliminate touch ghost clicks
+  // Card click wrapped with shield guard and selection mode interception
   const handleCardClick = useCallback((e?: React.MouseEvent) => {
     if (isShieldActiveRef.current) {
       e?.preventDefault?.()
       e?.stopPropagation?.()
       return
     }
+    if (isLongPressTriggeredRef.current) {
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
+      isLongPressTriggeredRef.current = false
+      return
+    }
+    if (selectionMode || isSelected) {
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
+      onToggleSelect?.(b, false)
+      hapticSelection()
+      return
+    }
     onClick(b.url)
-  }, [onClick, b.url])
+  }, [selectionMode, isSelected, onToggleSelect, b, onClick])
+
+  // Long-press hold detection on touch devices (500ms timeout with 10px move cancel threshold)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return
+    const touch = e.touches[0]
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    isLongPressTriggeredRef.current = false
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true
+      hapticImpact('medium')
+      onToggleSelect?.(b, false)
+    }, 500)
+  }, [b, onToggleSelect])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || !longPressTimerRef.current) return
+    const touch = e.touches[0]
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
+    if (dx > 10 || dy > 10) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+      }
+    }
+  }, [])
 
   const seriesInfo = useMemo(() => {
     if (b.seriesEpisode) {
@@ -180,7 +242,16 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   useEffect(() => {
     if (!isMenuOpen) return
 
-    const handleScroll = () => closeMenu()
+    const handleScroll = (e: Event) => {
+      // Ignore scroll events originating from inside the sheetRef or popoverRef
+      if (
+        sheetRef.current?.contains(e.target as Node) ||
+        popoverRef.current?.contains(e.target as Node)
+      ) {
+        return
+      }
+      closeMenu()
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeMenu()
     }
@@ -193,28 +264,6 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isMenuOpen, closeMenu])
-
-  // Event-absorbing shield callbacks for portal backdrop
-  const handleBackdropPointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
-
-  const handleBackdropTouchStart = useCallback((e: React.TouchEvent) => {
-    e.stopPropagation()
-  }, [])
-
-  const handleBackdropTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    closeMenu()
-  }, [closeMenu])
-
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    closeMenu()
-  }, [closeMenu])
 
   // Shared Action Sheet / Dropdown Menu Items
   const menuContent = useMemo(() => (
@@ -446,58 +495,57 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     const opensUpward = menuCoords ? (window.innerHeight - menuCoords.top < 280) : false
 
     return createPortal(
-      <div
-        className="fixed inset-0 z-50 pointer-events-auto"
-        onPointerDown={handleBackdropPointerDown}
-        onTouchStart={handleBackdropTouchStart}
-        onTouchEnd={handleBackdropTouchEnd}
-        onClick={handleBackdropClick}
-      >
-        {/* Mobile Native Bottom Action Sheet */}
+      <div className="fixed inset-0 z-50 pointer-events-auto">
+        {/* 1. Backdrop Sibling: catches outside clicks without wrapping content */}
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in duration-150 flex flex-col justify-end"
-          onPointerDown={handleBackdropPointerDown}
-          onTouchStart={handleBackdropTouchStart}
-          onTouchEnd={handleBackdropTouchEnd}
-          onClick={handleBackdropClick}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs sm:bg-transparent animate-in fade-in duration-150"
+          onPointerDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            closeMenu()
+          }}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            closeMenu()
+          }}
+        />
+
+        {/* 2. Mobile Native Bottom Action Sheet Sibling: isolated DOM tree */}
+        <div
+          ref={sheetRef}
+          className="fixed inset-x-0 bottom-0 sm:hidden z-10 bg-[var(--color-bg-surface)] border-t border-[var(--color-border-default)] rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[85vh] overflow-y-auto space-y-2 animate-in slide-in-from-bottom duration-200"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className="bg-[var(--color-bg-surface)] border-t border-[var(--color-border-default)] rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[85vh] overflow-y-auto space-y-2 animate-in slide-in-from-bottom duration-200"
-            onPointerDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-10 h-1 bg-[var(--color-border-strong)] rounded-full mx-auto mb-2" />
-            <div className="flex items-center gap-2.5 px-2 pb-2.5 mb-1 border-b border-[var(--color-border-subtle)]">
-              <img
-                src={faviconUrl}
-                alt=""
-                className="w-4 h-4 object-contain shrink-0"
-                onError={(e) => {
-                  ;(e.target as HTMLElement).style.display = 'none'
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <h5 className="text-xs font-bold text-[var(--color-text-primary)] truncate">{b.title}</h5>
-                <span className="text-[10px] font-mono text-[var(--color-text-secondary)] truncate block">{domain}</span>
-              </div>
+          <div className="w-10 h-1 bg-[var(--color-border-strong)] rounded-full mx-auto mb-2" />
+          <div className="flex items-center gap-2.5 px-2 pb-2.5 mb-1 border-b border-[var(--color-border-subtle)]">
+            <img
+              src={faviconUrl}
+              alt=""
+              className="w-4 h-4 object-contain shrink-0"
+              onError={(e) => {
+                ;(e.target as HTMLElement).style.display = 'none'
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <h5 className="text-xs font-bold text-[var(--color-text-primary)] truncate">{b.title}</h5>
+              <span className="text-[10px] font-mono text-[var(--color-text-secondary)] truncate block">{domain}</span>
             </div>
-            {menuContent}
           </div>
+          {menuContent}
         </div>
 
-        {/* Desktop Anchored Popover Menu */}
+        {/* 3. Desktop Anchored Popover Menu Sibling */}
         <div
-          className="hidden sm:block fixed z-50 bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl shadow-xl p-1.5 min-w-[210px] animate-in fade-in zoom-in-95 duration-100"
+          ref={popoverRef}
+          className="hidden sm:block fixed z-10 bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl shadow-xl p-1.5 min-w-[210px] animate-in fade-in zoom-in-95 duration-100"
           style={{
             top: menuCoords ? `${menuCoords.top}px` : undefined,
             right: menuCoords ? `${menuCoords.right}px` : undefined,
             transform: opensUpward ? 'translateY(-100%)' : undefined,
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {menuContent}
@@ -505,7 +553,7 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
       </div>,
       document.body
     )
-  }, [isMenuOpen, menuCoords, faviconUrl, b.title, domain, menuContent, handleBackdropPointerDown, handleBackdropTouchStart, handleBackdropTouchEnd, handleBackdropClick])
+  }, [isMenuOpen, menuCoords, faviconUrl, b.title, domain, menuContent, closeMenu])
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. COMPACT LIST ROW VIEW
@@ -514,6 +562,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     return (
       <div
         onClick={handleCardClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         className={`studio-card studio-card-hover p-2 sm:px-3 sm:py-2.5 flex items-center justify-between gap-3 group cursor-pointer active:scale-[0.99] transition-all min-h-[48px] ${
           b.isRead ? 'opacity-70 hover:opacity-100' : ''
         } ${isSelected ? 'ring-2 ring-[var(--color-accent)] bg-[var(--color-brand-subtle)]' : ''}`}
@@ -669,6 +721,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
     return (
       <div
         onClick={handleCardClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         className={`studio-card studio-card-hover flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative ${
           b.isRead ? 'opacity-75 hover:opacity-100' : ''
         } ${isSelected ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
@@ -875,6 +931,10 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = React.memo(({
   return (
     <div
       onClick={handleCardClick}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       className={`studio-card studio-card-hover p-3.5 sm:p-4 flex flex-col justify-between group cursor-pointer active:scale-[0.99] transition-all rounded-xl relative min-h-[170px] ${
         b.isRead ? 'opacity-75 hover:opacity-100' : ''
       } ${isSelected ? 'ring-2 ring-[var(--color-accent)] bg-[var(--color-brand-subtle)]' : ''}`}

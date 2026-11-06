@@ -147,7 +147,7 @@ describe('Landing Page Modular Components Suite (Phase 6 Modernization)', () => 
       // Assert
       expect(html).toContain('Markbel v2.5.17 is live')
       expect(html).toContain('v2.5.17 Notes')
-      expect(html).toContain('Alt+O Keyboard Navigation')
+      expect(html).toContain('Decoupled Action Sheet Buttons')
 
       // Act: trigger onClick handler from React element tree
       const renderedTree = LandingTopBanner({

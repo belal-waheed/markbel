@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.9.2
+                  What's New in Markbel v2.9.3
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Alt+O keyboard navigation fix, LTR layout normalization for RTL websites, bilingual dir="auto", and Ctrl+Arrow category list switching
+                Decoupled action sheet buttons restoration, edge-swipe mobile drawer engine, customizable All Bookmarks list projection, and guarded long-press selection
               </p>
             </div>
           </div>
@@ -69,6 +69,43 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: Decoupled Action Sheet Buttons, Edge-Swipe Drawer & All Bookmarks Projection (v2.9.3) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Decoupled Action Sheet Buttons, Edge-Swipe Drawer &amp; All Bookmarks Projection
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.9.3
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Restored 100% reliable 3-dots action sheet button taps on touch devices by refactoring the portal into decoupled backdrop and dialog sibling subtrees, eliminating W3C synthetic click suppression; ignored internal sheet scrolling in the auto-dismiss listener; introduced edge-swipe drawer gesture engine (&lt;=36px) so swiping right from the left bezel opens the sidebar while horizontal tab scrolling is completely undisturbed; implemented customizable 'All Bookmarks' list projection with interactive toggle matrix in Settings; added mobile 500ms long-press hold-to-select and full-card click interception during multiselect mode; bumped semantic version to v2.9.3 and Android build.gradle to versionCode 32.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Decoupled Sibling Action Sheet Architecture</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Edge-Swipe Mobile Drawer Engine (&lt;=36px)</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Customizable 'All Bookmarks' Feed Projection</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Hold to Select &amp; Guarded Card Click</span>
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Feature: In-Page Spotlight (Alt+O) Arrow Navigation, LTR Layout Normalization & Category Switching (v2.9.2) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

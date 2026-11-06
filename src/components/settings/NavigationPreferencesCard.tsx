@@ -3,6 +3,7 @@ import {
   Eye,
   EyeOff,
   LayoutGrid,
+  ListFilter,
   Pin,
   SlidersHorizontal,
 } from "lucide-react";
@@ -157,6 +158,101 @@ export default function NavigationPreferencesCard({
               }`}
             />
           </button>
+        </div>
+      </div>
+
+      {/* Lists in Default 'All Bookmarks' Feed Projection */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-xs font-bold text-[var(--color-text-primary)]">
+              Lists in Default 'All Bookmarks' Feed
+            </h4>
+            <p className="text-[11px] text-[var(--color-text-muted)]">
+              Choose which lists appear in the primary 'All Bookmarks' stream. Unselected lists remain directly accessible via sidebar and search.
+            </p>
+          </div>
+          {(navPrefs.allBookmarksExcludedGroups || []).length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateNavPrefs(
+                  { allBookmarksExcludedGroups: [] },
+                  "All lists included in default feed"
+                );
+              }}
+              className="text-[11px] text-[var(--color-accent)] hover:underline font-medium cursor-pointer"
+            >
+              Reset to All
+            </button>
+          )}
+        </div>
+
+        <div className="border border-[var(--color-border-default)] rounded-lg overflow-hidden bg-[var(--color-bg-surface)]">
+          {availableGroups.length === 0 ? (
+            <div className="p-6 text-center text-xs text-[var(--color-text-muted)]">
+              No lists created yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--color-border-default)]">
+              {availableGroups.map((groupName) => {
+                const count = groupCounts[groupName] || 0;
+                const isExcluded = (navPrefs.allBookmarksExcludedGroups || []).includes(groupName);
+                const isIncluded = !isExcluded;
+                const color = groupColorMap[groupName.toLowerCase()] || "blue";
+
+                return (
+                  <div
+                    key={`feed-${groupName}`}
+                    className="p-3 flex items-center justify-between gap-3 hover:bg-[var(--color-bg-hover)] transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          COLOR_OPTIONS.find((c) => c.name === color)?.bg || "bg-blue-500"
+                        }`}
+                      />
+                      <div className="truncate">
+                        <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate block">
+                          {groupName}
+                        </span>
+                        <span className="text-[11px] text-[var(--color-text-muted)]">
+                          {count} bookmark{count === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isIncluded}
+                      onClick={() => {
+                        const currentExcluded = navPrefs.allBookmarksExcludedGroups || [];
+                        const nextExcluded = isExcluded
+                          ? currentExcluded.filter((g) => g !== groupName)
+                          : [...currentExcluded, groupName];
+                        onUpdateNavPrefs(
+                          { allBookmarksExcludedGroups: nextExcluded },
+                          isExcluded
+                            ? `Included "${groupName}" in default feed`
+                            : `Excluded "${groupName}" from default feed`
+                        );
+                      }}
+                      className={`min-h-[44px] min-w-[44px] sm:min-w-0 px-3 py-2 flex items-center justify-center sm:justify-start gap-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                        isIncluded
+                          ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)] border-[var(--color-accent)]/30 font-semibold"
+                          : "bg-[var(--color-bg-element)] text-[var(--color-text-muted)] border-[var(--color-border-default)] hover:text-[var(--color-text-primary)]"
+                      }`}
+                      title={isIncluded ? "Included in All Bookmarks feed" : "Excluded from All Bookmarks feed"}
+                    >
+                      <ListFilter className="w-3.5 h-3.5" />
+                      <span>{isIncluded ? "Included" : "Excluded"}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

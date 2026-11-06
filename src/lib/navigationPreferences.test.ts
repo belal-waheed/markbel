@@ -6,6 +6,7 @@ import {
   setNavigationPreferences,
   toggleGroupVisibility,
   toggleGroupPin,
+  toggleAllBookmarksExcludedGroup,
   filterAndSortGroups,
   NavigationPreferences,
 } from "./navigationPreferences";
@@ -385,6 +386,30 @@ describe("navigationPreferences", () => {
       // Assert
       expect(result.visibleGroups).toEqual([]);
       expect(result.hiddenGroups).toEqual([]);
+    });
+  });
+
+  describe("allBookmarksExcludedGroups projection", () => {
+    it("reads and deduplicates allBookmarksExcludedGroups from storage", () => {
+      storageMap[STORAGE_KEY] = JSON.stringify({
+        allBookmarksExcludedGroups: ["Instagram", "Anime", "  Instagram  ", ""],
+      });
+
+      const prefs = getNavigationPreferences();
+      expect(prefs.allBookmarksExcludedGroups).toEqual(["Instagram", "Anime"]);
+    });
+
+    it("toggles group exclusion into and out of allBookmarksExcludedGroups", () => {
+      const p1 = toggleAllBookmarksExcludedGroup("Archive");
+      expect(p1.allBookmarksExcludedGroups).toEqual(["Archive"]);
+
+      const p2 = toggleAllBookmarksExcludedGroup("Archive");
+      expect(p2.allBookmarksExcludedGroups).toEqual([]);
+    });
+
+    it("ignores whitespace-only group names when toggling exclusion", () => {
+      const p1 = toggleAllBookmarksExcludedGroup("   ");
+      expect(p1.allBookmarksExcludedGroups).toEqual([]);
     });
   });
 });

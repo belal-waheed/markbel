@@ -286,12 +286,14 @@ export default function BookmarksPage() {
     handleBulkMoveGroup,
   } = useBookmarkBatchOperations();
 
-  // Full-screen mobile swipe gestures: disabled to prevent hijacking horizontal tab/pill scrolling; drawer opens cleanly via hamburger button
+  // Mobile edge-swipe gesture: swipe from left bezel (<=36px) opens sidebar, swipe left closes sidebar
   useSwipeGesture({
     onSwipeRight: () => setIsSidebarOpen(true),
     onSwipeLeft: () => setIsSidebarOpen(false),
     minDistance: 45,
-    enabled: false,
+    edgeOnly: true,
+    maxEdgeStartX: 36,
+    enabled: true,
   });
 
   // Modal States
@@ -348,6 +350,7 @@ export default function BookmarksPage() {
   // Tab Stats Counts (Computed locally in O(N))
   const counts = useMemo(() => {
     const now = new Date().toISOString();
+    let all = 0;
     let unread = 0;
     let pinned = 0;
     let due = 0;
@@ -355,7 +358,14 @@ export default function BookmarksPage() {
     let articles = 0;
     let code = 0;
 
+    const isAllView = !activeGroup || activeGroup === "All";
+    const excludedSet = new Set(navPrefs.allBookmarksExcludedGroups || []);
+
     bookmarks.forEach((b) => {
+      if (isAllView && excludedSet.size > 0 && excludedSet.has(b.group || "Unsorted")) {
+        return;
+      }
+      all++;
       if (!b.isRead) unread++;
       if (b.isPinned) pinned++;
       if (b.remindAt && b.remindAt <= now && !b.isRead) due++;
@@ -376,7 +386,7 @@ export default function BookmarksPage() {
     });
 
     return {
-      all: bookmarks.length,
+      all,
       unread,
       pinned,
       due,
@@ -384,11 +394,18 @@ export default function BookmarksPage() {
       articles,
       code,
     };
-  }, [bookmarks]);
+  }, [bookmarks, activeGroup, navPrefs.allBookmarksExcludedGroups]);
 
   // Filtered & Sorted Bookmarks
   const filteredBookmarks = useMemo(() => {
     let result = bookmarks;
+
+    const isAllView = !activeGroup || activeGroup === "All";
+    const excludedSet = new Set(navPrefs.allBookmarksExcludedGroups || []);
+
+    if (isAllView && excludedSet.size > 0) {
+      result = result.filter((b) => !excludedSet.has(b.group || "Unsorted"));
+    }
 
     // Filter by Group or Special Filter
     if (activeGroup === "__broken__") {
@@ -468,7 +485,7 @@ export default function BookmarksPage() {
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [bookmarks, activeGroup, currentTab, debouncedSearchQuery, sortOption]);
+  }, [bookmarks, activeGroup, currentTab, debouncedSearchQuery, sortOption, navPrefs.allBookmarksExcludedGroups]);
 
   // Scroll Parent Ref for Viewport Virtualization
   const parentRef = useRef<HTMLDivElement>(null);
