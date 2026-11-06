@@ -218,6 +218,9 @@ export class MarkbelSpotlight {
   private filtered: SearchBookmarkItem[] = [];
   private selectedIndex: number = 0;
   private activeGroup: string = 'All';
+  private availableGroups: string[] = ['All'];
+  private actionFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly defaultPlaceholder: string = 'Search bookmarks (title, group, url)...';
   private previousActiveElement: HTMLElement | null = null;
 
   private themeMode: 'light' | 'dark' = 'dark';
@@ -326,6 +329,7 @@ export class MarkbelSpotlight {
     this.host.style.inset = '0';
     this.host.style.zIndex = '2147483647';
     this.host.style.display = 'none';
+    this.host.setAttribute('dir', 'ltr');
     this.host.setAttribute('data-theme', this.themeMode);
 
     this.host.addEventListener('keydown', (e: Event) => e.stopPropagation());
@@ -340,6 +344,8 @@ export class MarkbelSpotlight {
       :host {
         all: initial;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        direction: ltr !important;
+        text-align: left;
       }
       * {
         box-sizing: border-box;
@@ -397,6 +403,8 @@ export class MarkbelSpotlight {
         justify-content: center;
         padding-top: 11vh;
         box-sizing: border-box;
+        direction: ltr !important;
+        text-align: left;
       }
       .spotlight-modal {
         width: 660px;
@@ -411,6 +419,8 @@ export class MarkbelSpotlight {
         max-height: 74vh;
         animation: markbel-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         color: var(--sp-text-primary);
+        direction: ltr !important;
+        text-align: left;
       }
       @keyframes markbel-fade-in {
         from {
@@ -445,6 +455,7 @@ export class MarkbelSpotlight {
         color: var(--sp-text-primary);
         font-family: inherit;
         line-height: 1.4;
+        unicode-bidi: plaintext;
       }
       .spotlight-input::placeholder {
         color: var(--sp-text-muted);
@@ -610,6 +621,12 @@ export class MarkbelSpotlight {
         align-items: flex-start;
         justify-content: space-between;
         gap: 8px;
+      }
+      .spotlight-item-title,
+      .spotlight-item-desc,
+      .spotlight-card-title,
+      .spotlight-card-desc {
+        unicode-bidi: plaintext;
       }
       .spotlight-item-title {
         font-size: 13.5px;
@@ -887,6 +904,7 @@ export class MarkbelSpotlight {
         font-family: inherit;
         outline: none;
         transition: border-color 0.12s ease;
+        unicode-bidi: plaintext;
       }
       .spotlight-nb-input:focus, .spotlight-nb-textarea:focus {
         border-color: var(--sp-accent);
@@ -995,7 +1013,7 @@ export class MarkbelSpotlight {
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <button type="button" class="spotlight-new-btn" title="New Bookmark (n)">+ New <kbd>n</kbd></button>
-          <input type="text" class="spotlight-input" placeholder="Search bookmarks (title, group, url)..." autocomplete="off" spellcheck="false" />
+          <input type="text" class="spotlight-input" placeholder="Search bookmarks (title, group, url)..." autocomplete="off" spellcheck="false" dir="auto" />
           <select class="spotlight-sort-select" title="Sort Order">
             <option value="newest"${this.sortOption === 'newest' ? ' selected' : ''}>Newest First</option>
             <option value="oldest"${this.sortOption === 'oldest' ? ' selected' : ''}>Oldest First</option>
@@ -1023,11 +1041,11 @@ export class MarkbelSpotlight {
           <div class="spotlight-nb-body">
             <div class="spotlight-nb-field">
               <label class="spotlight-nb-label">Title</label>
-              <input type="text" class="spotlight-nb-input spotlight-nb-title" placeholder="Page title..." />
+              <input type="text" class="spotlight-nb-input spotlight-nb-title" placeholder="Page title..." dir="auto" />
             </div>
             <div class="spotlight-nb-field">
               <label class="spotlight-nb-label">URL</label>
-              <input type="text" class="spotlight-nb-input spotlight-nb-url" placeholder="https://..." />
+              <input type="text" class="spotlight-nb-input spotlight-nb-url" placeholder="https://..." dir="ltr" />
             </div>
             <div class="spotlight-nb-field">
               <label class="spotlight-nb-label">Group</label>
@@ -1035,7 +1053,7 @@ export class MarkbelSpotlight {
             </div>
             <div class="spotlight-nb-field">
               <label class="spotlight-nb-label">Notes / Description</label>
-              <textarea class="spotlight-nb-textarea spotlight-nb-notes" rows="2" placeholder="Optional notes..."></textarea>
+              <textarea class="spotlight-nb-textarea spotlight-nb-notes" rows="2" placeholder="Optional notes..." dir="auto"></textarea>
             </div>
             <div class="spotlight-nb-field-row">
               <label class="spotlight-nb-checkbox-label">
@@ -1053,6 +1071,7 @@ export class MarkbelSpotlight {
           <div class="spotlight-hints">
             <span><kbd>&uarr;&darr;</kbd> Navigate</span>
             <span><kbd>&crarr;</kbd> Open</span>
+            <span><kbd>Ctrl+&larr;&rarr;</kbd> Lists</span>
             <span><kbd>n</kbd> New</span>
             <span><kbd>Ctrl+&crarr;</kbd> New Tab</span>
             <span><kbd>Ctrl+C</kbd> Copy URL</span>
@@ -1215,82 +1234,7 @@ export class MarkbelSpotlight {
     // Global Keydown Inside Shadow DOM
     this.shadow.addEventListener('keydown', (event: Event) => {
       event.stopPropagation();
-      const e = event as KeyboardEvent;
-
-      if (this.currentView === 'new-bookmark') {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          this.switchToSearch();
-          return;
-        }
-        if (
-          e.key === 'Enter' &&
-          (e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.tagName !== 'TEXTAREA')
-        ) {
-          e.preventDefault();
-          this.saveNewBookmark();
-          return;
-        }
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        this.hide();
-        return;
-      }
-
-      // 'n' / 'N' when search input is empty or with Ctrl/Alt
-      const queryVal = this.searchInput?.value || '';
-      if (
-        (!queryVal.trim() && (e.key === 'n' || e.key === 'N')) ||
-        ((e.ctrlKey || e.altKey) && (e.key === 'n' || e.key === 'N'))
-      ) {
-        e.preventDefault();
-        this.switchToNewBookmark();
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (this.filtered.length > 0) {
-          this.selectedIndex = Math.min(this.selectedIndex + 1, this.filtered.length - 1);
-          this.renderSelection();
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (this.filtered.length > 0) {
-          this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
-          this.renderSelection();
-        }
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (this.filtered.length > 0 && this.filtered[this.selectedIndex]) {
-          const selected = this.filtered[this.selectedIndex];
-          const newTab = e.ctrlKey || e.metaKey || e.shiftKey;
-          const active = !e.shiftKey;
-          this.executeItemAction(selected, newTab, active);
-        }
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-        const shadowWithSel = this.shadow as unknown as { getSelection?: () => Selection | null };
-        const selText = shadowWithSel?.getSelection ? shadowWithSel.getSelection()?.toString() : '';
-        if (selText && selText.trim()) return;
-
-        if (this.filtered[this.selectedIndex]) {
-          e.preventDefault();
-          navigator.clipboard.writeText(this.filtered[this.selectedIndex].url);
-          this.showActionFeedback('URL copied to clipboard!');
-        }
-      }
+      this.handleKeyDown(event as KeyboardEvent);
     });
 
     // Global Keyup & Keypress Inside Shadow DOM (Containment)
@@ -1305,14 +1249,158 @@ export class MarkbelSpotlight {
     document.documentElement.appendChild(this.host);
   }
 
-  private showActionFeedback(text: string): void {
-    if (this.searchInput) {
-      const original = this.searchInput.placeholder;
-      this.searchInput.placeholder = text;
-      setTimeout(() => {
-        if (this.searchInput) this.searchInput.placeholder = original;
-      }, 1400);
+  public getActiveGroup(): string {
+    return this.activeGroup;
+  }
+
+  public getAvailableGroups(): string[] {
+    return [...this.availableGroups];
+  }
+
+  public switchGroup(direction: 'next' | 'prev'): void {
+    if (!this.availableGroups || this.availableGroups.length <= 1) return;
+
+    const currentIndex = this.availableGroups.findIndex(
+      (g) => g.toLowerCase() === this.activeGroup.toLowerCase()
+    );
+    const validIndex = currentIndex >= 0 ? currentIndex : 0;
+
+    let nextIndex = 0;
+    if (direction === 'next') {
+      nextIndex = (validIndex + 1) % this.availableGroups.length;
+    } else {
+      nextIndex = (validIndex - 1 + this.availableGroups.length) % this.availableGroups.length;
     }
+
+    const nextGroup = this.availableGroups[nextIndex];
+    this.activeGroup = nextGroup;
+
+    let activeChipEl: HTMLElement | null = null;
+    this.chipsRow?.querySelectorAll('.spotlight-chip').forEach((c) => {
+      const isMatch = (c.getAttribute('data-group') || '').toLowerCase() === nextGroup.toLowerCase();
+      c.classList.toggle('active', isMatch);
+      if (isMatch) {
+        activeChipEl = c as HTMLElement;
+      }
+    });
+
+    if (activeChipEl && typeof (activeChipEl as any).scrollIntoView === 'function') {
+      (activeChipEl as any).scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+
+    this.selectedIndex = 0;
+    this.render();
+    this.showActionFeedback(`Switched to ${nextGroup}`);
+    this.searchInput?.focus();
+  }
+
+  public handleKeyDown(e: KeyboardEvent): boolean {
+    if (e.defaultPrevented) return false;
+
+    if (this.currentView === 'new-bookmark') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.switchToSearch();
+        return true;
+      }
+      if (
+        e.key === 'Enter' &&
+        (e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.tagName !== 'TEXTAREA')
+      ) {
+        e.preventDefault();
+        this.saveNewBookmark();
+        return true;
+      }
+      return false;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.hide();
+      return true;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowRight' || e.key === 'Right')) {
+      e.preventDefault();
+      this.switchGroup('next');
+      return true;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowLeft' || e.key === 'Left')) {
+      e.preventDefault();
+      this.switchGroup('prev');
+      return true;
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'Down') {
+      e.preventDefault();
+      if (this.filtered.length > 0) {
+        this.selectedIndex = Math.min(this.selectedIndex + 1, this.filtered.length - 1);
+        this.renderSelection();
+      }
+      return true;
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'Up') {
+      e.preventDefault();
+      if (this.filtered.length > 0) {
+        this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
+        this.renderSelection();
+      }
+      return true;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this.filtered.length > 0 && this.filtered[this.selectedIndex]) {
+        const selected = this.filtered[this.selectedIndex];
+        const newTab = e.ctrlKey || e.metaKey || e.shiftKey;
+        const active = !e.shiftKey;
+        this.executeItemAction(selected, newTab, active);
+      }
+      return true;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+      const shadowWithSel = this.shadow as unknown as { getSelection?: () => Selection | null };
+      const selText = shadowWithSel?.getSelection ? shadowWithSel.getSelection()?.toString() : '';
+      if (selText && selText.trim()) return false;
+
+      if (this.filtered[this.selectedIndex]) {
+        e.preventDefault();
+        navigator.clipboard.writeText(this.filtered[this.selectedIndex].url);
+        this.showActionFeedback('URL copied to clipboard!');
+        return true;
+      }
+    }
+
+    // 'n' / 'N' when search input is empty or with Ctrl/Alt
+    const queryVal = this.searchInput?.value || '';
+    if (
+      (!queryVal.trim() && (e.key === 'n' || e.key === 'N')) ||
+      ((e.ctrlKey || e.altKey) && (e.key === 'n' || e.key === 'N'))
+    ) {
+      e.preventDefault();
+      this.switchToNewBookmark();
+      return true;
+    }
+
+    return false;
+  }
+
+  private showActionFeedback(text: string): void {
+    if (!this.searchInput) return;
+    if (this.actionFeedbackTimeout) {
+      clearTimeout(this.actionFeedbackTimeout);
+      this.actionFeedbackTimeout = null;
+    }
+    this.searchInput.placeholder = text;
+    this.actionFeedbackTimeout = setTimeout(() => {
+      if (this.searchInput) {
+        this.searchInput.placeholder = this.defaultPlaceholder;
+      }
+      this.actionFeedbackTimeout = null;
+    }, 1400);
   }
 
   private executeItemAction(item: SearchBookmarkItem, newTab: boolean, active: boolean): void {
@@ -1389,6 +1477,7 @@ export class MarkbelSpotlight {
       this.footerHints.innerHTML = `
         <span><kbd>&uarr;&darr;</kbd> Navigate</span>
         <span><kbd>&crarr;</kbd> Open</span>
+        <span><kbd>Ctrl+&larr;&rarr;</kbd> Lists</span>
         <span><kbd>n</kbd> New</span>
         <span><kbd>Ctrl+&crarr;</kbd> New Tab</span>
         <span><kbd>Ctrl+C</kbd> Copy URL</span>
@@ -1470,6 +1559,7 @@ export class MarkbelSpotlight {
     }
 
     const groupList = ['All', ...Array.from(groups).sort()];
+    this.availableGroups = groupList;
     this.chipsRow.innerHTML = groupList
       .map(
         (g) =>
@@ -1538,11 +1628,11 @@ export class MarkbelSpotlight {
               </div>
               <div class="spotlight-item-info">
                 <div class="spotlight-item-header">
-                  <span class="spotlight-item-title" style="color: var(--sp-accent); font-weight: 700;">+ Save Current Page as New Bookmark</span>
+                  <span class="spotlight-item-title" dir="auto" style="color: var(--sp-accent); font-weight: 700;">+ Save Current Page as New Bookmark</span>
                 </div>
                 <div class="spotlight-item-meta">
                   <span class="spotlight-tag-pill" style="color: #ffffff; background: var(--sp-accent); border: 1px solid var(--sp-accent);">Quick Action</span>
-                  <span class="spotlight-domain-row">
+                  <span class="spotlight-domain-row" dir="auto">
                     <span>${escapeHtml(item.description || item.url)}</span>
                   </span>
                 </div>
@@ -1583,13 +1673,13 @@ export class MarkbelSpotlight {
               ${thumbBoxHtml}
               <div class="spotlight-item-info">
                 <div class="spotlight-item-header">
-                  <span class="spotlight-item-title">${escapeHtml(item.title || item.url)}</span>
+                  <span class="spotlight-item-title" dir="auto">${escapeHtml(item.title || item.url)}</span>
                   ${item.isPinned ? `<span class="spotlight-item-pin" title="Pinned">★</span>` : ''}
                 </div>
                 <div class="spotlight-item-meta">
                   <span class="spotlight-tag-pill" style="color: ${groupColor.color}; background: ${groupColor.bg}; border: 1px solid ${groupColor.border};">${escapeHtml(item.group || 'Unsorted')}</span>
                   ${seriesBadge ? `<span class="spotlight-tag-pill tag-series">${escapeHtml(seriesBadge)}</span>` : ''}
-                  <span class="spotlight-domain-row">
+                  <span class="spotlight-domain-row" dir="auto">
                     ${item.favicon ? `<img class="spotlight-domain-favicon" src="${escapeHtml(item.favicon)}" alt="" />` : ''}
                     <span>${escapeHtml(domain)}</span>
                   </span>
@@ -1617,14 +1707,14 @@ export class MarkbelSpotlight {
               ${iconHtml}
               <div class="spotlight-item-info">
                 <div class="spotlight-item-header">
-                  <span class="spotlight-item-title">${escapeHtml(item.title || item.url)}</span>
+                  <span class="spotlight-item-title" dir="auto">${escapeHtml(item.title || item.url)}</span>
                   ${item.isPinned ? `<span class="spotlight-item-pin" title="Pinned">★</span>` : ''}
                 </div>
               </div>
               <div class="spotlight-item-meta">
                 <span class="spotlight-tag-pill" style="color: ${groupColor.color}; background: ${groupColor.bg}; border: 1px solid ${groupColor.border};">${escapeHtml(item.group || 'Unsorted')}</span>
                 ${seriesBadge ? `<span class="spotlight-tag-pill tag-series">${escapeHtml(seriesBadge)}</span>` : ''}
-                <span class="spotlight-domain-row">
+                <span class="spotlight-domain-row" dir="auto">
                   <span>${escapeHtml(domain)}</span>
                 </span>
               </div>
@@ -1664,7 +1754,9 @@ export class MarkbelSpotlight {
       if (idx === this.selectedIndex) {
         el.classList.add('selected');
         el.setAttribute('aria-selected', 'true');
-        el.scrollIntoView({ block: 'nearest' });
+        if (typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ block: 'nearest' });
+        }
       } else {
         el.classList.remove('selected');
         el.setAttribute('aria-selected', 'false');

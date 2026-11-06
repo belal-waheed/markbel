@@ -192,6 +192,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         );
         if (isInside) {
           e.stopImmediatePropagation();
+          spotlight.handleKeyDown(e);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          spotlight.hide();
         }
       }
     },

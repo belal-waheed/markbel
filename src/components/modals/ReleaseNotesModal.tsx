@@ -47,14 +47,14 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--color-text-primary)]">
-                  What's New in Markbel v2.9.1
+                  What's New in Markbel v2.9.2
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-accent)] text-white shrink-0">
                   Latest
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                Autohiding top header on scroll, touch ghost-click shield, Capacitor haptics, keyboard auto-dismiss, and native share sheet
+                Alt+O keyboard navigation fix, LTR layout normalization for RTL websites, bilingual dir="auto", and Ctrl+Arrow category list switching
               </p>
             </div>
           </div>
@@ -69,6 +69,44 @@ export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({ isOpen, on
 
         {/* Release Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Feature: In-Page Spotlight (Alt+O) Arrow Navigation, LTR Layout Normalization & Category Switching (v2.9.2) */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+                  In-Page Spotlight (Alt+O) Arrow Navigation, LTR Normalization &amp; Category Switching
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] font-mono">
+                  v2.9.2
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                Restored full keyboard navigation (ArrowDown, ArrowUp, Enter, Escape) in the in-page Spotlight command palette by refactoring capture-phase event isolation in content scripts to directly route keystrokes to MarkbelSpotlight.handleKeyDown(); normalized layout direction to LTR with direction: ltr !important and host dir='ltr' to prevent RTL inheritance on Arabic websites (e.g., anime3rb.com); introduced bilingual dir='auto' and unicode-bidi: plaintext on inputs and item typography for seamless English and Arabic presentation; implemented keyboard category list traversal with Ctrl+ArrowRight and Ctrl+ArrowLeft (or Cmd+Arrow) to smoothly cycle through lists with chip auto-scrolling; updated HUD footer hints with list switching shortcuts; bumped semantic version to v2.9.2 and Android build.gradle to versionCode 31.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Restored ArrowDown / ArrowUp / Esc Navigation</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>LTR Layout Normalization on RTL Sites</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>dir=&quot;auto&quot; Bilingual Typography</span>
+                </span>
+                <span className="px-2 py-1 rounded bg-[var(--color-bg-muted)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Ctrl+Left / Ctrl+Right Category Switching</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Feature: Autohide Header, Ghost-Click Shield & Capacitor Capabilities (v2.9.1) */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] flex items-start gap-3 sm:gap-4 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-brand-subtle)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">

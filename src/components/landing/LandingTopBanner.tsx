@@ -20,7 +20,7 @@ export function LandingTopBanner({
           </span>
           <span className="hidden sm:inline text-[var(--color-border-subtle)]">•</span>
           <span>
-            Autohide Top Bar on Scroll, Touch Ghost-Click Shield, Capacitor Haptics &amp; Native Share Sheet
+            Alt+O Keyboard Navigation, LTR Layout Normalization &amp; Ctrl+Arrow Category Switching
           </span>
         </div>
         <button

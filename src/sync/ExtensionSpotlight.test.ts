@@ -438,4 +438,171 @@ describe('Extension In-Page Spotlight (Alt+O) Subsystem', () => {
       spotlight.hide();
     });
   });
+
+  describe('6. Keyboard Navigation, LTR Normalization, and Group Switching', () => {
+    it('handles ArrowDown and ArrowUp navigation bounded by filtered results', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      (spotlight as any).catalog = [
+        { id: '1', title: 'Bookmark 1', url: 'https://example.com/1', group: 'Anime' },
+        { id: '2', title: 'Bookmark 2', url: 'https://example.com/2', group: 'Dev' },
+        { id: '3', title: 'Bookmark 3', url: 'https://example.com/3', group: 'Tools' },
+      ];
+      (spotlight as any).renderChips();
+      (spotlight as any).render();
+
+      expect((spotlight as any).selectedIndex).toBe(0);
+
+      // Down -> index 1
+      const down1 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(down1);
+      expect((spotlight as any).selectedIndex).toBe(1);
+
+      // Down -> index 2
+      const down2 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(down2);
+      expect((spotlight as any).selectedIndex).toBe(2);
+
+      // Down again -> bounded at index 2
+      const down3 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(down3);
+      expect((spotlight as any).selectedIndex).toBe(2);
+
+      // Up -> index 1
+      const up1 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(up1);
+      expect((spotlight as any).selectedIndex).toBe(1);
+
+      // Up -> index 0
+      const up2 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(up2);
+      expect((spotlight as any).selectedIndex).toBe(0);
+
+      // Up again -> bounded at index 0
+      const up3 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(up3);
+      expect((spotlight as any).selectedIndex).toBe(0);
+
+      spotlight.hide();
+    });
+
+    it('handles Escape key properly between search and new bookmark views', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+      expect(spotlight.isOpen()).toBe(true);
+
+      // In search view, Escape closes spotlight
+      const esc1 = new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(esc1);
+      expect(spotlight.isOpen()).toBe(false);
+
+      // Re-open and switch to new-bookmark view
+      spotlight.show();
+      spotlight.switchToNewBookmark();
+      expect((spotlight as any).currentView).toBe('new-bookmark');
+
+      // Escape switches back to search view without closing spotlight
+      const esc2 = new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(esc2);
+      expect((spotlight as any).currentView).toBe('search');
+      expect(spotlight.isOpen()).toBe(true);
+
+      // Next Escape closes spotlight
+      const esc3 = new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(esc3);
+      expect(spotlight.isOpen()).toBe(false);
+    });
+
+    it('switches active groups forward and backward via Ctrl+ArrowRight and Ctrl+ArrowLeft', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      (spotlight as any).catalog = [
+        { id: '1', title: 'One Piece', url: 'https://anime3rb.com/1', group: 'Anime' },
+        { id: '2', title: 'React Docs', url: 'https://react.dev', group: 'Dev' },
+        { id: '3', title: 'SpeedTest', url: 'https://speedtest.net', group: 'Tools' },
+      ];
+      (spotlight as any).renderChips();
+      (spotlight as any).render();
+
+      expect(spotlight.getAvailableGroups()).toEqual(['All', 'Anime', 'Dev', 'Tools']);
+      expect(spotlight.getActiveGroup()).toBe('All');
+
+      // Forward: All -> Anime
+      const forward1 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true, bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(forward1);
+      expect(spotlight.getActiveGroup()).toBe('Anime');
+
+      // Forward: Anime -> Dev
+      const forward2 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true, bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(forward2);
+      expect(spotlight.getActiveGroup()).toBe('Dev');
+
+      // Forward: Dev -> Tools
+      const forward3 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true, bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(forward3);
+      expect(spotlight.getActiveGroup()).toBe('Tools');
+
+      // Forward: Tools -> wraps to All
+      const forward4 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true, bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(forward4);
+      expect(spotlight.getActiveGroup()).toBe('All');
+
+      // Backward: All -> wraps to Tools
+      const backward1 = new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', ctrlKey: true, bubbles: true, cancelable: true });
+      spotlight.handleKeyDown(backward1);
+      expect(spotlight.getActiveGroup()).toBe('Tools');
+
+      // Check active chip class
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+      const shadow = (host as any).shadowRoot as ShadowRoot;
+      const activeChip = shadow.querySelector('.spotlight-chip.active');
+      expect(activeChip?.getAttribute('data-group')).toBe('Tools');
+
+      spotlight.hide();
+    });
+
+    it('verifies LTR layout normalization and dir="auto" attributes on inputs and typography', () => {
+      const spotlight = new MarkbelSpotlight();
+      spotlight.show();
+
+      const host = dom.document.querySelector('markbel-spotlight-host') as HTMLElement;
+      expect(host.getAttribute('dir')).toBe('ltr');
+
+      const shadow = (host as any).shadowRoot as ShadowRoot;
+      const styleEl = shadow.querySelector('style');
+      expect(styleEl?.textContent).toContain('direction: ltr !important');
+      expect(styleEl?.textContent).toContain('unicode-bidi: plaintext');
+
+      const input = shadow.querySelector('.spotlight-input') as HTMLInputElement;
+      expect(input.getAttribute('dir')).toBe('auto');
+
+      const nbTitle = shadow.querySelector('.spotlight-nb-title') as HTMLInputElement;
+      expect(nbTitle.getAttribute('dir')).toBe('auto');
+
+      const nbUrl = shadow.querySelector('.spotlight-nb-url') as HTMLInputElement;
+      expect(nbUrl.getAttribute('dir')).toBe('ltr');
+
+      const nbNotes = shadow.querySelector('.spotlight-nb-notes') as HTMLTextAreaElement;
+      expect(nbNotes.getAttribute('dir')).toBe('auto');
+
+      // Verify footer hints contain Ctrl+Left/Right shortcut
+      const footerHints = shadow.querySelector('.spotlight-hints');
+      expect(footerHints?.textContent).toContain('Lists');
+      expect(footerHints?.textContent).toContain('Ctrl+');
+
+      // Render items with Arabic title and verify dir="auto"
+      (spotlight as any).catalog = [
+        { id: '1', title: 'سبيستون', url: 'https://spacetoon.com', group: 'Anime' },
+      ];
+      (spotlight as any).render();
+
+      const itemTitle = shadow.querySelector('.spotlight-item-title');
+      expect(itemTitle?.getAttribute('dir')).toBe('auto');
+      expect(itemTitle?.textContent).toContain('سبيستون');
+
+      spotlight.hide();
+    });
+  });
 });
