@@ -487,3 +487,24 @@ tags:
   - Packaged fresh Chromium (`markbel-extension.zip`) and Firefox (`markbel-firefox-extension.zip`) extensions via `npm run build:extension:all`.
   - Mirrored fresh unpacked extensions to `D:\apps\0-setup\markbel-extension\`.
   - Deployed Cloudflare Edge worker and static assets to `https://mark.obel.workers.dev` (Version ID `99eb29bb-62a0-43ae-b5ab-073d7af2aa37`).
+
+
+### Phase 35: Master Project Documentation & Canonical Multi-Session Architectural Knowledge Base (2026-11-06)
+- **Universal Session System Rules & Developer Runbook (`GEMINI.md`):**
+  - Overhauled workspace rules file `GEMINI.md` (which auto-loads in every new conversation in the Markbel workspace).
+  - Codified the complete system stack (React 19, Dexie.js 4 IndexedDB, Cloudflare Workers Hono, Cloudflare D1 SQLite FTS5, Capacitor 8 Android, Chromium/Firefox MV3 Extensions, `@markbel/mcp`).
+  - Documented complete directory layout, key component file maps, and data contracts.
+  - Authored the definitive Bookmark CRUD Developer Runbook covering: creating bookmarks, editing bookmarks, the 5-layer protocol for adding new bookmark properties, soft-delete tombstone propagation invariants, and toggling pin/read/series progression.
+  - Documented the 7 Iron Architectural Invariants (modal traps on cards banned, portal event propagation stops, synchronous action callbacks, edge-swipe boundary, virtualizer layout, D1 SQL chunking, Dexie versioning).
+- **Master Architecture Specifications (`docs/ARCHITECTURE.md`):**
+  - Authored comprehensive architecture documentation with Mermaid topology and clean architecture diagrams.
+  - Detailed the Dexie.js IndexedDB schema, WebLock leader election, and delta sync push/pull sequence flows with LWW conflict resolution.
+  - Documented multi-platform distribution targets (Web PWA, Extensions, Android, MCP Server).
+- **Engineering Runbook & Developer Guide (`docs/DEVELOPER_GUIDE.md`):**
+  - Authored step-by-step developer guide with local environment setup, testing commands, CRUD code examples, component modification rules, and release protocols.
+- **Ubiquitous Domain Model (`CONTEXT.md`):**
+  - Established canonical domain language definitions (`LocalBookmark`, `LocalGroup`, `SyncBatch`, `SyncChange`), bounded contexts, and entity lifecycle state machine.
+- **Codebase Documentation Synchronization (`codebase_documentation.md`):**
+  - Modernized codebase reference, replacing obsolete legacy entries with modern Cloudflare D1 and Dexie architecture links.
+- **Obsidian Vault Synchronization:**
+  - Synchronized `_log.md` and `_markbel.md` directly into Obsidian project hub `D:\dev\obsidian\hola\projects\markbel\`.

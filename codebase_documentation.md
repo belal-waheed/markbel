@@ -1,187 +1,90 @@
-# Markbel — Complete Codebase Documentation and Run Guide
+# Markbel — Complete Codebase Architecture & System Reference
 
-Markbel is an understated, high-performance, and beautifully styled **Cyberpunk Neon-on-Dark** bookmarks app designed as a companion to the Obel productivity suite. It consists of an Express REST API backend, a Vite + React + TypeScript frontend, an Expo React Native mobile wrapper, and an Electron desktop companion.
+**Domain:** High-Speed, Offline-First Bookmark Vault & Rich Media Archiver  
+**Stack:** React 19, TypeScript, Tailwind CSS v4, Dexie.js (IndexedDB), Cloudflare Workers (Hono), Cloudflare D1 (SQLite FTS5), Capacitor 8, Chromium/Firefox Extensions, Model Context Protocol (`@markbel/mcp`)  
+**Status:** Authoritative Codebase Reference  
+**Version:** 2.9.4+ (November 2026)
 
 ---
 
-## 1. Directory Structure and Architectural Overview
-
-The repository is organized into three major components:
+## 1. Directory Structure & System Map
 
 ```
 markbel/
-├── markbel-vercel/         # Production and Deployment Monorepo
-│   ├── backend/            # Express REST API (TypeScript)
-│   │   ├── src/
-│   │   │   ├── db.ts       # MongoDB connection helper
-│   │   │   ├── models/     # Schemas (User.ts, Bookmark.ts)
-│   │   │   ├── server.ts   # Core Express server, routes, SSE, and scraper
-│   │   │   └── middleware/ # Authentication middleware (JWT)
-│   │   └── package.json
-│   │
-│   └── frontend/           # Vite + React + TypeScript SPA
-│       ├── src/
-│       │   ├── lib/        # Auth context provider & Axios/Fetch API client
-│       │   ├── views/      # LoginPage, BookmarksPage, ShareTargetPage
-│       │   ├── components/ # Common UI components
-│       │   └── index.css   # Cyberpunk design system stylesheet
-│       └── package.json
+├── src/                               # Frontend Single-Page App & PWA
+│   ├── components/                    # Modular UI Components
+│   │   ├── BookmarkCard.tsx           # Leaf Card View (List, Grid, Typography, Action Sheet)
+│   │   ├── BookmarkImage.tsx          # Resilient Lazy Image & Blob Caching
+│   │   ├── NavigationHeader.tsx       # Search Input, View Toggles, Sync Status
+│   │   ├── Sidebar.tsx                # Category Pillars & Smart Groups Drawer
+│   │   ├── modals/                    # Fullscreen & Dialog Overlays
+│   │   │   ├── EditBookmarkModal.tsx  # Edit Title, Description, Group, URL
+│   │   │   ├── ReaderModal.tsx        # Distraction-Free Offline Article Reader
+│   │   │   ├── CommandPalette.tsx     # Alt+K Quick Navigation & Action Palette
+│   │   │   └── ReleaseNotesModal.tsx  # Version Changelog Dialog
+│   │   └── settings/                  # Settings Views & Matrix Cards
+│   │       ├── NavigationPreferencesCard.tsx # "All Bookmarks" Filter Matrix
+│   │       └── SmartGroupsConfigCard.tsx     # Auto-Grouping Rule Editor
+│   ├── db/                            # Client-Side Storage & Repository Layer
+│   │   ├── db.ts                      # Dexie.js Schema, Indexes & Version Upgrades
+│   │   ├── BookmarkRepository.ts      # Unidirectional Bookmark CRUD & Outbox Queue
+│   │   ├── GroupRepository.ts         # Category Group Persistence
+│   │   └── adapters/WebSyncStorage.ts # Sync Adapter between Dexie & Worker
+│   ├── lib/                           # Domain Services & Utilities
+│   │   ├── nativeBridge.ts            # Capacitor Haptics, Native Share & Keyboard Bridge
+│   │   ├── useSwipeGesture.ts         # Edge-Swipe Boundary Drawer State Machine
+│   │   ├── useModalBackNavigation.ts  # Hardware Back Button Overlay Trap
+│   │   ├── navigationPreferences.ts   # Feed Filtering & Exclusion State
+│   │   ├── smartGroups.ts             # Rule-Based Auto-Grouping Heuristics
+│   │   └── seriesProgression.ts       # Serialized Media Progression (+1 Episode)
+│   ├── sync/                          # Synchronization Engine
+│   │   ├── SyncManager.ts             # WebLock Leader Election, Push & Pull Engine
+│   │   └── LWWResolver.ts             # Deterministic Last-Write-Wins Conflict Resolution
+│   └── views/                         # Primary Routed Views
+│       ├── BookmarksPage.tsx          # Core App View, TanStack Virtual Feed & Modals
+│       ├── LandingPage.tsx            # Marketing Landing, Download Links, Demos
+│       └── SettingsPage.tsx           # Account, Sync, Vault, Navigation Preferences
 │
-├── desktop/                # Electron Desktop Wrapper
-│   ├── main.js             # Electron main process (tray, startup settings, clipboard)
-│   ├── preload.js          # Electron secure renderer bridge
-│   ├── offline.html        # Fallback offline UI dashboard
-│   └── package.json
+├── worker/                            # Cloudflare Workers Edge Backend
+│   ├── src/
+│   │   ├── index.ts                   # Hono Web Framework Entrypoint
+│   │   ├── routes/                    # Edge API Routes
+│   │   │   ├── sync.ts                # Delta Push & Pull Endpoints with D1 Transactions
+│   │   │   ├── auth.ts                # WebCrypto PBKDF2 Password Hashing & JWT
+│   │   │   ├── scraper.ts             # Edge Metadata Scraper & oEmbed Resolvers
+│   │   │   └── bookmarks.ts           # REST CRUD Fallbacks & FTS5 Search
+│   │   └── normalize.ts               # D1 SQL Row Normalization & Field Mapping
+│   ├── schema.sql                     # Authoritative Cloudflare D1 SQLite Schema & Triggers
+│   └── wrangler.toml                  # Cloudflare Worker & D1 Binding Configuration
 │
-└── mobile/                 # Expo React Native App
-    ├── App.tsx             # WebView container, share target listener, back handler
-    ├── app.json            # Expo application descriptors & sharing intents configuration
-    └── package.json
+├── extension/                         # Browser Extensions (Chromium & Firefox MV3)
+│   ├── manifest.json                  # Chromium Extension Manifest (V3)
+│   ├── manifest.firefox.json          # Firefox Extension Manifest (V3)
+│   └── src/
+│       ├── background.ts              # Service Worker, Alarms, Storage Sync
+│       ├── MarkbelSpotlight.ts        # Alt+O Global In-Page Spotlight (Shadow DOM)
+│       └── popup.ts                   # Extension Action Popup View
+│
+├── android/                           # Capacitor Android Native Shell
+│   ├── app/build.gradle               # Android App Package Configuration & Version Codes
+│   └── capacitor.config.ts            # Capacitor Bridge Settings & Plugins
+│
+├── packages/mcp/                      # Model Context Protocol Server (@markbel/mcp)
+│   └── src/index.ts                   # Stdio Transport & Agent Tools for AI Pair Programmers
+│
+└── docs/                              # Deep Documentation & System Guides
+    ├── ARCHITECTURE.md                # System Topology, Layered Architecture & Mermaid Diagrams
+    └── DEVELOPER_GUIDE.md             # CRUD Runbook, Testing, Invariants & Release Sequence
 ```
 
 ---
 
-## 2. Core Functional Design and Data Flows
+## 2. Core Architectural Standards
 
-### A. Real-Time Syncing (Server-Sent Events)
-Markbel uses a lightweight, secure Server-Sent Events (SSE) stream to instantly update all active clients without manual refreshing.
-1. **Connection**: When the frontend mounts, it opens an EventSource connection to `/api/bookmarks/events?token=<JWT>`.
-2. **Server Broadcast**: The backend keeps an active array of connections associated with each user. Whenever a user creates, renames, deletes, or updates a bookmark, the backend writes a notice to their SSE clients.
-3. **Scraper Sync**: When metadata scraping resolves in the background, the server updates MongoDB and automatically pushes a reload event, refreshing all screens instantly.
+For in-depth architectural contracts, storage lifecycles, and engineering runbooks, refer to the canonical project documents:
 
-### B. Asynchronous Metadata Scraping
-1. **Submission**: The user submits a URL in the UI (or shares it from a mobile browser).
-2. **Immediate Reply**: The server immediately creates a placeholder bookmark using the URL domain as a temporary title, returns a successful `201 Created` status, and closes the modal in the UI.
-3. **Background Scrape**: The server launches an asynchronous scraper. It fetches the page HTML, parses OpenGraph tags (`og:title`, `og:image`, `og:description`), scrapes custom YouTube thumbnails if the URL is a video, updates the DB, and fires an SSE broadcast to trigger client-side updates.
-
-### C. System Tray & Close Behavior (Desktop)
-- Clicking the window close button (`X`) hides the Electron window (`event.preventDefault(); mainWindow.hide()`) to let clipboard monitoring run uninterrupted.
-- The app registers a system tray icon with a custom menu containing options to **Show App**, **Sync Now**, toggle **Run at Startup**, and a dedicated **Exit** action to fully terminate the process.
-
-### D. Offline Sync and Share Sheet (Mobile)
-- **Shared Sheets**: When you share a link from a mobile browser, it is caught by the native sharing hooks and routed to `/share-target` in the WebView.
-- **Offline Fallback**: If the mobile device is offline, the app queues the link inside `AsyncStorage` and displays a local Cyberpunk HUD.
-- **Sync Routine**: When connectivity is restored, the queue is automatically synchronized with the database in the background.
-
----
-
-## 3. Configuration and Environment Setup
-
-### A. Web Backend (`markbel-vercel/backend/.env`)
-Create a `.env` file inside `markbel-vercel/backend/` with the following variables:
-```env
-PORT=3001
-MONGODB_URI=mongodb://127.0.0.1:27017/markbel
-JWT_SECRET=your_super_secret_jwt_key
-```
-
-### B. Web Frontend (`markbel-vercel/frontend/vite.config.ts`)
-The Vite config is pre-configured to proxy `/api/*` requests in development to proxy to port `3001` (Express API) to prevent CORS issues.
-
----
-
-## 4. Setup and Run Instructions
-
-Make sure you have [Node.js](https://nodejs.org/) (v18 or higher) and [MongoDB](https://www.mongodb.com/) running locally.
-
-### A. Running the Web App (Monorepo Backend + Frontend)
-
-1. Open your terminal at the root of `markbel-vercel/` (or run from the parent monorepo folder):
-   ```bash
-   cd markbel-vercel
-   ```
-2. Install dependencies for the backend and frontend:
-   ```bash
-   cd backend && npm install
-   cd ../frontend && npm install
-   ```
-3. Start the backend server in development mode:
-   ```bash
-   cd ../backend
-   npm run dev
-   # API runs at http://localhost:3001
-   ```
-4. Start the Vite React frontend in a new terminal window:
-   ```bash
-   cd ../frontend
-   npm run dev
-   # Web app runs at http://localhost:5173
-   ```
-
----
-
-### B. Running the Desktop App (Electron)
-
-The desktop app loads the deployed production Vercel application by default. In development, you can change the target URL in `desktop/main.js` to `http://localhost:5173`.
-
-1. Navigate to the `desktop` directory:
-   ```bash
-   cd desktop
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Launch the desktop app:
-   ```bash
-   npm start
-   ```
-   * *System Tray*: A Markbel logo will appear in your system tray. 
-   * *Startup*: Check "Run at Startup" in the tray menu to automatically register the application to your OS startup apps list.
-
----
-
-### C. Running the Mobile App (Expo Wrapper)
-
-1. Navigate to the `mobile` directory:
-   ```bash
-   cd mobile
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start Expo:
-   ```bash
-   npx expo start
-   ```
-4. Scan the QR code using the **Expo Go** application on your physical iOS/Android device or launch it in an emulator/simulator.
-
----
-
-## 5. Building Standalone/Production Packages
-
-### A. Mobile Standalone Build (Capacitor Android Native APK)
-Markbel includes a 100% free and open-source native Android container via Capacitor.js. You can build debug APKs locally or via automated GitHub Actions cloud builds with zero developer account fees, zero local Android Studio requirements, and zero credit card requirements.
-
-#### 1. Free Cloud Build (GitHub Actions — Recommended)
-1. Push changes to GitHub (`git push origin main`).
-2. Navigate to your repository's **Actions** tab on GitHub.
-3. Select **Build Android APK (Capacitor)** and click **Run workflow**.
-4. Once completed, download `markbel-android-apk` from the run's **Artifacts** section and install the `.apk` directly onto your Android device.
-
-#### 2. Local Android Sync and Development
-```bash
-# 1. Build web assets and sync native assets to Android
-npm run cap:build
-
-# 2. Open in Android Studio (if installed)
-npm run cap:open
-```
-
-#### 3. Native Android Share Sheet Integration
-Markbel natively registers the `android.intent.action.SEND` intent filter in `AndroidManifest.xml`. When you share a URL or text from Chrome, YouTube, X, Reddit, or any other app, Markbel catches the intent and opens directly into the offline-capable instant bookmark saving HUD (`/share`).
-
-
-### B. Desktop Standalone Installer (Windows .exe)
-To compile, package, and generate a Windows installer package (`.exe`) for the Electron app:
-1. Navigate to the `desktop` directory:
-   ```bash
-   cd desktop
-   ```
-2. Build the distribution bundle using electron-builder:
-   ```bash
-   npm run dist
-   ```
-   *This packages the JS/CSS files and outputs the executable setup installer inside the `desktop/dist/` directory.*
-
+1. **System Architecture & Data Flows:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+2. **Developer Guide & CRUD Runbook:** [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md)
+3. **Ubiquitous Language & Domain Terms:** [`CONTEXT.md`](CONTEXT.md)
+4. **Mandatory AI & Developer Instructions:** [`GEMINI.md`](GEMINI.md)
+5. **Living Technical Changelog:** [`_log.md`](_log.md)
