@@ -18,7 +18,7 @@
 7. **Complete Data Sovereignty & Portability**: Full JSON export/import, guest-to-authenticated seamless migration, and client-side cryptographic hashing.
 
 ## Feature Comparison Matrix
-| Feature | Markbel v2.8.1 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
+| Feature | Markbel v2.9.4 | Raindrop.io | Linkwarden | Karakeep | Wallabag |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **License & Pricing** | Free MIT Open-Source | Proprietary Freemium ($38/yr) | Open-Source / Paid Cloud | Open-Source Self-Hosted | Open-Source Self-Hosted |
 | **Offline-First Storage** | Yes (0ms IndexedDB / Dexie v9) | Cached only (Network required) | No (Server dependent) | No (Server dependent) | Partial |
